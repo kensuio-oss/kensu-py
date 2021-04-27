@@ -1,0 +1,1 @@
+import pandas_gbq as pdg
