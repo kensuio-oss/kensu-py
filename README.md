@@ -2,10 +2,7 @@
 Open source some py integration modules to automate Data and Analytics Observability
 
 [![Join the chat at https://gitter.im/kensuio-oss/kensu-py](https://badges.gitter.im/kensuio-oss/kensu-py.svg)](https://gitter.im/kensuio-oss/kensu-py?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-{% note %}
-**Notes:** Live the full adventure and try a [Data and Analytics Observability platform](https://hubs.li/H0M3Jrd0).
-{% endnote %}
+[![Live the full adventure and try a Data and Analytics Observability platform](https://img.shields.io/static/v1?label=Platform&message=Try%20Kensu&color=blue)](https://hubs.li/H0M3Jrd0)
 
 ## Installation
 
