@@ -120,7 +120,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/code-base', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/code-base', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -218,7 +218,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/codeVersion', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/codeVersion', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -316,7 +316,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/datasources', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/datasources', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -414,7 +414,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/dataStats', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/dataStats', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -512,7 +512,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities-batch', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities-batch', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -610,7 +610,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/lineage-run', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/lineage-run', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -708,7 +708,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/model', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/model', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -806,7 +806,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/modelMetrics', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/modelMetrics', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -905,7 +905,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/modelTraining', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/modelTraining', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1003,7 +1003,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/physical-location', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/physical-location', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1101,7 +1101,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/process', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/process', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1199,7 +1199,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/process-lineage', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/process-lineage', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1297,7 +1297,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/process-runs', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/process-runs', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1395,7 +1395,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/process-run-stats', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/process-run-stats', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1493,7 +1493,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/project', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/project', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1591,7 +1591,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/schema', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/schema', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
@@ -1689,7 +1689,7 @@ class KensuEntitiesApi(object):
         # Authentication setting
         auth_settings = []
 
-        return self.api_client.call_api('/v1/kensu/api/base-entities/user', 'POST',
+        return self.api_client.call_api('/v1/dam/api/base-entities/user', 'POST',
                                         path_params,
                                         query_params,
                                         header_params,
