@@ -36,7 +36,7 @@ class Extractors(object):
     def __init__(self, ):
         self.supports = []
 
-    def add_default_supports(self, pandas_support=True, sklearn_support=True, numpy_support=True, tensorflow_support=False, bigquery_support=False):
+    def add_default_supports(self, pandas_support=True, sklearn_support=True, numpy_support=True, tensorflow_support=False, bigquery_support=False, generic_datasource_info_support=True):
         if pandas_support:
             from kensu.pandas.extractor import KensuPandasSupport
             self.add_support(KensuPandasSupport())
@@ -52,6 +52,10 @@ class Extractors(object):
         if bigquery_support:
             from kensu.google.cloud.bigquery.extractor import KensuBigQuerySupport
             self.add_support(KensuBigQuerySupport())
+
+        if generic_datasource_info_support:
+            from kensu.utils.dsl.extractors.generic_datasource_info_support import GenericDatasourceInfoSupport
+            self.add_support(GenericDatasourceInfoSupport())
 
 
 

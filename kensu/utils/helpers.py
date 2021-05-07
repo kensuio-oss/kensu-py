@@ -23,12 +23,14 @@ def singleton(cls, *args, **kw):
 def to_hash_key(o):
     return sha1(str(o).encode()).hexdigest()
 
+
 def eventually_report_in_mem(o):
     from kensu.utils.kensu_provider import KensuProvider
     kensu = KensuProvider().instance()
     if kensu.report_in_mem:
         o._report()
     return o
+
 
 def get_absolute_path(path):
     import os
@@ -38,3 +40,21 @@ def get_absolute_path(path):
             prefix = prefix.replace('/', '')
             return prefix + ':' + path
     return 'file:' + str(os.path.abspath(path))
+
+
+def maybe_report(o, report):
+    from kensu.utils.kensu_provider import KensuProvider
+    dam = KensuProvider().instance()
+    if report:
+        o._report()
+    return o
+
+
+def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data=False):
+    ds = kensu.extractors.extract_data_source(orig_variable, kensu.default_physical_location_ref, logical_naming=kensu.logical_naming)
+    schema = kensu.extractors.extract_schema(ds, orig_variable)
+    maybe_report(ds, report=report)
+    maybe_report(schema, report=report)
+    if register_orig_data:
+        kensu.real_schema_df[schema.to_guid()] = orig_variable
+    return ds, schema
