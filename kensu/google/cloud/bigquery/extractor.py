@@ -77,13 +77,8 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
     # return dict of doubles (stats)
     def extract_stats(self, df):
-        # TODO on Table
         # df = self.skip_wr(df)
         return self.extract_table_stats(df)
-        # if isinstance(df, pd.DataFrame):
-        #     return {self.tk(k, k1): v for k, o in df.describe().to_dict().items() for k1, v in o.items()}
-        # elif isinstance(df, pd.Series):
-        #     return {k: v for k, v in df.describe().to_dict().items()}
 
     def extract_data_source(self, df, pl, **kwargs):
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
