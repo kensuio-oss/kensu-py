@@ -63,6 +63,20 @@ class QueryJob(bqj.QueryJob):
         return job
 
     @staticmethod
+    def find_sql_identifiers(tokens):
+        for t in tokens:
+            if isinstance(t, sqlparse.sql.Identifier):
+                if t.is_group and len(t.tokens) > 0:
+                    # String values like "World" in `N == "World"` are also Identifier
+                    # but their first child is of ttype `Token.Literal.String.Symbol`
+                    # although table seems to have a first child of ttype `Token.Name`
+                    if str(t.tokens[0].ttype) == "Token.Name":
+                        # FIXME .. this is also returning the column names... (REF_GET_TABLE)
+                        yield t
+            elif t.is_group:
+                yield from QueryJob.find_sql_identifiers(t)
+
+    @staticmethod
     def override_result(job: bqj.QueryJob) -> bqj.QueryJob:
         f = job.result
         def wrapper(*args, **kwargs):
@@ -83,10 +97,16 @@ class QueryJob(bqj.QueryJob):
                 dest_field_names = [f.name for f in destination_sc.pk.fields]
                 query = job.query
                 sq = sqlparse.parse(query)
-                ids = list(filter(lambda x: isinstance(x, sqlparse.sql.Identifier), sq[0].tokens))
+                ids = QueryJob.find_sql_identifiers(sq[0].tokens) # FIXME we only take the first element
                 for id in ids:
-                    name = (id.get_name()).strip('`')
-                    table = client.get_table(name)
+                    try:
+                        name = (id.get_name()).strip('`')
+                        table = client.get_table(name)
+                    except:
+                        # FIXME this is because the current find_sql_identifiers also returns the column names...
+                        #  (see aboveREF_GET_TABLE)
+                        #  Therefore get_table of a column name should fail
+                        continue
                     ds = kensu.extractors.extract_data_source(table, kensu.default_physical_location_ref,
                                                               logical_naming=kensu.logical_naming)._report()
                     sc = kensu.extractors.extract_schema(ds, table)._report()
