@@ -18,7 +18,8 @@ class Client(client.Client):
         retry=DEFAULT_RETRY,
         timeout=None
     ):
-        j = super(Client, self).query(query,
+        gclient = super(Client, self)
+        j = gclient.query(query,
         job_config,
         job_id,
         job_id_prefix,
@@ -27,6 +28,6 @@ class Client(client.Client):
         retry,
         timeout)
         kensu = KensuProvider().instance()
-        kensu.data_collectors['BigQuery'] = self
+        kensu.data_collectors['BigQuery'] = gclient
 
-        return QueryJob.override_to_dataframe(j)
+        return QueryJob.patch(j)
