@@ -14,8 +14,50 @@ class Injection(object):
     REPORT_TO_FILE = False
     OFFLINE_FILE = None
 
+    # function taking three args: the entity, the api client, and the reporting method
+    REPORTER = None
+
+    @staticmethod
+    def do_nothing_reporter(obj, kensu_api, method):
+        return obj
+
+    @staticmethod
+    def printing_reporter(obj, kensu_api, method):
+        json = Injection().get_offline_entity_json(obj, kensu_api)
+        print(json)
+        return obj
+
+    @staticmethod
+    def logging_info_reporter(obj, kensu_api, method):
+        json = Injection().get_offline_entity_json(obj, kensu_api)
+        logging.info(json)
+        return obj
+
+    @staticmethod
+    def post_reporter(obj, kensu_api, method):
+        method(obj)
+        return obj
+
+    @staticmethod
+    def file_reporter_builder(offline_file_name):
+        inj = Injection()
+        file = open(offline_file_name or "kensu_offline_events.txt", "a")
+        import atexit
+        atexit.register(file.close)
+
+        def f(obj, kensu_api, method):
+            inj.OFFLINE_FILE.write(inj.get_offline_entity_json(obj, kensu_api))
+            inj.OFFLINE_FILE.flush()
+            return obj
+
+        return f
+
+
     def __init__(self):
         pass
+
+    def set_reporter(self, reporter):
+        self.REPORTER = reporter
 
     def set_do_report(self, do_report=True, report_to_file=False, offline_file_name=None):
         self.DO_REPORT = do_report
@@ -61,7 +103,9 @@ class Injection(object):
             cc = to_snake_case(c)
             method_name = "report_" + cc
             method = getattr(kensu_api, method_name)
-            if this_injection.DO_REPORT:
+            if this_injection.REPORTER:
+                this_injection.REPORTER(self, kensu_api, method)
+            elif this_injection.DO_REPORT:
                 if not this_injection.REPORT_TO_FILE:
                     # call method with self
                     method(self)
