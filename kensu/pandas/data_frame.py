@@ -56,7 +56,7 @@ class KensuPandasDelegator(object):
         if name == "__class__":
             attr_value = object.__getattribute__(self, name)
             return attr_value
-        elif name in ['_mgr','_data']:
+        elif name in ['_mgr','_data','_flags']:
             attr_value = object.__getattribute__(self.get_df(), name)
             return attr_value
         else:
@@ -450,9 +450,14 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
         if location is None and location != 'BigQuery Table' and len(args) > 0:
             def get_absolute_path(path):
                 import os
-                return 'file:'+str(os.path.abspath(path))
+                for prefix in ["abfs", "/abfs", "dbfs", "/dbfs"]:
+                    if path.startswith(prefix):
+                        path = path.replace(prefix, '')
+                        prefix = prefix.replace('/', '')
+                        return prefix + ':' + path
+                return 'file:' + str(os.path.abspath(path))
 
-            location = get_absolute_path(args[0]) 
+            location = get_absolute_path(args[0])
 
         if location is not None and fmt is not None:
             df = self.get_df()
@@ -757,7 +762,12 @@ class Series(KensuSeriesDelegator, pd.Series):
         if location is None and len(args) > 0:
             def get_absolute_path(path):
                 import os
-                return 'file:'+str(os.path.abspath(path))
+                for prefix in ["abfs", "/abfs", "dbfs", "/dbfs"]:
+                    if path.startswith(prefix):
+                        path = path.replace(prefix, '')
+                        prefix = prefix.replace('/', '')
+                        return prefix + ':' + path
+                return 'file:' + str(os.path.abspath(path))
 
             location = get_absolute_path(args[0])
 
@@ -833,6 +843,12 @@ def wrap_pandas_reader(reader):
 
         def get_absolute_path(path):
             import os
+            for prefix in ["abfs","/abfs","dbfs","/dbfs"]:
+                if path.startswith(prefix):
+                    path = path.replace(prefix,'')
+                    prefix = prefix.replace('/','')
+                    return prefix +':' + path
+
             return 'file:'+str(os.path.abspath(path))
 
         # TODO... I think other param names are expected here for other reader functions

@@ -102,9 +102,15 @@ def wrap_save(method):
 
         loc = args[0]
         df = args[1]
+
         def get_absolute_path(path):
             import os
-            return 'file:'+str(os.path.abspath(path))
+            for prefix in ["abfs", "/abfs", "dbfs", "/dbfs"]:
+                if path.startswith(prefix):
+                    path = path.replace(prefix, '')
+                    prefix = prefix.replace('/', '')
+                    return prefix + ':' + path
+            return 'file:' + str(os.path.abspath(path))
 
         if df.__class__ == ndarray:
 
