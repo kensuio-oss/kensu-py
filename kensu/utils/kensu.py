@@ -68,7 +68,7 @@ class Kensu(object):
         return code_version
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, **kwargs):
+                 user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
         """
         """ 
         kensu_host = self.get_kensu_host(api_url)
@@ -103,6 +103,7 @@ class Kensu(object):
 
         # add function to Kensu entities
         injection = Injection()
+        injection.set_reporter(reporter)
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
         injection.set_kensu_api(self.kensu_api)
 
@@ -399,13 +400,19 @@ class Kensu(object):
 
                     for schema in schemas_pk:
                         stats_df = self.real_schema_df[schema]
-                        if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series):
+                        try:
                             stats = self.extractors.extract_stats(stats_df)
+                        except:
+                            # FIXME weird... should be fine to delete (and try,except too)
+                            if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series):
+                                stats = self.extractors.extract_stats(stats_df)
+                        if stats is not None:
                             DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
                                                      lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
                                       stats=stats,
                                       extra_as_json=None)._report()
-                        elif is_ml_model:
+                        #FIXME should be using extractors instead
+                        if is_ml_model:
                             model_name = self.model[to_guid][1]
                             metrics = self.model[to_guid][2]
                             import json
