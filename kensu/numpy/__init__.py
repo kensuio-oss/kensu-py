@@ -4,7 +4,7 @@ import numpy as np
 
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
-from kensu.utils.helpers import eventually_report_in_mem
+from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
 
 class ndarrayDelegator(object):
     SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
@@ -102,9 +102,7 @@ def wrap_save(method):
 
         loc = args[0]
         df = args[1]
-        def get_absolute_path(path):
-            import os
-            return 'file:'+str(os.path.abspath(path))
+
 
         if df.__class__ == ndarray:
 

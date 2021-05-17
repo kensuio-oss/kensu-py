@@ -1,4 +1,4 @@
-from kensu.pandas import DataFrame
+from kensu.pandas import DataFrame,Series
 from kensu.utils.kensu_provider import KensuProvider
 import sklearn.linear_model as lm
 from kensu.utils.helpers import eventually_report_in_mem
@@ -10,7 +10,10 @@ class LogisticRegression(lm.LogisticRegression):
 
     def fit(self, X, y, sample_weight=None):
         X_train = X.get_df()
-        y_train = y.get_s()
+        if isinstance(y,DataFrame):
+            y_train = y.get_df()
+        elif isinstance(y,Series):
+            y_train = y.get_s()
         result = super(LogisticRegression,self).fit( X_train , y_train,sample_weight )
         kensu = KensuProvider().instance()
 
