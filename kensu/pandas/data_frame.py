@@ -12,7 +12,7 @@ from kensu.pandas.extractor import KensuPandasSupport
 from kensu.utils.kensu_class_handlers import KensuClassHandlers
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
-from kensu.utils.helpers import eventually_report_in_mem
+from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
 
 from kensu.client import *
 
@@ -448,14 +448,6 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             location = "bigquery:/" + path
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
-            def get_absolute_path(path):
-                import os
-                for prefix in ["abfs", "/abfs", "dbfs", "/dbfs"]:
-                    if path.startswith(prefix):
-                        path = path.replace(prefix, '')
-                        prefix = prefix.replace('/', '')
-                        return prefix + ':' + path
-                return 'file:' + str(os.path.abspath(path))
 
             location = get_absolute_path(args[0])
 
@@ -760,14 +752,6 @@ class Series(KensuSeriesDelegator, pd.Series):
                 location = kwargs[param_name]
 
         if location is None and len(args) > 0:
-            def get_absolute_path(path):
-                import os
-                for prefix in ["abfs", "/abfs", "dbfs", "/dbfs"]:
-                    if path.startswith(prefix):
-                        path = path.replace(prefix, '')
-                        prefix = prefix.replace('/', '')
-                        return prefix + ':' + path
-                return 'file:' + str(os.path.abspath(path))
 
             location = get_absolute_path(args[0])
 
@@ -840,16 +824,6 @@ def wrap_pandas_reader(reader):
         read_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
         read_sc = eventually_report_in_mem(kensu.extractors.extract_schema(read_ds, df))
 
-
-        def get_absolute_path(path):
-            import os
-            for prefix in ["abfs","/abfs","dbfs","/dbfs"]:
-                if path.startswith(prefix):
-                    path = path.replace(prefix,'')
-                    prefix = prefix.replace('/','')
-                    return prefix +':' + path
-
-            return 'file:'+str(os.path.abspath(path))
 
         # TODO... I think other param names are expected here for other reader functions
         # prepare original data source

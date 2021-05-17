@@ -30,3 +30,11 @@ def eventually_report_in_mem(o):
         o._report()
     return o
 
+def get_absolute_path(path):
+    import os
+    for prefix in ["abfs", "/abfs", "dbfs", "/dbfs"]:
+        if path.startswith(prefix):
+            path = path.replace(prefix, '')
+            prefix = prefix.replace('/', '')
+            return prefix + ':' + path
+    return 'file:' + str(os.path.abspath(path))
