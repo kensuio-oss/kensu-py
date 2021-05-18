@@ -45,8 +45,8 @@ class TestSftp(unittest.TestCase):
             cnopts.hostkeys = None
             with pysftp.Connection(host=self.sftpserver.host,
                                    port=self.sftpserver.port,
-                                   username=None,
-                                   password=None,
+                                   username='user',
+                                   password='pass',
                                    cnopts=cnopts) as sftp:
                 print("Connection to sftp OK  ... ")
                 local_file_path = self.tmpfile
