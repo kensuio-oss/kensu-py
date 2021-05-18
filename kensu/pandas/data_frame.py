@@ -9,10 +9,11 @@ import numpy
 
 from kensu.numpy import ndarray
 from kensu.pandas.extractor import KensuPandasSupport
+from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
 from kensu.utils.kensu_class_handlers import KensuClassHandlers
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
-from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
+from kensu.utils.helpers import eventually_report_in_mem, extract_ksu_ds_schema, get_absolute_path
 
 from kensu.client import *
 
@@ -994,6 +995,49 @@ def wrap_merge(method):
                                                      col.rstrip(suffix_right),"Inner Join")
 
         return df_result_kensu
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+
+def wrap_external_to_pandas_transformation(method, get_inputs_lineage_fn):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+
+        ext_inputs_lineage = get_inputs_lineage_fn(kensu, *args, **kwargs)  # type: GenericComputedInMemDs
+        df_result = method(*args, **kwargs)
+
+        # report inputs
+        for input_ds in ext_inputs_lineage.inputs:
+            extract_ksu_ds_schema(kensu, input_ds, report=True, register_orig_data=True)
+
+        # report virtual output (if needed)
+        result_ds, result_schema = extract_ksu_ds_schema(kensu, df_result, report=kensu.report_in_mem, register_orig_data=True)
+        result_ksu_pandas_df = DataFrame.using(df_result)
+
+        # register the lineage
+        for dep in ext_inputs_lineage.lineage:
+            input_ds = dep.input_ds
+            # at column level
+            if kensu.mapping:
+                # lineage = { out_column: [input_column1, ...] }
+                for out_col, input_cols in dep.lineage.items():
+                    for in_col in input_cols:
+                        # FIXME: maybe there's an issue here is that result_schema DO NOT physically exist?
+                        kensu.add_dependencies_mapping(guid=result_schema.to_guid(),
+                                                     col=str(out_col),
+                                                     from_guid=input_ds.ksu_schema.to_guid(),
+                                                     from_col=str(in_col),
+                                                     type="sparkDf.toPandas()")
+            # at datasource level (not column lineage info known)
+            else:
+                i=(input_ds, input_ds.ksu_ds, input_ds.ksu_schema)
+                o=(df_result, result_ds, result_schema)
+                kensu.add_dependency(i=i,
+                                   o=o,
+                                   mapping_strategy=mapping_strategies.FULL)
+
+        return result_ksu_pandas_df
 
     wrapper.__doc__ = method.__doc__
     return wrapper
