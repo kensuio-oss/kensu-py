@@ -4,8 +4,8 @@ import logging
 import sys
 import os
 import unittest
+import pytest
 
-#import pysftp
 
 from kensu import pysftp
 from kensu.client import ApiClient
@@ -14,14 +14,12 @@ from kensu.utils.kensu_provider import KensuProvider
 log_format = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
 
-import pytest
-
 
 @pytest.mark.usefixtures("sftpserver")
 class TestSftp(unittest.TestCase):
-    offline = False
-    api_url=os.environ.get('KSU_API_URL') or ''
-    auth_token=os.environ.get('KSU_API_TOKEN') or ''
+    offline = True
+    api_url = os.environ.get('KSU_API_URL') or ''
+    auth_token = os.environ.get('KSU_API_TOKEN') or ''
     kensu = KensuProvider().initKensu(init_context=True,
                                       api_url=api_url,
                                       auth_token=auth_token,

@@ -1,6 +1,8 @@
 import pysftp
 import os
 import posixpath
+import logging
+
 
 # this import is actually used by end-user
 from pysftp import CnOpts
@@ -47,8 +49,7 @@ class Connection(pysftp.Connection):
         resolved_remote_path = posixpath.join(self.pwd, remotepath)
         qualified_remote_path = self._ftp_server_addr() + resolved_remote_path
         absolute_localpath = os.path.abspath(str(localpath))
-        print('remote_qualified_path:', qualified_remote_path)
-        print('localpath:', absolute_localpath)
+        logging.info(f"sftp.put(localpath: {absolute_localpath}, remote_qualified_path:{qualified_remote_path})")
         # FIXME: schema is not known for a generic ftp file copy !!!!!!!
         from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
         GenericComputedInMemDs.report_copy_without_schema(
