@@ -25,4 +25,4 @@ jobs:
         # fixme: add more later...
         # p.s. kensu collector can be initialized only once, so we currently run each test separately
         pytest tests/unit/test_sftp.py
-        pytest tests/unit/test_external_to_pandas.py
+        python3 -m unittest  -s tests/unit/ test_external_to_pandas.TestExternalToPandas
