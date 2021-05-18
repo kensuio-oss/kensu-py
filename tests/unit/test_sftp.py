@@ -41,7 +41,6 @@ class TestSftp(unittest.TestCase):
     def test_one(self):
         # uses https://pypi.org/project/pytest-sftpserver/
         with self.sftpserver.serve_content({'a_dir': {'somefile.txt': "File content"}}):
-            today = '2021-05-01'
             cnopts = pysftp.CnOpts()
             cnopts.hostkeys = None
             with pysftp.Connection(host=self.sftpserver.host,
@@ -50,18 +49,14 @@ class TestSftp(unittest.TestCase):
                                    password=None,
                                    cnopts=cnopts) as sftp:
                 print("Connection to sftp OK  ... ")
-                localFilePath = self.tmpfile
-                remoteFilePath = f"/{today}.csv"
-                result = sftp.put(localFilePath, remoteFilePath)
-                print('stat info:' + str(dir(result)))
+                local_file_path = self.tmpfile
+                remote_file_path = f"/2021-05-01.csv"
+                sftp.put(local_file_path, remote_file_path)
                 directory_structure = sftp.listdir_attr()
                 uploaded = False
-                # import paramiko
-                # t = sftp._transport  # type: paramiko.Transport
-                print(str(f"ftp://{sftp.ksu_sftp_host}:{sftp.ksu_sftp_port}"))
                 for attr in directory_structure:
                     print(attr.filename, attr)
-                    if "/" + attr.filename == remoteFilePath:
+                    if "/" + attr.filename == remote_file_path:
                         uploaded = True
                 assert uploaded, True
 
