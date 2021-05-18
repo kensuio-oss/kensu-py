@@ -1,19 +1,8 @@
 # for tests only
 pytest-sftpserver
 pytest>=6.2.4
-# other dependencies
-python_dateutil >= 2.5.3
-twine >= 3.4.1
-wheel
+# optional dependencies of external libs that we integrate with
 pysftp>=0.2.9
 pandas>=1.2.4
 numpy>=1.19.5
-DateTime>=4.3
-six>=1.15.0
-certifi>=2020.12.5
-urllib3>=1.26.4
-sqlparse>=0.4.1
 scikit-learn>=0.24.2
-setuptools>=46.1.3
-requests
-urllib3 >= 1.15.1
