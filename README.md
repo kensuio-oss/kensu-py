@@ -19,7 +19,11 @@ Open source some py integration modules to automate Data and Analytics Observabi
 
 ### Run tests
 
-`python -m unittest discover -s tests/unit`
+```
+pip install -r requirements-test.txt .`
+pytest tests/unit/test_sftp.py
+python3 -m unittest  -s tests/unit/ test_external_to_pandas.TestExternalToPandas
+```
 
 ## Data and Analytics Observability platform
 
