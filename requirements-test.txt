@@ -6,3 +6,4 @@ pysftp>=0.2.9
 pandas>=1.2.4
 numpy>=1.19.5
 scikit-learn>=0.24.2
+GitPython

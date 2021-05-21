@@ -39,8 +39,12 @@ class Kensu(object):
         cur_dir = os.path.realpath(os.path.curdir)
         try:
             import git
-            git_repo = git.Repo(cur_dir, search_parent_directories=True)
-            return git_repo
+            try:
+                git_repo = git.Repo(cur_dir, search_parent_directories=True)
+                return git_repo
+            except git.GitError as e:
+                logging.warn("kensu-py was unable to identify a git repo. The working dir is not a git repo?")
+                pass
         except ImportError as e:
             logging.warn("Install GitPython for a maximum context about the GIT code repo if any")
             pass
