@@ -1,7 +1,8 @@
 import logging
 
-import numpy as np
 
+from numpy import *
+import numpy as np
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
@@ -10,11 +11,15 @@ class ndarrayDelegator(object):
     SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
     SKIP_KENSU_METHODS = ["get_nd", "kensu_init", "to_string"]
 
+
     def __getattribute__(self, name):
         attr_value = object.__getattribute__(self, name)
         if name == "_ndarray__k_nd":
             return attr_value
         elif name == "__class__":
+            return attr_value
+        elif name in ['mean','std']:
+            attr_value = object.__getattribute__(self.get_nd(), name)
             return attr_value
         elif hasattr(attr_value, '__call__'):
             # return ndarrayDelegator.handle_callable(self, name, attr_value)
@@ -69,6 +74,158 @@ class ndarray(ndarrayDelegator, np.ndarray):
         obj = super(ndarray, subtype).__new__(subtype, shape, dtype, buffer, offset, strides, order)
         return obj
 
+    def __getitem__(self, item):
+        return ndarray.using(self.get_nd()[item])
+
+    def __repr__(self):
+        nd = self.get_nd()
+        return nd.__repr__()
+
+    def __sub__(self, other):
+        nd = self.get_nd()
+        if isinstance(other,ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__sub__(other_np))
+        numpy_report(nd, result, "Numpy sub")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy sub")
+        return result
+
+    def __add__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__add__(other_np))
+        numpy_report(nd, result, "Numpy add")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy add")
+        return result
+
+    def __mul__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__mul__(other_np))
+        numpy_report(nd, result, "Numpy mul")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy mul")
+        return result
+
+    def __divmod__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__divmod__(other_np))
+        numpy_report(nd, result, "Numpy div")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy div")
+        return result
+
+    def __truediv__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__truediv__(other_np))
+        numpy_report(nd, result, "Numpy __truediv__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __truediv__")
+        return result
+
+    def __cmp__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__cmp__(other_np))
+        numpy_report(nd, result, "Numpy __cmp__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __cmp__")
+        return result
+
+    def __eq__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__eq__(other_np))
+        numpy_report(nd, result, "Numpy __eq__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __eq__")
+        return result
+
+    def __ne__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__ne__(other_np))
+        numpy_report(nd, result, "Numpy __ne__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __ne__")
+        return result
+
+    def __lt__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__lt__(other_np))
+        numpy_report(nd, result, "Numpy __lt__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __lt__")
+        return result
+
+    def __gt__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__gt__(other_np))
+        numpy_report(nd, result, "Numpy __gt__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __gt__")
+        return result
+
+    def __le__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__le__(other_np))
+        numpy_report(nd, result, "Numpy __le__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __le__")
+        return result
+
+    def __ge__(self, other):
+        nd = self.get_nd()
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        result = ndarray.using(nd.__ge__(other_np))
+        numpy_report(nd, result, "Numpy __ge__")
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, "Numpy __ge__")
+        return result
+
+
     def __array_finalize__(self, obj):
         if obj is None: return
         self.__k_nd = getattr(obj, '__k_nd', None)
@@ -92,7 +249,6 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def kensu_init(self, d):
         self.__k_nd = d
-
 
 def wrap_save(method):
     def wrapper(*args, **kwargs):
@@ -132,7 +288,7 @@ def wrap_save(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-savetext = wrap_save(np.savetxt)
+savetxt = wrap_save(np.savetxt)
 
 
 def wrap_where(method):
@@ -178,5 +334,78 @@ def wrap_where(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-
 where = wrap_where(np.where)
+
+def wrap_unique(method):
+    def wrapper(*args, **kwargs):
+
+        kensu = KensuProvider().instance()
+
+        new_args = []
+        for item in args:
+            from kensu.pandas import Series
+            if isinstance(item,Series):
+                new_args.append(item.get_s())
+            elif isinstance(item,ndarray):
+                new_args.append(item.get_nd())
+            else:
+                new_args.append(item)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        return original_result
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+unique = wrap_unique(np.unique)
+
+def wrap_abs(method):
+    def wrapper(*args, **kwargs):
+
+        new_args = []
+        for item in args:
+            from kensu.pandas import Series
+            if isinstance(item,Series):
+                new_args.append(item.get_s())
+            elif isinstance(item,ndarray):
+                new_args.append(item.get_nd())
+            else:
+                new_args.append(item)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        nd = new_args[0]
+
+        numpy_report(nd,result,"Numpy abs")
+
+        return ndarray.using(original_result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+abs = wrap_abs(np.abs)
+
+
+def numpy_report(nd,result,name):
+
+    kensu = KensuProvider().instance()
+    orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
+                                                                            logical_naming=kensu.logical_naming))
+    orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+    result_ds = eventually_report_in_mem(
+        kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
+                                             logical_naming=kensu.logical_naming))
+    result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+
+    if kensu.mapping == True:
+        for col in [s.name for s in result_sc.pk.fields]:
+            for col_orig in [s.name for s in orig_sc.pk.fields]:
+                kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
+                                               name)

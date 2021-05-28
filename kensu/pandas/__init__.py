@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas import *
 
 from .data_frame import DataFrame
 from .data_frame import Series
@@ -39,4 +40,3 @@ if hasattr(pd, "get_dummies"):
     get_dummies = wrap_pandas_get_dummies(pd.get_dummies)
 if hasattr(pd, "merge"):
     merge = wrap_merge(pd.merge)
-

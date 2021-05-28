@@ -59,7 +59,7 @@ class GenericComputedInMemDs:
         for input_ds in self.inputs:
             extract_ksu_ds_schema(ksu, input_ds, report=True, register_orig_data=True)
         # report output (if needed)
-        result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=ksu.report_in_mem, register_orig_data=True)
+        result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=ksu.report_in_mem, register_orig_data=False)
         # register the lineage
         for dep in self.lineage:
             input_ds = dep.input_ds

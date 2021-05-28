@@ -31,7 +31,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
         if isinstance(df, pd.DataFrame):
             return [FieldDef(name=str(k), field_type=v.name, nullable=True) for (k, v) in df.dtypes.to_dict().items()]
         elif isinstance(df, pd.Series):
-            return [FieldDef(name=df.name, field_type=str(df.dtypes), nullable=True)]
+            if df.name is None:
+                return [FieldDef(name='value', field_type=str(df.dtypes), nullable=True)]
+            else:
+                return [FieldDef(name=df.name, field_type=str(df.dtypes), nullable=True)]
 
     def extract_location(self, df, location):
         
@@ -49,7 +52,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             df = self.skip_wr(df)
             return df.__class__.__name__
 
-    def tk(self, k, k1): return k + '.' + k1
+    def tk(self, k, k1): return str(k) + '.' + k1
 
     # return dict of doubles (stats)
     def extract_stats(self, df):
