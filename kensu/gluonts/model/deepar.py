@@ -5,12 +5,14 @@ from gluonts.dataset.common import  ListDataset
 from kensu.utils.helpers import eventually_report_in_mem
 from kensu.numpy import ndarray
 from kensu.client.models import Model,ModelPK,ModelRef,ModelTraining,ModelTrainingPK,ModelTrainingRef
-from kensu.gluonts.model.predictor import RepresentableBlockPredictor
+from kensu.gluonts.mx.model.predictor import RepresentableBlockPredictor
+
 class DeepAREstimator(dp.DeepAREstimator):
 
     def train(self, X):
         if isinstance(X,ListDataset):
             new_Field = []
+            old_Field = X.list_data
             dep_fields = []
             for element in X.list_data:
                 new_dict = {}
@@ -33,5 +35,8 @@ class DeepAREstimator(dp.DeepAREstimator):
 
         result = super(DeepAREstimator,self).train(X)
         result.__class__ = RepresentableBlockPredictor
+        if isinstance(X,ListDataset):
+            X.list_data = old_Field
         return result
+
 
