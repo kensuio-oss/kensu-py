@@ -15,7 +15,7 @@ class KensuProvider(object):
         self.default = kensu
 
     @staticmethod
-    def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
+    def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
         if KensuProvider().instance() is None:
             from kensu.utils.kensu import Kensu
             pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
@@ -31,7 +31,7 @@ class KensuProvider(object):
             report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
 
             _kensu = Kensu(api_url=api_url, auth_token=auth_token, process_name=process_name, user_name=user_name,
-                      code_location=code_location, init_context=init_context, do_report=do_report, pandas_support = pandas_support,
+                      code_location=code_location, get_code_version_fn=get_explicit_code_version_fn or get_code_version_fn, get_explicit_code_version_fn=get_explicit_code_version_fn, init_context=init_context, do_report=do_report, pandas_support = pandas_support,
                       sklearn_support = sklearn_support, bigquery_support = bigquery_support, tensorflow_support = tensorflow_support, 
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
                       report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter)

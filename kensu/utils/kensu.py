@@ -72,7 +72,7 @@ class Kensu(object):
         return code_version
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
+                 user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
         """
         """ 
         kensu_host = self.get_kensu_host(api_url)
@@ -122,7 +122,7 @@ class Kensu(object):
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
-                          get_code_version=Kensu.discover_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
+                          get_code_version=get_code_version_fn or Kensu.discover_code_version, get_explicit_code_version_fn=get_explicit_code_version_fn, project_names=project_names, environment=environment, timestamp=timestamp)
 
 
 
@@ -139,7 +139,7 @@ class Kensu(object):
         return kensu_host
 
 
-    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
+    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, get_explicit_code_version_fn=None, project_names=None,environment=None,timestamp=None):
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -153,7 +153,9 @@ class Kensu(object):
             get_code_version = Kensu.discover_code_version
 
         self.timestamp = timestamp
-        if timestamp is not None:
+        if get_explicit_code_version_fn is not None:
+          version = get_explicit_code_version_fn()
+        elif timestamp is not None:
             version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
         else:
             version=get_code_version()
