@@ -87,9 +87,19 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
         name = ('/').join(location.split('/')[-2:])
         if logical_naming == 'File':
             logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=fmt, categories=['logical::'+logical_category], pk=ds_pk)
+            cat = ['logical::' + logical_category]
+
+        elif logical_naming == 'Folder':
+            logical_category = location.split('/')[-2]
+            cat = ['logical::' + logical_category]
+
+        elif logical_naming == 'AnteFolder':
+            logical_category = location.split('/')[-3]
+            cat = ['logical::' + logical_category]
+
         else:
-            ds = DataSource(name=name, format=fmt, categories=[], pk=ds_pk)
+            cat =[]
+        ds = DataSource(name=name, format=fmt, categories=cat, pk=ds_pk)
         return ds
 
     def extract_schema(self, data_source, df):
