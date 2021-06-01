@@ -31,4 +31,6 @@ class SampleForecast(spf.SampleForecast):
         if self._mean is not None:
             return self._mean
         else:
-            return ndarray.using(np.mean(self.samples, axis=0))
+            result = ndarray.using(np.mean(self.samples, axis=0))
+            self.create_deps(result)
+            return result

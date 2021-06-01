@@ -23,6 +23,7 @@ class DeepAREstimator(dp.DeepAREstimator):
                         dep_fields.append(new_item)
                     elif isinstance(item,Series):
                         new_item = item.get_s()
+
                         dep_fields.append(new_item)
                     elif isinstance(item,ndarray):
                         new_item = item.get_nd()
@@ -32,6 +33,7 @@ class DeepAREstimator(dp.DeepAREstimator):
                     new_dict[key] = new_item
                 new_Field.append(new_dict)
             X.list_data = new_Field
+            print(X.list_data[0]['target'].__class__)
 
         result = super(DeepAREstimator,self).train(X)
         result.__class__ = RepresentableBlockPredictor

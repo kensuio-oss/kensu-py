@@ -42,7 +42,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             return location
         else:
             df = self.skip_wr(df)
-            return "in-mem://AN_ID" + sha256(str(df.to_dict()).encode("utf-8")).hexdigest() +'/in-mem-transformation'
+            from kensu.pandas import DataFrame
+            if isinstance(df,DataFrame):
+                df = df.get_df()
+            return "in-mem://AN_ID" + sha256(str(df.reset_index().to_dict()).encode("utf-8")).hexdigest() +'/in-mem-transformation'
             
 
     def extract_format(self, df, fmt):

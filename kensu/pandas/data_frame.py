@@ -418,6 +418,35 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             for col in [k.name for k in result_sc.pk.fields]:
                 kensu.add_dependencies_mapping(result_sc.to_guid(), col, orig_sc.to_guid(), col, 'init')
 
+        elif isinstance(data,dict):
+            from kensu.itertools import kensu_list
+            kensu = KensuProvider().instance()
+            deps ={}
+            for key in data.keys():
+                item = data[key]
+
+                if isinstance(item,kensu_list):
+                    deps[key] = item.deps
+
+                if isinstance(item,ndarray):
+                    orig_ds = eventually_report_in_mem(
+                        kensu.extractors.extract_data_source(item, kensu.default_physical_location_ref))
+                    orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, item))
+                    deps[key] = [orig_sc]
+
+
+            df = pd.DataFrame(data, index, columns, dtype, copy)
+            result_ds = eventually_report_in_mem(
+                kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref))
+            result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df))
+
+            for key in deps.keys():
+                for orig_sc in deps[key]:
+                    for col in [k.name for k in orig_sc.pk.fields]:
+                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(key), orig_sc.to_guid(), str(col), 'init')
+
+
+
         else:
             df = pd.DataFrame(data, index, columns, dtype, copy)
 
@@ -773,7 +802,7 @@ class KensuSeriesDelegator(object):
                 result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
                 if kensu.mapping:
-                    if name in ['fillna','replace','astype']:
+                    if name in ['fillna','replace','astype','_get_with']:
                         for col in [k.name for k in result_sc.pk.fields]:
                             kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col), name)
 

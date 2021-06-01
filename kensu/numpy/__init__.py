@@ -6,6 +6,7 @@ import numpy as np
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
+#from kensu.pandas.data_frame import Series,DataFrame
 
 class ndarrayDelegator(object):
     SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
@@ -21,11 +22,68 @@ class ndarrayDelegator(object):
         elif name in ['mean','std']:
             attr_value = object.__getattribute__(self.get_nd(), name)
             return attr_value
+        elif name in ['round','reshape']:
+            attr_value = object.__getattribute__(self.get_nd(), name)
+            return ndarrayDelegator.handle_callable(self, name, attr_value)
         elif hasattr(attr_value, '__call__'):
-            # return ndarrayDelegator.handle_callable(self, name, attr_value)
+            #return ndarrayDelegator.handle_callable(self, name, attr_value)
             return attr_value
         else:
             return ndarrayDelegator.handle_field(self, name, attr_value)
+
+    @staticmethod
+    def handle_callable(kensu_nd, name, attr_value):
+        nd = kensu_nd.get_nd()
+        delegated_pd_attr = object.__getattribute__(nd, name)
+
+
+        docstring = delegated_pd_attr.__doc__
+        return ndarrayDelegator.create_function_wrapper(kensu_nd, name, docstring)
+
+    @staticmethod
+    def create_function_wrapper(kensu_nd, name, docstring):
+        from kensu.pandas.data_frame import Series, DataFrame
+        logging.debug("Kensu wrapping function name=" + name)
+
+        def wrapper(*args, **kwargs):
+
+            nd = kensu_nd.get_nd()
+            df_attr = object.__getattribute__(nd, name)
+
+            kensu = KensuProvider().instance()
+
+            # set_axis updates the DataFrame directly (self) and returns None, we loose the initial dataframe
+            # so we need to create the Kensu object before
+            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+
+            new_args = []
+            for item in args:
+                if isinstance(item,DataFrame):
+                    new_args.append(item.get_df())
+                elif isinstance(item,Series):
+                    new_args.append(item.get_s())
+                elif isinstance(item,ndarray):
+                    new_args.append(item.get_nd())
+                else:
+                    new_args.append(item)
+            new_args = tuple(new_args)
+            result = df_attr(*new_args, **kwargs)
+            original_result = result
+            result = ndarrayDelegator.wrap_returned_df(kensu_nd, result, name, nd)
+
+            #adding the datasources, schemas and lineage to the dependencies
+            if (result is not None and (isinstance(result,DataFrame) or isinstance(result,ndarray))):
+                numpy_report(kensu_nd, result, name)
+
+
+            if original_result is None:
+                return None
+            else:
+                return result
+
+        wrapper.__doc__ = docstring
+        return wrapper
 
     @staticmethod
     def wrap_returned_df(kensu_s, returned, name, original):
@@ -51,17 +109,25 @@ class ndarrayDelegator(object):
             nd_attr = object.__getattribute__(nd, name)
             result = ndarrayDelegator.wrap_returned_df(kensu_df, nd_attr, name, nd)
 
+            kensu = KensuProvider().instance()
             # adding the datasources, schemas and lineage to the dependencies
+
+
             if result is not None and isinstance(result, ndarray):
-                kensu = KensuProvider().instance()
-                orig_ds = kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref)._report()
-                orig_sc = kensu.extractors.extract_schema(orig_ds, nd)._report()
+                if kensu.mapping:
+                    numpy_report(kensu_df,result,name)
 
-                result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
-                result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
 
-                kensu.add_dependency((nd, orig_ds, orig_sc), (result, result_ds, result_sc),
-                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+
+                else:
+                    orig_ds = kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref)._report()
+                    orig_sc = kensu.extractors.extract_schema(orig_ds, nd)._report()
+
+                    result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
+                    result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
+
+                    kensu.add_dependency((nd, orig_ds, orig_sc), (result, result_ds, result_sc),
+                                       mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
 
             return result
 
@@ -392,20 +458,90 @@ def wrap_abs(method):
 
 abs = wrap_abs(np.abs)
 
+def wrap_round(method):
+    def wrapper(*args, **kwargs):
+
+        new_args = []
+        for item in args:
+            from kensu.pandas import Series
+            if isinstance(item,Series):
+                new_args.append(item.get_s())
+            elif isinstance(item,ndarray):
+                new_args.append(item.get_nd())
+            else:
+                new_args.append(item)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        from kensu.itertools import kensu_list
+
+        nd = new_args[0]
+
+        numpy_report(nd,result,"Numpy abs")
+
+        return ndarray.using(original_result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+round = wrap_round(np.round)
+
+def wrap_concat(method):
+    def wrapper(*args, **kwargs):
+
+        new_args = []
+        for item in args:
+            from kensu.pandas import Series
+            if isinstance(item,Series):
+                new_args.append(item.get_s())
+            elif isinstance(item,ndarray):
+                new_args.append(item.get_nd())
+            else:
+                new_args.append(item)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        for nd in new_args[0]:
+            numpy_report(nd,result,"Numpy concat")
+
+        return ndarray.using(original_result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+concatenate = wrap_concat(np.concatenate)
+
 
 def numpy_report(nd,result,name):
+    orig_sc_list = []
 
     kensu = KensuProvider().instance()
-    orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
-                                                                            logical_naming=kensu.logical_naming))
-    orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+    from kensu.itertools import kensu_list
+
+    if isinstance(nd,kensu_list):
+        orig_sc_list = nd.deps
+
+
+    else:
+        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
+                                                                                logical_naming=kensu.logical_naming))
+        orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+        orig_sc_list.append(orig_sc)
+
     result_ds = eventually_report_in_mem(
         kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
                                              logical_naming=kensu.logical_naming))
     result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
     if kensu.mapping == True:
-        for col in [s.name for s in result_sc.pk.fields]:
-            for col_orig in [s.name for s in orig_sc.pk.fields]:
-                kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
-                                               name)
+        for orig_sc in orig_sc_list:
+            for col in [s.name for s in result_sc.pk.fields]:
+                for col_orig in [s.name for s in orig_sc.pk.fields]:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
+                                                   name)

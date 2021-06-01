@@ -19,7 +19,7 @@ class RepresentableBlockPredictor(pred.RepresentableBlockPredictor):
 
                 for key in element.keys():
                     item = element[key]
-                    print(item.__class__)
+
                     if isinstance(item, DataFrame):
                         new_item = item.get_df()
                         dep_fields.append(new_item)
@@ -35,7 +35,9 @@ class RepresentableBlockPredictor(pred.RepresentableBlockPredictor):
                 new_Field.append(new_dict)
             Y.list_data = new_Field
 
-        original_result = super(RepresentableBlockPredictor, self).predict(dataset=Y, *args, **kwargs)
+        original_result = list(super(RepresentableBlockPredictor, self).predict(dataset=Y, *args, **kwargs))
+
+
         if isinstance(Y, ListDataset):
             Y.list_data = old_Field
 
