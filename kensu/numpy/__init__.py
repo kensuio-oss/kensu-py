@@ -141,7 +141,11 @@ class ndarray(ndarrayDelegator, np.ndarray):
         return obj
 
     def __getitem__(self, item):
-        return ndarray.using(self.get_nd()[item])
+        returned = self.get_nd()[item]
+        if isinstance(returned,str):
+            return returned
+        else:
+            return ndarray.using(returned)
 
     def __repr__(self):
         nd = self.get_nd()
