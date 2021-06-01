@@ -53,13 +53,13 @@ class GenericComputedInMemDs:
         self.lineage = lineage
         self.inputs = inputs
 
-    def report(self, ksu, df_result, operation_type):
+    def report(self, ksu, df_result, operation_type, report_output=False):
         from kensu.utils.helpers import extract_ksu_ds_schema
         from kensu.utils.dsl import mapping_strategies
         for input_ds in self.inputs:
             extract_ksu_ds_schema(ksu, input_ds, report=True, register_orig_data=True)
         # report output (if needed)
-        result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=ksu.report_in_mem, register_orig_data=False)
+        result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=report_output, register_orig_data=False)
         # register the lineage
         for dep in self.lineage:
             input_ds = dep.input_ds
@@ -97,6 +97,6 @@ class GenericComputedInMemDs:
             })]
         inputs_lineage = GenericComputedInMemDs(inputs=[input_ds], lineage=lineage_info)
         # register lineage in KensuProvider
-        inputs_lineage.report(ksu=ksu, df_result=output_ds, operation_type="sftp.put()")
+        inputs_lineage.report(ksu=ksu, df_result=output_ds, operation_type="sftp.put()", report_output=True)
         # actuly report the lineage and the write operation
         ksu.report_with_mapping()

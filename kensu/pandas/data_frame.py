@@ -1182,7 +1182,10 @@ def wrap_external_to_pandas_transformation(method, get_inputs_lineage_fn):
         ext_inputs_lineage = get_inputs_lineage_fn(kensu, *args, **kwargs)  # type: GenericComputedInMemDs
         df_result = method(*args, **kwargs)
 
-        ext_inputs_lineage.report(ksu=kensu, df_result=df_result, operation_type="sparkDf.toPandas()")
+        ext_inputs_lineage.report(ksu=kensu,
+                                  df_result=df_result,
+                                  operation_type="sparkDf.toPandas()",
+                                  report_output=kensu.report_in_mem)
         result_ksu_pandas_df = DataFrame.using(df_result)
         return result_ksu_pandas_df
 
