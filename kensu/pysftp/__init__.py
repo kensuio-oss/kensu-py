@@ -49,11 +49,14 @@ class Connection(pysftp.Connection):
         resolved_remote_path = posixpath.join(self.pwd, remotepath)
         qualified_remote_path = self._ftp_server_addr() + resolved_remote_path
         absolute_localpath = os.path.abspath(str(localpath))
+
         logging.info(f"sftp.put(localpath: {absolute_localpath}, remote_qualified_path:{qualified_remote_path})")
         # schema is not known for a generic ftp file copy !!! but we try to guess it
         maybe_schema = [("unknown, unknown"), ]
+        from kensu.utils.helpers import extract_ksu_ds_schema
+        from kensu.utils.helpers import get_absolute_path as get_kensu_abs_path
+        kensu_normalized_absolute_path = get_kensu_abs_path(absolute_localpath)
         try:
-            from kensu.utils.helpers import extract_ksu_ds_schema
             import kensu.pandas as pd
             maybe_pandas_df = pd.read_csv(absolute_localpath, sep=";")
             from kensu.utils.kensu_provider import KensuProvider
@@ -68,7 +71,7 @@ class Connection(pysftp.Connection):
         print('Extracted schema:', maybe_schema)
         from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
         GenericComputedInMemDs.report_copy_with_opt_schema(
-            src=absolute_localpath,
+            src=kensu_normalized_absolute_path,
             dest=qualified_remote_path,
             operation_type="sftp.put()",
             maybe_schema=maybe_schema
