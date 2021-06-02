@@ -14,14 +14,18 @@ class KensuDatasourceAndSchema:
         self.f_get_stats = f_get_stats
 
     @staticmethod
-    def for_path_without_schema(ksu, ds_path, format=None, categories=None):
+    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None):
         from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
         pl_ref = ksu.UNKNOWN_PHYSICAL_LOCATION.to_ref()
         ds_pk = DataSourcePK(location=ds_path, physical_location_ref=pl_ref)
         ds = DataSource(name=ds_path, format=format, categories=categories, pk=ds_pk)
-        fields = [
-            FieldDef(name=str("unknown"), field_type="unknown", nullable=True),
-        ]
+        if maybe_schema is None:
+            maybe_schema = [("unknown", "unknown"), ]
+        print(maybe_schema)
+        fields = list([
+            FieldDef(name=str(name), field_type=str(dtype), nullable=True)
+            for (name, dtype) in maybe_schema
+        ])
         schema = Schema(name="schema:" + ds.name,
                         pk=SchemaPK(ds.to_ref(), fields=fields))
         return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema)
@@ -84,19 +88,20 @@ class GenericComputedInMemDs:
 
 
     @staticmethod
-    def report_copy_without_schema(src, dest, operation_type):
+    def report_copy_with_opt_schema(src, dest, operation_type, maybe_schema=None):
         from kensu.utils.kensu_provider import KensuProvider
         ksu = KensuProvider().instance()
-        input_ds = KensuDatasourceAndSchema.for_path_without_schema(ksu=ksu, ds_path=src)
-        output_ds = KensuDatasourceAndSchema.for_path_without_schema(ksu=ksu, ds_path=dest)
+        input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=src, maybe_schema=maybe_schema)
+        output_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=dest, maybe_schema=maybe_schema)
+        if maybe_schema is None:
+            maybe_schema = [("unknown", "unknown")]
         lineage_info = [ExtDependencyEntry(
             input_ds=input_ds,
             # FIXME: kensu-py lineage do not work without schema as well...
-            lineage={
-                "unknown": ["unknown"],
-            })]
+            lineage= dict([(str(fieldname), [str(fieldname)])
+                           for (fieldname, dtype) in maybe_schema]))]
         inputs_lineage = GenericComputedInMemDs(inputs=[input_ds], lineage=lineage_info)
         # register lineage in KensuProvider
-        inputs_lineage.report(ksu=ksu, df_result=output_ds, operation_type="sftp.put()", report_output=True)
+        inputs_lineage.report(ksu=ksu, df_result=output_ds, operation_type=operation_type, report_output=True)
         # actuly report the lineage and the write operation
         ksu.report_with_mapping()
