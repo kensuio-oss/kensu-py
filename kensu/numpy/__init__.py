@@ -522,6 +522,44 @@ def wrap_concat(method):
 concatenate = wrap_concat(np.concatenate)
 
 
+def array(method):
+    def wrapper(*args, **kwargs):
+
+        args = list(args)
+        obj = args[0]
+
+        def new_arg(list_or_args):
+            new_args = []
+            for item in list_or_args:
+                from kensu.pandas import Series
+                if isinstance(item,Series):
+                    new_args.append(item.get_s())
+                elif isinstance(item,ndarray):
+                    new_args.append(item.get_nd())
+                else:
+                    new_args.append(item)
+            return new_args
+        if isinstance(obj,list):
+            args[0] = new_arg(obj)
+            new_args = args
+        else:
+            new_args = new_arg(args)
+
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        return ndarray.using(result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+array = array(np.array)
+
+
+
 def numpy_report(nd,result,name):
     orig_sc_list = []
 
