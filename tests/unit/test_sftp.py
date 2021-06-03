@@ -26,7 +26,7 @@ class TestSftp(unittest.TestCase):
                                       report_to_file=offline,
                                       project_names=['pysftp'],
                                       offline_file_name='kensu-offline-to-pysftp-test.jsonl',
-                                      mapping=True, report_in_mem=True)
+                                      mapping=True, report_in_mem=False)
 
     def setUp(self):
         self.ac = ApiClient()
