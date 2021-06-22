@@ -6,6 +6,7 @@ import os
 import time
 
 from kensu.client import *
+from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
 from kensu.utils.simple_cache import *
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
@@ -420,6 +421,8 @@ class Kensu(object):
                                                      lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
                                       stats=stats,
                                       extra_as_json=None)._report()
+                        elif isinstance(stats_df, KensuDatasourceAndSchema):
+                            stats_df.f_publish_stats(lineage_run.to_guid())
                         #FIXME should be using extractors instead
                         if is_ml_model:
                             model_name = self.model[to_guid][1]
