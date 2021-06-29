@@ -17,7 +17,7 @@ class LogisticRegression(lm.LogisticRegression):
         result = super(LogisticRegression,self).fit( X_train , y_train,sample_weight )
         kensu = KensuProvider().instance()
 
-        metrics = kensu.extractors.extract_machine_learning_metrics(result,x_train = X_train, y_train = y_train )
+        metrics = kensu.extractors.extract_machine_learning_metrics(result,x_train = X_train, y_train = y_train,classification = True )
         kensu = KensuProvider().instance()
 
         train_X_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(X_train, kensu.default_physical_location_ref))
