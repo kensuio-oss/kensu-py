@@ -16,7 +16,7 @@ from kensu.utils.kensu_provider import KensuProvider
 class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSupport class
 
     def is_supporting(self, table):
-        return isinstance(table, google.cloud.bigquery.table.Table)
+        return isinstance(table, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator)
     def is_machine_learning(self, df):
         return False
 
@@ -25,11 +25,12 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
     # return list of FieldDef
     def extract_schema_fields(self, df):
-        if isinstance(df, google.cloud.bigquery.table.Table):
+        if isinstance(df, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator):
             return [FieldDef(name=str(k.name), field_type=k.field_type, nullable=k.is_nullable) for k in df.schema]
 
 
     def extract_location(self, df, location):
+        # FIXME => what to do for RowIterator?
         if isinstance(df, google.cloud.bigquery.table.Table):
             return "bigquery:/" + df.path
         else:
@@ -37,6 +38,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
 
     def extract_format(self, df, fmt):
+        # FIXME => should do something about RowIterator...
         return "BigQuery Table"
 
     def tk(self, k, k1): return k + '.' + k1
@@ -78,7 +80,11 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     # return dict of doubles (stats)
     def extract_stats(self, df):
         # df = self.skip_wr(df)
-        return self.extract_table_stats(df)
+        if isinstance(df, google.cloud.bigquery.table.Table):
+            return self.extract_table_stats(df)
+        elif isinstance(df, google.cloud.bigquery.table.RowIterator):
+            # FIXME -> TODO
+            return None
 
     def extract_data_source(self, df, pl, **kwargs):
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
