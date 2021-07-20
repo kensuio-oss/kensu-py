@@ -151,14 +151,14 @@ class Kensu(object):
 
         self.user = User(pk=UserPK(user_name))._report()
         self.code_base = CodeBase(pk=CodeBasePK(code_location))._report()
-        if get_code_version is None:
-            get_code_version = Kensu.discover_code_version
-
         self.timestamp = timestamp
-        if timestamp is not None:
-            version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
+        if get_code_version is None:
+            if timestamp is not None: # this is weird though...
+                version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
+            else:
+                version = Kensu.discover_code_version()
         else:
-            version=get_code_version()
+            version = get_code_version()
         self.code_version = CodeVersion(maintainers_refs=[self.user.to_ref()],
                                         pk=CodeVersionPK(version=version,
                                                          codebase_ref=self.code_base.to_ref()))._report()
