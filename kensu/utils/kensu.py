@@ -91,9 +91,10 @@ class Kensu(object):
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
         mapping = kwargs["mapping"] if "mapping" in kwargs else None
         report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
-        get_code_version = kwargs["get_code_version"] if "get_code_version" in kwargs else Kensu.discover_code_version
-
-
+        if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
+            get_code_version = kwargs["get_code_version"]
+        else:
+            get_code_version = Kensu.discover_code_version
 
         self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
 
