@@ -29,12 +29,14 @@ class KensuProvider(object):
             logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
             mapping = kwargs["mapping"] if "mapping" in kwargs else True
             report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
+            get_code_version = kwargs["get_code_version"] if "get_code_version" in kwargs else None
 
             _kensu = Kensu(api_url=api_url, auth_token=auth_token, process_name=process_name, user_name=user_name,
                       code_location=code_location, init_context=init_context, do_report=do_report, pandas_support = pandas_support,
                       sklearn_support = sklearn_support, bigquery_support = bigquery_support, tensorflow_support = tensorflow_support, 
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
-                      report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter)
+                      report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
+                      get_code_version=get_code_version)
 
             KensuProvider().setKensu(_kensu)
             return _kensu
