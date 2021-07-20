@@ -91,6 +91,7 @@ class Kensu(object):
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
         mapping = kwargs["mapping"] if "mapping" in kwargs else None
         report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
+        get_code_version = kwargs["get_code_version"] if "get_code_version" in kwargs else Kensu.discover_code_version
 
 
 
@@ -122,7 +123,7 @@ class Kensu(object):
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
-                          get_code_version=Kensu.discover_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
+                          get_code_version=get_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
 
 
 
