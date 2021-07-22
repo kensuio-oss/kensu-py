@@ -9,6 +9,7 @@ from kensu.pandas import DataFrame
 from kensu.utils.kensu_provider import KensuProvider
 import google.cloud.bigquery as bq
 import google.cloud.bigquery.job as bqj
+from google.cloud.bigquery import Table
 import sqlparse
 
 class QueryJob(bqj.QueryJob):
@@ -36,7 +37,7 @@ class QueryJob(bqj.QueryJob):
             ids = list(filter(lambda x: isinstance(x, sqlparse.sql.Identifier), sq[0].tokens))
             client = kensu.data_collectors['BigQuery']
             for id in ids:
-                name = (id.get_name()).strip('`')
+                name = (id.get_real_name()).strip('`')
                 table = client.get_table(name)
                 path = table.path
                 location = "bigquery:/" + path
@@ -76,6 +77,38 @@ class QueryJob(bqj.QueryJob):
             elif t.is_group:
                 yield from QueryJob.find_sql_identifiers(t)
 
+
+    @staticmethod
+    def table_to_kensu(table: Table):
+        kensu = KensuProvider().instance()
+        ds = kensu.extractors.extract_data_source(table, kensu.default_physical_location_ref,
+                                                logical_naming=kensu.logical_naming)._report()
+        sc = kensu.extractors.extract_schema(ds, table)._report()
+        return ds, sc
+
+
+    @staticmethod
+    def get_table_info_for_id(client: bq.Client, id: sqlparse.sql.Identifier):
+        try:
+            name = (id.get_real_name()).strip('`')
+            table = client.get_table(name)
+            ds, sc = QueryJob.table_to_kensu(table)
+            return table, ds, sc
+        except:
+            # FIXME this is because the current find_sql_identifiers also returns the column names...
+            #  (see aboveREF_GET_TABLE)
+            #  Therefore get_table of a column name should fail
+            return None
+
+
+    @staticmethod
+    def get_table_infos_from_sql(client: bq.Client, query: str):
+        sq = sqlparse.parse(query)
+        ids = QueryJob.find_sql_identifiers(sq[0].tokens) # FIXME we only take the first element
+        table_infos = list(filter(lambda x: x is not None, [QueryJob.get_table_info_for_id(client, id) for id in ids]))
+        return table_infos
+
+
     @staticmethod
     def override_result(job: bqj.QueryJob) -> bqj.QueryJob:
         f = job.result
@@ -90,27 +123,11 @@ class QueryJob(bqj.QueryJob):
             else:
                 if isinstance(dest, bq.TableReference):
                     dest = client.get_table(dest)
-                destination_ds = kensu.extractors.extract_data_source(dest, kensu.default_physical_location_ref,
-                                                             logical_naming=kensu.logical_naming)._report()
-                destination_sc = kensu.extractors.extract_schema(destination_ds, dest)._report()
+                destination_ds, destination_sc = QueryJob.table_to_kensu(dest)
                 kensu.real_schema_df[destination_sc.to_guid()] = dest
                 dest_field_names = [f.name for f in destination_sc.pk.fields]
-                query = job.query
-                sq = sqlparse.parse(query)
-                ids = QueryJob.find_sql_identifiers(sq[0].tokens) # FIXME we only take the first element
-                for id in ids:
-                    try:
-                        name = (id.get_name()).strip('`')
-                        table = client.get_table(name)
-                    except:
-                        # FIXME this is because the current find_sql_identifiers also returns the column names...
-                        #  (see aboveREF_GET_TABLE)
-                        #  Therefore get_table of a column name should fail
-                        continue
-                    ds = kensu.extractors.extract_data_source(table, kensu.default_physical_location_ref,
-                                                              logical_naming=kensu.logical_naming)._report()
-                    sc = kensu.extractors.extract_schema(ds, table)._report()
-
+                table_infos = QueryJob.get_table_infos_from_sql(client, job.query)
+                for table, ds, sc in table_infos:
                     if kensu.mapping:
                         sc_field_names = [v.name for v in sc.pk.fields]
                         for col in dest_field_names:
