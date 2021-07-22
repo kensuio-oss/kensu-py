@@ -6,7 +6,8 @@ import numpy as np
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
-#from kensu.pandas.data_frame import Series,DataFrame
+from kensu.utils.wrappers import remove_ksu_wrappers
+
 
 class ndarrayDelegator(object):
     SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
@@ -57,16 +58,7 @@ class ndarrayDelegator(object):
             orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
 
-            new_args = []
-            for item in args:
-                if isinstance(item,DataFrame):
-                    new_args.append(item.get_df())
-                elif isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
+            new_args=remove_ksu_wrappers(args)
             new_args = tuple(new_args)
             result = df_attr(*new_args, **kwargs)
             original_result = result
@@ -151,12 +143,17 @@ class ndarray(ndarrayDelegator, np.ndarray):
         nd = self.get_nd()
         return nd.__repr__()
 
-    def __sub__(self, other):
-        nd = self.get_nd()
-        if isinstance(other,ndarray):
+    @staticmethod
+    def remove_np_wrapper(other):
+        if isinstance(other, ndarray):
             other_np = other.get_nd()
         else:
             other_np = other
+        return other_np
+
+    def __sub__(self, other):
+        nd = self.get_nd()
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__sub__(other_np))
         numpy_report(nd, result, "Numpy sub")
         if isinstance(other, ndarray):
@@ -165,10 +162,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __add__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__add__(other_np))
         numpy_report(nd, result, "Numpy add")
         if isinstance(other, ndarray):
@@ -177,10 +171,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __mul__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__mul__(other_np))
         numpy_report(nd, result, "Numpy mul")
         if isinstance(other, ndarray):
@@ -189,10 +180,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __divmod__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__divmod__(other_np))
         numpy_report(nd, result, "Numpy div")
         if isinstance(other, ndarray):
@@ -201,10 +189,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __truediv__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__truediv__(other_np))
         numpy_report(nd, result, "Numpy __truediv__")
         if isinstance(other, ndarray):
@@ -213,10 +198,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __cmp__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__cmp__(other_np))
         numpy_report(nd, result, "Numpy __cmp__")
         if isinstance(other, ndarray):
@@ -225,10 +207,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __eq__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__eq__(other_np))
         numpy_report(nd, result, "Numpy __eq__")
         if isinstance(other, ndarray):
@@ -237,10 +216,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __ne__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__ne__(other_np))
         numpy_report(nd, result, "Numpy __ne__")
         if isinstance(other, ndarray):
@@ -249,10 +225,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __lt__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__lt__(other_np))
         numpy_report(nd, result, "Numpy __lt__")
         if isinstance(other, ndarray):
@@ -261,10 +234,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __gt__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__gt__(other_np))
         numpy_report(nd, result, "Numpy __gt__")
         if isinstance(other, ndarray):
@@ -273,10 +243,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __le__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__le__(other_np))
         numpy_report(nd, result, "Numpy __le__")
         if isinstance(other, ndarray):
@@ -285,10 +252,7 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __ge__(self, other):
         nd = self.get_nd()
-        if isinstance(other, ndarray):
-            other_np = other.get_nd()
-        else:
-            other_np = other
+        other_np = ndarray.remove_np_wrapper(other)
         result = ndarray.using(nd.__ge__(other_np))
         numpy_report(nd, result, "Numpy __ge__")
         if isinstance(other, ndarray):
@@ -411,15 +375,7 @@ def wrap_unique(method):
 
         kensu = KensuProvider().instance()
 
-        new_args = []
-        for item in args:
-            from kensu.pandas import Series
-            if isinstance(item,Series):
-                new_args.append(item.get_s())
-            elif isinstance(item,ndarray):
-                new_args.append(item.get_nd())
-            else:
-                new_args.append(item)
+        new_args = remove_ksu_wrappers(args)
         new_args = tuple(new_args)
 
         result = method(*new_args, **kwargs)
@@ -435,16 +391,7 @@ unique = wrap_unique(np.unique)
 
 def wrap_abs(method):
     def wrapper(*args, **kwargs):
-
-        new_args = []
-        for item in args:
-            from kensu.pandas import Series
-            if isinstance(item,Series):
-                new_args.append(item.get_s())
-            elif isinstance(item,ndarray):
-                new_args.append(item.get_nd())
-            else:
-                new_args.append(item)
+        new_args = remove_ksu_wrappers(args)
         new_args = tuple(new_args)
 
         result = method(*new_args, **kwargs)
@@ -464,16 +411,7 @@ abs = wrap_abs(np.abs)
 
 def wrap_round(method):
     def wrapper(*args, **kwargs):
-
-        new_args = []
-        for item in args:
-            from kensu.pandas import Series
-            if isinstance(item,Series):
-                new_args.append(item.get_s())
-            elif isinstance(item,ndarray):
-                new_args.append(item.get_nd())
-            else:
-                new_args.append(item)
+        new_args = remove_ksu_wrappers(args)
         new_args = tuple(new_args)
 
         result = method(*new_args, **kwargs)
@@ -495,16 +433,7 @@ round = wrap_round(np.round)
 
 def wrap_concat(method):
     def wrapper(*args, **kwargs):
-
-        new_args = []
-        for item in args:
-            from kensu.pandas import Series
-            if isinstance(item,Series):
-                new_args.append(item.get_s())
-            elif isinstance(item,ndarray):
-                new_args.append(item.get_nd())
-            else:
-                new_args.append(item)
+        new_args = remove_ksu_wrappers(args)
         new_args = tuple(new_args)
 
         result = method(*new_args, **kwargs)
@@ -528,22 +457,11 @@ def array(method):
         args = list(args)
         obj = args[0]
 
-        def new_arg(list_or_args):
-            new_args = []
-            for item in list_or_args:
-                from kensu.pandas import Series
-                if isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
-            return new_args
         if isinstance(obj,list):
-            args[0] = new_arg(obj)
+            args[0] = remove_ksu_wrappers(obj)
             new_args = args
         else:
-            new_args = new_arg(args)
+            new_args = remove_ksu_wrappers(args)
 
         new_args = tuple(new_args)
 
