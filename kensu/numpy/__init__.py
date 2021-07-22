@@ -11,7 +11,8 @@ else:
     from kensu.utils.kensu_provider import KensuProvider
     from kensu.utils.dsl import mapping_strategies
     from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
-    #from kensu.pandas.data_frame import Series,DataFrame
+    from kensu.utils.wrappers import remove_ksu_wrappers
+
 
     class ndarrayDelegator(object):
         SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
@@ -62,16 +63,7 @@ else:
                 orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref))
                 orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
 
-                new_args = []
-                for item in args:
-                    if isinstance(item,DataFrame):
-                        new_args.append(item.get_df())
-                    elif isinstance(item,Series):
-                        new_args.append(item.get_s())
-                    elif isinstance(item,ndarray):
-                        new_args.append(item.get_nd())
-                    else:
-                        new_args.append(item)
+                new_args=remove_ksu_wrappers(args)
                 new_args = tuple(new_args)
                 result = df_attr(*new_args, **kwargs)
                 original_result = result
@@ -156,150 +148,59 @@ else:
             nd = self.get_nd()
             return nd.__repr__()
 
-        def __sub__(self, other):
-            nd = self.get_nd()
-            if isinstance(other,ndarray):
+        @staticmethod
+        def remove_np_wrapper(other):
+            if isinstance(other, ndarray):
                 other_np = other.get_nd()
             else:
                 other_np = other
-            result = ndarray.using(nd.__sub__(other_np))
-            numpy_report(nd, result, "Numpy sub")
+            return other_np
+
+        def wrapped_ndarray_binary_op(self, other, wrapped_fn, op_title=None):
+            op_title = op_title or 'Numpy ' + str(wrapped_fn.__name__)
+            nd = self.get_nd()
+            other_np = ndarray.remove_np_wrapper(other)
+            result = ndarray.using(wrapped_fn(other_np))
+            numpy_report(nd, result, op_title)
             if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy sub")
+                numpy_report(nd, other, op_title)
             return result
+
+        def __sub__(self, other):
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__sub__)
 
         def __add__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__add__(other_np))
-            numpy_report(nd, result, "Numpy add")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy add")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__add__)
 
         def __mul__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__mul__(other_np))
-            numpy_report(nd, result, "Numpy mul")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy mul")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__mul__)
 
         def __divmod__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__divmod__(other_np))
-            numpy_report(nd, result, "Numpy div")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy div")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__divmod__)
 
         def __truediv__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__truediv__(other_np))
-            numpy_report(nd, result, "Numpy __truediv__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __truediv__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__truediv__)
 
         def __cmp__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__cmp__(other_np))
-            numpy_report(nd, result, "Numpy __cmp__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __cmp__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__cmp__)
 
         def __eq__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__eq__(other_np))
-            numpy_report(nd, result, "Numpy __eq__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __eq__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__eq__)
 
         def __ne__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__ne__(other_np))
-            numpy_report(nd, result, "Numpy __ne__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __ne__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__ne__)
 
         def __lt__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__lt__(other_np))
-            numpy_report(nd, result, "Numpy __lt__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __lt__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__lt__)
 
         def __gt__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__gt__(other_np))
-            numpy_report(nd, result, "Numpy __gt__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __gt__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__gt__)
 
         def __le__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__le__(other_np))
-            numpy_report(nd, result, "Numpy __le__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __le__")
-            return result
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__le__)
 
         def __ge__(self, other):
-            nd = self.get_nd()
-            if isinstance(other, ndarray):
-                other_np = other.get_nd()
-            else:
-                other_np = other
-            result = ndarray.using(nd.__ge__(other_np))
-            numpy_report(nd, result, "Numpy __ge__")
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, "Numpy __ge__")
-            return result
-
+            return self.wrapped_ndarray_binary_op(other, self.get_nd().__ge__)
 
         def __array_finalize__(self, obj):
             if obj is None: return
@@ -349,7 +250,7 @@ else:
                 result_sc = kensu.extractors.extract_schema(result_ds,df)._report()
 
                 kensu.real_schema_df[result_sc.to_guid()] = result
-
+                
 
                 if kensu.mapping == True:
                     for col in [s.name for s in result_sc.pk.fields]:
@@ -416,15 +317,7 @@ else:
 
             kensu = KensuProvider().instance()
 
-            new_args = []
-            for item in args:
-                from kensu.pandas import Series
-                if isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
+            new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
             result = method(*new_args, **kwargs)
@@ -440,16 +333,7 @@ else:
 
     def wrap_abs(method):
         def wrapper(*args, **kwargs):
-
-            new_args = []
-            for item in args:
-                from kensu.pandas import Series
-                if isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
+            new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
             result = method(*new_args, **kwargs)
@@ -469,16 +353,7 @@ else:
 
     def wrap_round(method):
         def wrapper(*args, **kwargs):
-
-            new_args = []
-            for item in args:
-                from kensu.pandas import Series
-                if isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
+            new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
             result = method(*new_args, **kwargs)
@@ -500,16 +375,7 @@ else:
 
     def wrap_concat(method):
         def wrapper(*args, **kwargs):
-
-            new_args = []
-            for item in args:
-                from kensu.pandas import Series
-                if isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
+            new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
             result = method(*new_args, **kwargs)
@@ -533,22 +399,11 @@ else:
             args = list(args)
             obj = args[0]
 
-            def new_arg(list_or_args):
-                new_args = []
-                for item in list_or_args:
-                    from kensu.pandas import Series
-                    if isinstance(item,Series):
-                        new_args.append(item.get_s())
-                    elif isinstance(item,ndarray):
-                        new_args.append(item.get_nd())
-                    else:
-                        new_args.append(item)
-                return new_args
             if isinstance(obj,list):
-                args[0] = new_arg(obj)
+                args[0] = remove_ksu_wrappers(obj)
                 new_args = args
             else:
-                new_args = new_arg(args)
+                new_args = remove_ksu_wrappers(args)
 
             new_args = tuple(new_args)
 

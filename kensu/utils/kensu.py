@@ -73,7 +73,7 @@ class Kensu(object):
         return code_version
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
+                 user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
         """
         """ 
         kensu_host = self.get_kensu_host(api_url)
@@ -92,8 +92,10 @@ class Kensu(object):
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
         mapping = kwargs["mapping"] if "mapping" in kwargs else None
         report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
-
-
+        if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
+            get_code_version = kwargs["get_code_version"]
+        else:
+            get_code_version = Kensu.discover_code_version
 
         self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
 
@@ -123,7 +125,8 @@ class Kensu(object):
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
-                          get_code_version=get_code_version_fn or Kensu.discover_code_version, get_explicit_code_version_fn=get_explicit_code_version_fn, project_names=project_names, environment=environment, timestamp=timestamp)
+                          get_code_version=get_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
+
 
 
 
@@ -140,7 +143,7 @@ class Kensu(object):
         return kensu_host
 
 
-    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, get_explicit_code_version_fn=None, project_names=None,environment=None,timestamp=None):
+    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -150,16 +153,14 @@ class Kensu(object):
 
         self.user = User(pk=UserPK(user_name))._report()
         self.code_base = CodeBase(pk=CodeBasePK(code_location))._report()
-        if get_code_version is None:
-            get_code_version = Kensu.discover_code_version
-
         self.timestamp = timestamp
-        if get_explicit_code_version_fn is not None:
-          version = get_explicit_code_version_fn()
-        elif timestamp is not None:
-            version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
+        if get_code_version is None:
+            if timestamp is not None: # this is weird though...
+                version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
+            else:
+                version = Kensu.discover_code_version()
         else:
-            version=get_code_version()
+            version = get_code_version()
         self.code_version = CodeVersion(maintainers_refs=[self.user.to_ref()],
                                         pk=CodeVersionPK(version=version,
                                                          codebase_ref=self.code_base.to_ref()))._report()

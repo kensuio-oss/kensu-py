@@ -19,6 +19,7 @@ from kensu.utils.dsl import mapping_strategies
 from kensu.utils.helpers import eventually_report_in_mem, extract_ksu_ds_schema, get_absolute_path
 
 from kensu.client import *
+from kensu.utils.wrappers import remove_ksu_wrappers
 
 
 class KensuPandasDelegator(object):
@@ -175,16 +176,7 @@ class KensuPandasDelegator(object):
             orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(pd_df, kensu.default_physical_location_ref))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, pd_df))
 
-            new_args = []
-            for item in args:
-                if isinstance(item,DataFrame):
-                    new_args.append(item.get_df())
-                elif isinstance(item,Series):
-                    new_args.append(item.get_s())
-                elif isinstance(item,ndarray):
-                    new_args.append(item.get_nd())
-                else:
-                    new_args.append(item)
+            new_args=remove_ksu_wrappers(args)
             new_args = tuple(new_args)
             result = df_attr(*new_args, **kwargs)
             original_result = result
