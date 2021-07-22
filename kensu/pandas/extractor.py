@@ -31,7 +31,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
         if isinstance(df, pd.DataFrame):
             return [FieldDef(name=str(k), field_type=v.name, nullable=True) for (k, v) in df.dtypes.to_dict().items()]
         elif isinstance(df, pd.Series):
-            return [FieldDef(name=df.name, field_type=str(df.dtypes), nullable=True)]
+            if df.name is None:
+                return [FieldDef(name='value', field_type=str(df.dtypes), nullable=True)]
+            else:
+                return [FieldDef(name=df.name, field_type=str(df.dtypes), nullable=True)]
 
     def extract_location(self, df, location):
         
@@ -39,7 +42,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             return location
         else:
             df = self.skip_wr(df)
-            return "in-mem://AN_ID" + sha256(str(df.to_dict()).encode("utf-8")).hexdigest() +'/in-mem-transformation'
+            from kensu.pandas import DataFrame
+            if isinstance(df,DataFrame):
+                df = df.get_df()
+            return "in-mem://AN_ID" + sha256(str(df.reset_index().to_dict()).encode("utf-8")).hexdigest() +'/in-mem-transformation'
             
 
     def extract_format(self, df, fmt):
@@ -49,7 +55,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             df = self.skip_wr(df)
             return df.__class__.__name__
 
-    def tk(self, k, k1): return k + '.' + k1
+    def tk(self, k, k1): return str(k) + '.' + k1
 
     # return dict of doubles (stats)
     def extract_stats(self, df):
@@ -81,9 +87,19 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
         name = ('/').join(location.split('/')[-2:])
         if logical_naming == 'File':
             logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=fmt, categories=['logical::'+logical_category], pk=ds_pk)
+            cat = ['logical::' + logical_category]
+
+        elif logical_naming == 'Folder':
+            logical_category = location.split('/')[-2]
+            cat = ['logical::' + logical_category]
+
+        elif logical_naming == 'AnteFolder':
+            logical_category = location.split('/')[-3]
+            cat = ['logical::' + logical_category]
+
         else:
-            ds = DataSource(name=name, format=fmt, categories=[], pk=ds_pk)
+            cat =[]
+        ds = DataSource(name=name, format=fmt, categories=cat, pk=ds_pk)
         return ds
 
     def extract_schema(self, data_source, df):

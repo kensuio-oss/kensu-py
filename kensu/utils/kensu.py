@@ -6,6 +6,7 @@ import os
 import time
 
 from kensu.client import *
+from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
 from kensu.utils.simple_cache import *
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
@@ -125,6 +126,7 @@ class Kensu(object):
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
                           get_code_version=get_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
+
 
 
 
@@ -410,13 +412,18 @@ class Kensu(object):
                             stats = self.extractors.extract_stats(stats_df)
                         except:
                             # FIXME weird... should be fine to delete (and try,except too)
-                            if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series):
+                            if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
                                 stats = self.extractors.extract_stats(stats_df)
+                            else:
+                                #TODO Support ndarray
+                                stats = None
                         if stats is not None:
                             DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
                                                      lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
                                       stats=stats,
                                       extra_as_json=None)._report()
+                        elif isinstance(stats_df, KensuDatasourceAndSchema):
+                            stats_df.f_publish_stats(lineage_run.to_guid())
                         #FIXME should be using extractors instead
                         if is_ml_model:
                             model_name = self.model[to_guid][1]
@@ -438,10 +445,12 @@ class Kensu(object):
     dependencies_per_columns = {}
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
+        visited = list()
+        visited.append((guid,column))
         self.dependencies_per_columns = dependencies_per_columns_rt
         filtered_dependencies = all_deps[all_deps['GUID'] == guid]
 
-        filtered_dependencies = filtered_dependencies[filtered_dependencies['COLUMNS'] == column]
+        filtered_dependencies = filtered_dependencies[filtered_dependencies['COLUMNS'] == str(column)]
         if destination_guid in self.dependencies_per_columns:
             for row in filtered_dependencies.iterrows():
                 row = row[1]
@@ -464,8 +473,9 @@ class Kensu(object):
                     guid = row['FROM_ID']
                     columns = row['FROM_COLUMNS']
                     for column in columns:
-                        self.create_dependencies(destination_guid, guid, origin_column, column, all_deps,
-                                            self.dependencies_per_columns)
+                        if (guid,column) not in visited:
+                            self.create_dependencies(destination_guid, guid, origin_column, column, all_deps,
+                                                self.dependencies_per_columns)
         else:
             self.dependencies_per_columns[destination_guid] = {}
             self.create_dependencies(destination_guid, guid, origin_column, column, all_deps,

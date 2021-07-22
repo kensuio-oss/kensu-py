@@ -25,7 +25,14 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
     # return list of FieldDef
     def extract_schema_fields(self, nd):
         nd = self.skip_wr(nd)
-        return [FieldDef(name="value", field_type=str(nd.dtype), nullable=True)]
+        if nd.dtype.names == None :
+            return [FieldDef(name="value", field_type=str(nd.dtype), nullable=True)]
+        else:
+            d = list()
+            for key, item in nd.dtype.fields.items():
+                d.append(FieldDef(name=key, field_type=str(item[0]), nullable=True))
+            return d
+
 
     def extract_location(self, nd, location):
         if location is not None:

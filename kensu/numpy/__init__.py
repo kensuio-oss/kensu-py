@@ -1,14 +1,18 @@
 import logging
 
-import numpy as np
 
+from numpy import *
+import numpy as np
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.helpers import eventually_report_in_mem, get_absolute_path
+from kensu.utils.wrappers import remove_ksu_wrappers
+
 
 class ndarrayDelegator(object):
     SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
     SKIP_KENSU_METHODS = ["get_nd", "kensu_init", "to_string"]
+
 
     def __getattribute__(self, name):
         attr_value = object.__getattribute__(self, name)
@@ -16,11 +20,62 @@ class ndarrayDelegator(object):
             return attr_value
         elif name == "__class__":
             return attr_value
+        elif name in ['mean','std']:
+            attr_value = object.__getattribute__(self.get_nd(), name)
+            return attr_value
+        elif name in ['round','reshape']:
+            attr_value = object.__getattribute__(self.get_nd(), name)
+            return ndarrayDelegator.handle_callable(self, name, attr_value)
         elif hasattr(attr_value, '__call__'):
-            # return ndarrayDelegator.handle_callable(self, name, attr_value)
+            #return ndarrayDelegator.handle_callable(self, name, attr_value)
             return attr_value
         else:
             return ndarrayDelegator.handle_field(self, name, attr_value)
+
+    @staticmethod
+    def handle_callable(kensu_nd, name, attr_value):
+        nd = kensu_nd.get_nd()
+        delegated_pd_attr = object.__getattribute__(nd, name)
+
+
+        docstring = delegated_pd_attr.__doc__
+        return ndarrayDelegator.create_function_wrapper(kensu_nd, name, docstring)
+
+    @staticmethod
+    def create_function_wrapper(kensu_nd, name, docstring):
+        from kensu.pandas.data_frame import Series, DataFrame
+        logging.debug("Kensu wrapping function name=" + name)
+
+        def wrapper(*args, **kwargs):
+
+            nd = kensu_nd.get_nd()
+            df_attr = object.__getattribute__(nd, name)
+
+            kensu = KensuProvider().instance()
+
+            # set_axis updates the DataFrame directly (self) and returns None, we loose the initial dataframe
+            # so we need to create the Kensu object before
+            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+
+            new_args=remove_ksu_wrappers(args)
+            new_args = tuple(new_args)
+            result = df_attr(*new_args, **kwargs)
+            original_result = result
+            result = ndarrayDelegator.wrap_returned_df(kensu_nd, result, name, nd)
+
+            #adding the datasources, schemas and lineage to the dependencies
+            if (result is not None and (isinstance(result,DataFrame) or isinstance(result,ndarray))):
+                numpy_report(kensu_nd, result, name)
+
+
+            if original_result is None:
+                return None
+            else:
+                return result
+
+        wrapper.__doc__ = docstring
+        return wrapper
 
     @staticmethod
     def wrap_returned_df(kensu_s, returned, name, original):
@@ -46,17 +101,25 @@ class ndarrayDelegator(object):
             nd_attr = object.__getattribute__(nd, name)
             result = ndarrayDelegator.wrap_returned_df(kensu_df, nd_attr, name, nd)
 
+            kensu = KensuProvider().instance()
             # adding the datasources, schemas and lineage to the dependencies
+
+
             if result is not None and isinstance(result, ndarray):
-                kensu = KensuProvider().instance()
-                orig_ds = kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref)._report()
-                orig_sc = kensu.extractors.extract_schema(orig_ds, nd)._report()
+                if kensu.mapping:
+                    numpy_report(kensu_df,result,name)
 
-                result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
-                result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
 
-                kensu.add_dependency((nd, orig_ds, orig_sc), (result, result_ds, result_sc),
-                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+
+                else:
+                    orig_ds = kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref)._report()
+                    orig_sc = kensu.extractors.extract_schema(orig_ds, nd)._report()
+
+                    result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
+                    result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
+
+                    kensu.add_dependency((nd, orig_ds, orig_sc), (result, result_ds, result_sc),
+                                       mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
 
             return result
 
@@ -68,6 +131,71 @@ class ndarray(ndarrayDelegator, np.ndarray):
     def __new__(subtype, shape, dtype=float, buffer=None, offset=0, strides=None, order=None):
         obj = super(ndarray, subtype).__new__(subtype, shape, dtype, buffer, offset, strides, order)
         return obj
+
+    def __getitem__(self, item):
+        returned = self.get_nd()[item]
+        if isinstance(returned,str):
+            return returned
+        else:
+            return ndarray.using(returned)
+
+    def __repr__(self):
+        nd = self.get_nd()
+        return nd.__repr__()
+
+    @staticmethod
+    def remove_np_wrapper(other):
+        if isinstance(other, ndarray):
+            other_np = other.get_nd()
+        else:
+            other_np = other
+        return other_np
+
+    def wrapped_ndarray_binary_op(self, other, wrapped_fn, op_title=None):
+        op_title = op_title or 'Numpy ' + str(wrapped_fn.__name__)
+        nd = self.get_nd()
+        other_np = ndarray.remove_np_wrapper(other)
+        result = ndarray.using(wrapped_fn(other_np))
+        numpy_report(nd, result, op_title)
+        if isinstance(other, ndarray):
+            numpy_report(nd, other, op_title)
+        return result
+
+    def __sub__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__sub__)
+
+    def __add__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__add__)
+
+    def __mul__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__mul__)
+
+    def __divmod__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__divmod__)
+
+    def __truediv__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__truediv__)
+
+    def __cmp__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__cmp__)
+
+    def __eq__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__eq__)
+
+    def __ne__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__ne__)
+
+    def __lt__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__lt__)
+
+    def __gt__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__gt__)
+
+    def __le__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__le__)
+
+    def __ge__(self, other):
+        return self.wrapped_ndarray_binary_op(other, self.get_nd().__ge__)
 
     def __array_finalize__(self, obj):
         if obj is None: return
@@ -92,7 +220,6 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def kensu_init(self, d):
         self.__k_nd = d
-
 
 def wrap_save(method):
     def wrapper(*args, **kwargs):
@@ -132,7 +259,7 @@ def wrap_save(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-savetext = wrap_save(np.savetxt)
+savetxt = wrap_save(np.savetxt)
 
 
 def wrap_where(method):
@@ -178,5 +305,140 @@ def wrap_where(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-
 where = wrap_where(np.where)
+
+def wrap_unique(method):
+    def wrapper(*args, **kwargs):
+
+        kensu = KensuProvider().instance()
+
+        new_args = remove_ksu_wrappers(args)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        return original_result
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+unique = wrap_unique(np.unique)
+
+def wrap_abs(method):
+    def wrapper(*args, **kwargs):
+        new_args = remove_ksu_wrappers(args)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        nd = new_args[0]
+
+        numpy_report(nd,result,"Numpy abs")
+
+        return ndarray.using(original_result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+abs = wrap_abs(np.abs)
+
+def wrap_round(method):
+    def wrapper(*args, **kwargs):
+        new_args = remove_ksu_wrappers(args)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        from kensu.itertools import kensu_list
+
+        nd = new_args[0]
+
+        numpy_report(nd,result,"Numpy abs")
+
+        return ndarray.using(original_result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+round = wrap_round(np.round)
+
+def wrap_concat(method):
+    def wrapper(*args, **kwargs):
+        new_args = remove_ksu_wrappers(args)
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        for nd in new_args[0]:
+            numpy_report(nd,result,"Numpy concat")
+
+        return ndarray.using(original_result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+concatenate = wrap_concat(np.concatenate)
+
+
+def array(method):
+    def wrapper(*args, **kwargs):
+
+        args = list(args)
+        obj = args[0]
+
+        if isinstance(obj,list):
+            args[0] = remove_ksu_wrappers(obj)
+            new_args = args
+        else:
+            new_args = remove_ksu_wrappers(args)
+
+        new_args = tuple(new_args)
+
+        result = method(*new_args, **kwargs)
+
+        original_result = result
+
+        return ndarray.using(result)
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+array = array(np.array)
+
+
+
+def numpy_report(nd,result,name):
+    orig_sc_list = []
+
+    kensu = KensuProvider().instance()
+    from kensu.itertools import kensu_list
+
+    if isinstance(nd,kensu_list):
+        orig_sc_list = nd.deps
+
+
+    else:
+        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
+                                                                                logical_naming=kensu.logical_naming))
+        orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+        orig_sc_list.append(orig_sc)
+
+    result_ds = eventually_report_in_mem(
+        kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
+                                             logical_naming=kensu.logical_naming))
+    result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+
+    if kensu.mapping == True:
+        for orig_sc in orig_sc_list:
+            for col in [s.name for s in result_sc.pk.fields]:
+                for col_orig in [s.name for s in orig_sc.pk.fields]:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
+                                                   name)

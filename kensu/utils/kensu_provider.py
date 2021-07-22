@@ -14,8 +14,9 @@ class KensuProvider(object):
     def setKensu(self, kensu):
         self.default = kensu
 
+    # FIXME: probably we don't need get_explicit_code_version_fn & get_code_version_fn anymore. but keeping it for backwards-compat for now...
     @staticmethod
-    def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
+    def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
         if KensuProvider().instance() is None:
             from kensu.utils.kensu import Kensu
             pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
@@ -36,7 +37,7 @@ class KensuProvider(object):
                       sklearn_support = sklearn_support, bigquery_support = bigquery_support, tensorflow_support = tensorflow_support, 
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
                       report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
-                      get_code_version=get_code_version)
+                      get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn)
 
             KensuProvider().setKensu(_kensu)
             return _kensu
