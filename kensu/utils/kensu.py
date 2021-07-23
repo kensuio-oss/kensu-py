@@ -7,7 +7,6 @@ import time
 
 from kensu.client import *
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
-from kensu.utils.simple_cache import *
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
@@ -67,8 +66,6 @@ class Kensu(object):
         """ 
         kensu_host = self.get_kensu_host(api_url)
         kensu_auth_token = auth_token
-
-        self.cache = SimpleCache()
 
         self.extractors = Extractors()
         pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
