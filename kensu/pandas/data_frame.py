@@ -186,13 +186,23 @@ class KensuPandasDelegator(object):
                 else:
                     new_args.append(item)
             new_args = tuple(new_args)
+
+            inplace = False
+            if 'inplace' in kwargs:
+                if kwargs['inplace']:
+                    inplace = True
+                    input_ds = pd_df
+                    orig_ds = kensu.extractors.extract_data_source(input_ds, kensu.default_physical_location_ref)
+                    orig_sc = kensu.extractors.extract_schema(orig_ds, input_ds)
+                    origin_cols = [k.name for k in orig_sc.pk.fields]
+
             result = df_attr(*new_args, **kwargs)
             original_result = result
             result = KensuPandasDelegator.wrap_returned_df(kensu_df, result, name, pd_df)
 
             if result is None :
                 #set_axis updates the DataFrame directly (self) and returns None, so we reset the result
-                if name in ["_set_axis","_set_item"]:
+                if name in ["_set_axis","_set_item","rename"]:
                     result = kensu_df
             #adding the datasources, schemas and lineage to the dependencies
             if (result_regex is None and result is not None and (isinstance(result,DataFrame) or isinstance(result,ndarray))):
@@ -524,8 +534,9 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
             # add dep between original data source and written one
             if kensu.mapping :
-                for col in df:
-                    kensu.add_dependencies_mapping(sc.to_guid(),str(col),orig_sc.to_guid(),str(col),'Write')
+                kensu.register_alias(ref_guid= orig_sc.to_guid(),alias_guid=sc.to_guid())
+                #for col in df:
+                #    kensu.add_dependencies_mapping(sc.to_guid(),str(col),orig_sc.to_guid(),str(col),'Write')
             else:
                 kensu.add_dependency((df, orig_ds, orig_sc), (df, ds, sc), mapping_strategy=mapping_strategies.DIRECT)
 
@@ -911,6 +922,12 @@ class Series(KensuSeriesDelegator, pd.Series):
             #TODO log
         return result
 
+    def __ge__(self, other):
+        pd_s = self.get_s()
+        result = Series.using(pd_s.__ge__(other))
+        series_report(pd_s, result, "Series __ge__")
+        return result
+
     def k_to_format(self, result_regex, *args, **kwargs):
         kensu = KensuProvider().instance()
 
@@ -939,7 +956,8 @@ class Series(KensuSeriesDelegator, pd.Series):
             sc = kensu.extractors.extract_schema(ds, self.get_s())._report()
 
             if kensu.mapping :
-                kensu.add_dependencies_mapping(sc.to_guid(),self.get_s().name,orig_sc.to_guid(),self.get_s().name,'Write')
+                #kensu.add_dependencies_mapping(sc.to_guid(),self.get_s().name,orig_sc.to_guid(),self.get_s().name,'Write')
+                kensu.register_alias(ref_guid= orig_sc.to_guid(),alias_guid=sc.to_guid())
                 kensu.real_schema_df[sc.to_guid()]=self.get_s()
                 kensu.report_with_mapping()
             else:
@@ -1191,3 +1209,60 @@ def wrap_external_to_pandas_transformation(method, get_inputs_lineage_fn):
 
     wrapper.__doc__ = method.__doc__
     return wrapper
+
+def wrap_concat(method):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+        from kensu.utils.helpers import new_arg
+        args = list(args)
+
+        new_args = new_arg(args)
+
+        df_result = method(*new_args, **kwargs)
+
+        result_ds = eventually_report_in_mem(
+            kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,
+                                                 logical_naming=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
+
+        for df in new_args[0]:
+            input_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
+                                                                              logical_naming=kensu.logical_naming))
+            input_sc = eventually_report_in_mem(kensu.extractors.extract_schema(input_ds, df))
+
+            if kensu.mapping:
+                result_cols = df_result.columns
+                columns_ins = df.columns
+
+                for col in result_cols:
+                    if col in columns_ins:
+                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), input_sc.to_guid(),
+                                                     str(col),"Concat")
+
+        df_result_kensu = DataFrame.using(df_result)
+        return df_result_kensu
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+
+def series_report(input,result,name):
+    orig_sc_list = []
+
+    kensu = KensuProvider().instance()
+    orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(input, kensu.default_physical_location_ref,
+                                                                                logical_naming=kensu.logical_naming))
+    orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, input))
+    orig_sc_list.append(orig_sc)
+
+    result_ds = eventually_report_in_mem(
+        kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
+                                             logical_naming=kensu.logical_naming))
+    result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+
+    if kensu.mapping == True:
+        for orig_sc in orig_sc_list:
+            for col in [s.name for s in result_sc.pk.fields]:
+                for col_orig in [s.name for s in orig_sc.pk.fields]:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
+                                                   name)

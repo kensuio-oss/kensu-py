@@ -42,8 +42,12 @@ class KensuSKLearnSupport(ExtractorSupport):
             try:
                 return "in-mem://model/" + sha256(str(model.coef_).encode("utf-8")).hexdigest() + '/in-mem-transformation'
             except:
-                return "in-mem://model/" + sha256(
-                    str(model.leaf_size).encode("utf-8")).hexdigest() + '/in-mem-transformation'
+                try:
+                    return "in-mem://model/" + sha256(
+                        str(model.leaf_size).encode("utf-8")).hexdigest() + '/in-mem-transformation'
+                except:
+                    return "in-mem://model/" + sha256(
+                        str(model.estimators_).encode("utf-8")).hexdigest() + '/in-mem-transformation'
 
 
 
@@ -63,6 +67,8 @@ class KensuSKLearnSupport(ExtractorSupport):
         if logical_naming == 'File':
             logical_category = location.split('/')[-1]
             ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_category], pk=ds_pk)
+        elif logical_naming is not None:
+            ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_naming], pk=ds_pk)
         else:
             ds = DataSource(name=name, format=fmt, categories=[], pk=ds_pk)
         return ds

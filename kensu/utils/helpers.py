@@ -1,7 +1,8 @@
+import json
 import re
 from hashlib import sha1
 
-
+from numpy.random import RandomState
 
 
 def to_snake_case(name):
@@ -58,3 +59,29 @@ def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data
     if register_orig_data:
         kensu.real_schema_df[schema.to_guid()] = orig_variable
     return ds, schema
+
+
+def new_arg(list_or_args):
+    from kensu.pandas import Series, DataFrame
+    from kensu.numpy import ndarray
+    def new_args(list_or_args):
+        new_args = []
+        for item in list_or_args:
+            if isinstance(item, Series):
+                new_args.append(item.get_s())
+            elif isinstance(item,DataFrame):
+                new_args.append(item.get_df())
+            elif isinstance(item, ndarray):
+                new_args.append(item.get_nd())
+            else:
+                new_args.append(item)
+        return new_args
+
+    if isinstance(list_or_args, list):
+            list_or_args[0] = new_args(list_or_args[0])
+            new_args = list_or_args
+    else:
+        new_args = new_args(list_or_args)
+
+    new_args = tuple(new_args)
+    return new_args

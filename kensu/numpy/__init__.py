@@ -142,6 +142,21 @@ class ndarray(ndarrayDelegator, np.ndarray):
 
     def __getitem__(self, item):
         returned = self.get_nd()[item]
+        kensu = KensuProvider().instance()
+        try:
+            orig_ds = eventually_report_in_mem(
+                kensu.extractors.extract_data_source(self, kensu.default_physical_location_ref))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, self))
+
+            result_ds = eventually_report_in_mem(
+                kensu.extractors.extract_data_source(returned, kensu.default_physical_location_ref))
+            result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, returned))
+
+            if kensu.mapping:
+                kensu.add_dependencies_mapping(result_sc.to_guid(), 'value', orig_sc.to_guid(), 'value', '__getitem__')
+        except:
+            None
+
         if isinstance(returned,str):
             return returned
         else:
@@ -347,9 +362,10 @@ def wrap_save(method):
             
 
             if kensu.mapping == True:
-                for col in [s.name for s in result_sc.pk.fields]:
-                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
-                                                 "save")
+                #for col in [s.name for s in result_sc.pk.fields]:
+                #    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
+                #                                 "save")
+                kensu.register_alias(ref_guid= orig_sc.to_guid(),alias_guid=result_sc.to_guid())
                 kensu.report_with_mapping()
 
 

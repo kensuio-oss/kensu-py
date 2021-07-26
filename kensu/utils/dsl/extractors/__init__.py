@@ -1,3 +1,5 @@
+import logging
+
 from kensu.utils.helpers import singleton
 
 
@@ -72,7 +74,9 @@ class Extractors(object):
     def extract_schema(self, data_source, value):
         for support in self.supports:
             if support.is_supporting(value):
-                return support.extract_schema(data_source, value)
+                schema = support.extract_schema(data_source, value)
+                logging.debug(str({schema.to_guid():str(schema)}))
+                return schema
 
         raise Exception("Not supported object: " + value.__class__)
 
