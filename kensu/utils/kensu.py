@@ -60,30 +60,73 @@ class Kensu(object):
                 code_version = code_version + " (dirty)"
         return code_version
 
-    def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
-        """
-        """ 
-        kensu_host = self.get_kensu_host(api_url)
-        kensu_auth_token = auth_token
+    def get_conf_path(self, default = "conf.ini"):
+        return os.environ["CONF_FILE"] if "CONF_FILE" in os.environ else default
 
+    def __init__(self, api_url=None, auth_token=None, process_name=None,
+                 user_name=None, code_location=None, init_context=True, 
+                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
+        """
+        """
+        from configparser import ConfigParser, ExtendedInterpolation
+
+        config = ConfigParser(interpolation=ExtendedInterpolation())
+        # TODO... path to conf there are so many args in the function here, so adding it will require a good migration plan (it doesn't land in kwargs...)
+        config.read(self.get_conf_path("conf.ini")) 
+        kensu_conf = config["kensu"]
+        self.conf = kensu_conf
+
+        kensu_host = self.get_kensu_host(api_url)
+        if kensu_host is None:
+            kensu_host = kensu_conf.get("api_url")
+        if auth_token is None:
+            kensu_auth_token = kensu_conf.get("api_token")
+        else:
+            kensu_auth_token = auth_token
+
+        def kwargs_or_conf_or_default(key, default, kw=kwargs, conf=kensu_conf):
+            if key in kw and kw[key] is not None:
+                return kw[key]
+            elif key in conf and conf.get(key) is not None:
+                r = conf.get(key)
+                if isinstance(default, list):
+                    r = r.replace(" ","").split(",")
+                elif isinstance(default, bool):
+                    r = conf.getboolean(key)
+                return r
+            else:
+                return default
         self.extractors = Extractors()
-        pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
-        sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
-        bigquery_support = kwargs["bigquery_support"] if "bigquery_support" in kwargs else True
-        tensorflow_support = kwargs["tensorflow_support"] if "tensorflow_support" in kwargs else True
-        project_names = kwargs["project_names"] if "project_names" in kwargs else []
-        environment = kwargs["environment"] if "environment" in kwargs else None
-        timestamp = kwargs["timestamp"] if "timestamp" in kwargs else None
-        logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
-        mapping = kwargs["mapping"] if "mapping" in kwargs else None
-        report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
+        pandas_support = kwargs_or_conf_or_default("pandas_support", True)
+        sklearn_support = kwargs_or_conf_or_default("sklearn_support", True)
+        bigquery_support = kwargs_or_conf_or_default("bigquery_support", True)
+        tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", True)
+        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
+
+        project_names = kwargs_or_conf_or_default("project_names", [])
+        environment = kwargs_or_conf_or_default("environment", None)
+        timestamp = kwargs_or_conf_or_default("timestamp", None)
+        logical_naming = kwargs_or_conf_or_default("logical_naming", None)
+        mapping = kwargs_or_conf_or_default("mapping", None)
+        report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
+
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
         else:
             get_code_version = Kensu.discover_code_version
 
-        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
+        def default_if_arg_none(arg, default):
+            if arg is None:
+                return default
+            else:
+                return arg
+        process_name = default_if_arg_none(process_name, kensu_conf.get("process_name"))
+        user_name = default_if_arg_none(user_name, kensu_conf.get("user_name"))
+        code_location = default_if_arg_none(code_location, kensu_conf.get("code_location"))
+
+        do_report = default_if_arg_none(do_report, kensu_conf.getboolean("do_report", True))
+        report_to_file = default_if_arg_none(report_to_file, kensu_conf.getboolean("report_to_file", False))
+        offline_file_name = default_if_arg_none(offline_file_name, kensu_conf.get("offline_file_name", None))
 
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
