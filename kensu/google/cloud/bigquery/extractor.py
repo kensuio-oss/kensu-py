@@ -78,6 +78,10 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
                                         "max": f"max({f.name})",
                                         "mean": f"avg({f.name})",
                                         "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+                elif f.field_type in ["TIMESTAMP", "DATE", "TIME", "DATETIME"]:
+                    stats_aggs[f.name] = {"min": f"min({f.name})",
+                                        "max": f"max({f.name})",
+                                        "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
                 elif f.field_type in ["BOOLEAN", "BOOL"]:
                     stats_aggs[f.name] = {"true": f"sum(case {f.name} when true then 1 else 0 end)",
                                         "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
