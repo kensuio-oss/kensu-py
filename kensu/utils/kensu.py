@@ -72,8 +72,9 @@ class Kensu(object):
 
         config = ConfigParser(interpolation=ExtendedInterpolation())
         # TODO... path to conf there are so many args in the function here, so adding it will require a good migration plan (it doesn't land in kwargs...)
-        config.read(self.get_conf_path("conf.ini")) 
-        kensu_conf = config["kensu"]
+        config.read(self.get_conf_path("conf.ini"))
+
+        kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
         self.conf = kensu_conf
 
         kensu_host = self.get_kensu_host(api_url)

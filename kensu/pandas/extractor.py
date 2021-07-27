@@ -67,6 +67,19 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                     stats_dict[key] = int(item)
                 if np.isnan(item):
                     del stats_dict[key]
+            #Extract datetime for timeliness
+            date_df = df.select_dtypes(['datetime', 'datetimetz'])
+            date_dict = {}
+            date_describe = date_df.describe().to_dict()
+            for col in date_describe:
+                first = date_describe[col]['first'].timestamp()*1000
+                last = date_describe[col]['last'].timestamp()*1000
+                date_dict[col + '.first'] = first
+                date_dict[col + '.last'] = last
+
+            stats_dict = {**stats_dict,**date_dict}
+
+
             return stats_dict
         elif isinstance(df, pd.Series):
             return {k: v for k, v in df.describe().to_dict().items() if type(v) in [int,float] }
