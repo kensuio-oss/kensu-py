@@ -1183,3 +1183,50 @@ def wrap_external_to_pandas_transformation(method, get_inputs_lineage_fn):
 
     wrapper.__doc__ = method.__doc__
     return wrapper
+
+def wrap_to_datetime(method):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+
+        new_args = []
+        for item in args:
+            if isinstance(item, DataFrame):
+                new_args.append(item.get_df())
+            elif isinstance(item, Series):
+                new_args.append(item.get_s())
+            else:
+                new_args.append(item)
+        new_args = tuple(new_args)
+
+        new_kwargs = {}
+        for item in kwargs:
+            if isinstance(kwargs[item], DataFrame):
+                new_kwargs[item]=kwargs[item].get_df()
+            elif isinstance(item, Series):
+                new_kwargs[item]=kwargs[item].get_s()
+            else:
+                new_kwargs[item]=kwargs[item]
+
+        df_result = method(*new_args, **new_kwargs)
+
+
+        result_ds = eventually_report_in_mem(
+            kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,
+                                               logical_naming=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
+
+        for orig_df in args:
+            orig_ds = eventually_report_in_mem(
+                kensu.extractors.extract_data_source(orig_df, kensu.default_physical_location_ref,
+                                                     logical_naming=kensu.logical_naming))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, orig_df))
+
+            for col in [k.name for k in orig_sc.pk.fields]:
+                kensu.add_dependencies_mapping(result_sc.to_guid(), col, orig_sc.to_guid(), col, 'to_datetime')
+
+        df_result_kensu = Series.using(df_result)
+
+        return df_result_kensu
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper

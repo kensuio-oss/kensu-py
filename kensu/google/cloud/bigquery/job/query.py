@@ -128,18 +128,48 @@ class QueryJob(bqj.QueryJob):
                 dest_field_names = [f.name for f in destination_sc.pk.fields]
                 table_infos = QueryJob.get_table_infos_from_sql(client, job.query)
                 for table, ds, sc in table_infos:
-                    if kensu.mapping:
-                        sc_field_names = [v.name for v in sc.pk.fields]
-                        for col in dest_field_names:
-                            if col in sc_field_names:
-                                dep = {'GUID': destination_sc.to_guid(),
-                                       'COLUMNS': col,
-                                       'FROM_ID': sc.to_guid(),
-                                       'FROM_COLUMNS': col,
-                                       'TYPE': 'read'}
-                                kensu.dependencies_mapping.append(dep)
-
                     kensu.real_schema_df[sc.to_guid()] = table
+                try:
+                    import requests
+                    url = kensu.conf.get("sql.util.url")
+
+                    table_id_to_schema_id = {}
+                    metadata = {"tables": []}
+                    for table, ds, sc in table_infos:
+                        table_id = "`"+table.full_table_id.replace(":",".")+"`"
+                        table_md = {
+                            "id": table_id,
+                            "schema": {
+                                "fields": [ { "name": f.name, "type": f.field_type } for f in sc.pk.fields]
+                            }
+                        }
+                        table_id_to_schema_id[table_id] = sc.to_guid()
+                        metadata["tables"].append(table_md)
+                    ## POST REQUEST to /lineage
+                    lineage_info = requests.post(url + "/lineage", json={"sql": job.query, "metadata": metadata}).json()
+                    for l in lineage_info:
+                        t = l["table"]
+                        mapping = l["mapping"]
+                        for o in mapping:
+                            for i in mapping[o]:
+                                dep = {'GUID': destination_sc.to_guid(),
+                                                'COLUMNS': o,
+                                                'FROM_ID': table_id_to_schema_id[t],
+                                                'FROM_COLUMNS': i,
+                                                'TYPE': 'read'}
+                                kensu.dependencies_mapping.append(dep)
+                except:
+                    for table, ds, sc in table_infos:
+                        if kensu.mapping:
+                            sc_field_names = [v.name for v in sc.pk.fields]
+                            for col in dest_field_names:
+                                if col in sc_field_names:
+                                    dep = {'GUID': destination_sc.to_guid(),
+                                        'COLUMNS': col,
+                                        'FROM_ID': sc.to_guid(),
+                                        'FROM_COLUMNS': col,
+                                        'TYPE': 'read'}
+                                    kensu.dependencies_mapping.append(dep)
                 kensu.report_with_mapping()
 
             return result #TODO lineage and stuff if lost from here on

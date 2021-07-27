@@ -16,15 +16,15 @@ class KensuProvider(object):
 
     # FIXME: probably we don't need get_explicit_code_version_fn & get_code_version_fn anymore. but keeping it for backwards-compat for now...
     @staticmethod
-    def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
+    def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=None, report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
         if KensuProvider().instance() is None:
             from kensu.utils.kensu import Kensu
             pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
             sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
-            bigquery_support = kwargs["bigquery_support"] if "bigquery_support" in kwargs else False
-            tensorflow_support = kwargs["tensorflow_support"] if "tensorflow_support" in kwargs else False
+            bigquery_support = kwargs["bigquery_support"] if "bigquery_support" in kwargs else None
+            tensorflow_support = kwargs["tensorflow_support"] if "tensorflow_support" in kwargs else None
 
-            project_names = kwargs["project_names"] if "project_names" in kwargs else []
+            project_names = kwargs["project_names"] if "project_names" in kwargs else None
             environment = kwargs["environment"] if "environment" in kwargs else None
             timestamp = kwargs["timestamp"] if "timestamp" in kwargs else None
             logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
