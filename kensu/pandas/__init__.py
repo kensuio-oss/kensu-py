@@ -8,7 +8,7 @@ else:
 
     from .data_frame import DataFrame
     from .data_frame import Series
-    from .data_frame import wrap_pandas_reader, wrap_pandas_get_dummies, wrap_merge
+    from .data_frame import wrap_pandas_reader, wrap_pandas_get_dummies, wrap_merge, wrap_to_datetime
     from .extractor import KensuPandasSupport
 
     if hasattr(pd, "read_clipboard"):
@@ -45,3 +45,5 @@ else:
         get_dummies = wrap_pandas_get_dummies(pd.get_dummies)
     if hasattr(pd, "merge"):
         merge = wrap_merge(pd.merge)
+    if hasattr(pd, 'to_datetime'):
+        to_datetime = wrap_to_datetime(pd.to_datetime)

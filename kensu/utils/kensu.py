@@ -7,7 +7,6 @@ import time
 
 from kensu.client import *
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
-from kensu.utils.simple_cache import *
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
@@ -17,17 +16,6 @@ from kensu.pandas import DataFrame,Series
 
 
 class Kensu(object):
-    # list of triples i, o, mapping strategy
-    # i and o are either one or a list of triples (object, DS, SC)
-    dependencies = []
-    dependencies_mapping = []
-    dependencies_per_columns = {}
-    real_schema_df = {}
-    sent_runs = []
-    data_collectors = {}
-    model={}
-
-
     UNKNOWN_PHYSICAL_LOCATION = PhysicalLocation(name="Unknown", lat=0.12341234, lon=0.12341234,
                                                  pk=PhysicalLocationPK(city="Unknown", country="Unknown"))
 
@@ -72,41 +60,78 @@ class Kensu(object):
                 code_version = code_version + " (dirty)"
         return code_version
 
+    def get_conf_path(self, default = "conf.ini"):
+        return os.environ["CONF_FILE"] if "CONF_FILE" in os.environ else default
+
     def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, init_context=True, do_report=True, report_to_file=False, offline_file_name=None, reporter=None, **kwargs):
+                 user_name=None, code_location=None, init_context=True, 
+                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
         """
-        """ 
+        """
+        from configparser import ConfigParser, ExtendedInterpolation
+
+        config = ConfigParser(interpolation=ExtendedInterpolation())
+        # TODO... path to conf there are so many args in the function here, so adding it will require a good migration plan (it doesn't land in kwargs...)
+        config.read(self.get_conf_path("conf.ini"))
+
+        kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
+        self.conf = kensu_conf
+
         kensu_host = self.get_kensu_host(api_url)
-        kensu_auth_token = auth_token
+        if kensu_host is None:
+            kensu_host = kensu_conf.get("api_url")
+        if auth_token is None:
+            kensu_auth_token = kensu_conf.get("api_token")
+        else:
+            kensu_auth_token = auth_token
 
-        self.cache = SimpleCache()
-
+        def kwargs_or_conf_or_default(key, default, kw=kwargs, conf=kensu_conf):
+            if key in kw and kw[key] is not None:
+                return kw[key]
+            elif key in conf and conf.get(key) is not None:
+                r = conf.get(key)
+                if isinstance(default, list):
+                    r = r.replace(" ","").split(",")
+                elif isinstance(default, bool):
+                    r = conf.getboolean(key)
+                return r
+            else:
+                return default
         self.extractors = Extractors()
-        pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
-        sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
-        bigquery_support = kwargs["bigquery_support"] if "bigquery_support" in kwargs else True
-        tensorflow_support = kwargs["tensorflow_support"] if "tensorflow_support" in kwargs else True
-        project_names = kwargs["project_names"] if "project_names" in kwargs else []
-        environment = kwargs["environment"] if "environment" in kwargs else None
-        timestamp = kwargs["timestamp"] if "timestamp" in kwargs else None
-        logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
-        mapping = kwargs["mapping"] if "mapping" in kwargs else None
-        report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
+        pandas_support = kwargs_or_conf_or_default("pandas_support", True)
+        sklearn_support = kwargs_or_conf_or_default("sklearn_support", True)
+        bigquery_support = kwargs_or_conf_or_default("bigquery_support", True)
+        tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", True)
+        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
+
+        project_names = kwargs_or_conf_or_default("project_names", [])
+        environment = kwargs_or_conf_or_default("environment", None)
+        timestamp = kwargs_or_conf_or_default("timestamp", None)
+        logical_naming = kwargs_or_conf_or_default("logical_naming", None)
+        mapping = kwargs_or_conf_or_default("mapping", None)
+        report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
+
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
         else:
             get_code_version = Kensu.discover_code_version
 
-        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
+        def default_if_arg_none(arg, default):
+            if arg is None:
+                return default
+            else:
+                return arg
+        process_name = default_if_arg_none(process_name, kensu_conf.get("process_name"))
+        user_name = default_if_arg_none(user_name, kensu_conf.get("user_name"))
+        code_location = default_if_arg_none(code_location, kensu_conf.get("code_location"))
+
+        do_report = default_if_arg_none(do_report, kensu_conf.getboolean("do_report", True))
+        report_to_file = default_if_arg_none(report_to_file, kensu_conf.getboolean("report_to_file", False))
+        offline_file_name = default_if_arg_none(offline_file_name, kensu_conf.get("offline_file_name", None))
 
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
-
-        if timestamp is not None:
-            self.kensu_api.api_client.default_headers["X-Entity-Creation-Time"] = timestamp
-        else:
-            timestamp = datetime.datetime.now().timestamp()*1000
 
         # add function to Kensu entities
         injection = Injection()
@@ -114,10 +139,6 @@ class Kensu(object):
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
         injection.set_kensu_api(self.kensu_api)
 
-        self.user = None
-        self.code_base = None
-        self.code_version = None
-        self.timestamp = timestamp
         self.logical_naming = logical_naming
         self.mapping = mapping
         self.report_in_mem = report_in_mem
@@ -126,9 +147,6 @@ class Kensu(object):
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
                           get_code_version=get_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
-
-
-
 
     # sets the api url using host if passed, otherwise gets KENSU_API_URL
     def get_kensu_host(self, host=None):
@@ -142,18 +160,23 @@ class Kensu(object):
 
         return kensu_host
 
-
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
-
+        # list of triples i, o, mapping strategy
+        # i and o are either one or a list of triples (object, DS, SC)
+        self.dependencies = []
+        self.dependencies_mapping = []
+        self.dependencies_per_columns = {}
+        self.real_schema_df = {}
+        self.sent_runs = []
+        self.data_collectors = {}
+        self.model={}
+        self.set_timestamp(timestamp)
         if user_name is None:
             user_name = Kensu.discover_user_name()
-
         if code_location is None:
             code_location = Kensu.discover_code_location()
-
         self.user = User(pk=UserPK(user_name))._report()
         self.code_base = CodeBase(pk=CodeBasePK(code_location))._report()
-        self.timestamp = timestamp
         if get_code_version is None:
             if timestamp is not None: # this is weird though...
                 version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
@@ -170,16 +193,10 @@ class Kensu(object):
             else:
                 raise Exception("Can't determine `process_name`, maybe is this running from a Notebook?")
         self.process = Process(pk=ProcessPK(qualified_name=process_name))._report()
-
-        
         if project_names is None:
             self.project_refs = []
-
         else:
             self.project_refs = [Project(pk=ProjectPK(name=n))._report().to_ref() for n in project_names]
-
-        #TODO timestamp for historical data
-
         process_run_name = process_name + "@" + datetime.datetime.now().isoformat()
         self.process_run = ProcessRun(
             pk=ProcessRunPK(process_ref=self.process.to_ref(), qualified_name=process_run_name)
@@ -190,14 +207,17 @@ class Kensu(object):
         )._report()
         
 
+    def set_timestamp(self, timestamp):
+        if timestamp is not None:
+            self.kensu_api.api_client.default_headers["X-Entity-Creation-Time"] = timestamp
+        else:
+            timestamp = datetime.datetime.now().timestamp()*1000
+        self.timestamp = timestamp
 
     def set_default_physical_location(self, pl):
         self.default_physical_location = pl
         pl._report()
         self.default_physical_location_ref = pl.to_ref()
-
-    def get_dependencies(self):
-        return self.dependencies
 
     def get_dependencies_mapping(self):
         return self.dependencies_mapping
@@ -210,106 +230,8 @@ class Kensu(object):
                'TYPE': type}
         self.dependencies_mapping.append(dep)
 
-    def add_dependency(self, i, o, mapping_strategy=mapping_strategies.FULL):
-        if not isinstance(i, tuple):
-            (ids, isc) = self.extractors.extract_data_source_and_schema(i, self.default_physical_location_ref)
-            i = (i, ids, isc)
-
-        if not isinstance(o, tuple):
-            (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
-            o = (o, ods, osc)
-
-        self.dependencies.append((i, o, mapping_strategy))
-
-    def add_dependencies(self, ins, outs, mapping_strategy=mapping_strategies.FULL):
-        new_ins = []
-        for i in ins:
-            if not isinstance(i, tuple):
-                (ids, isc) = self.extractors.extract_data_source_and_schema(i, self.default_physical_location_ref)
-                i = (i, ids, isc)
-                new_ins.append(i)
-
-        new_outs = []
-        for o in outs:
-            if not isinstance(o, tuple):
-                (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
-                o = (o, ods, osc)
-                new_outs.append(o)
-
-        self.dependencies.append((new_ins, new_outs, mapping_strategy))
-
     def in_mem(self, var_name):
         return "in-memory-data://" + self.process.pk.qualified_name + "/" + var_name
-
-    @property
-    def s(self):
-        return self.start_lineage(True)
-
-    def start_lineage(self, report_stats=True):
-        lineage_builder = LineageBuilder(self, report_stats)
-        return lineage_builder
-
-    # if the new_lineage has a model training in it (output),
-    #   then kwargs will be pass to the function to compute metrics
-    #     ex: kwargs["y_test"] can refer to the test set to compute CV metrics
-    def new_lineage(self, process_lineage_dependencies, report_stats=True, **kwargs):
-        data_flow = [d.toSchemaLineageDependencyDef() for d in process_lineage_dependencies]
-
-        inputs = ",".join(sorted([d.from_schema_ref.by_guid for d in data_flow]))
-        outputs = ",".join(sorted([d.to_schema_ref.by_guid for d in data_flow]))
-
-        lineage = ProcessLineage(name=inputs+"->"+outputs,
-                                 operation_logic="APPEND",
-                                 # FIXME? => add control and the function level like report_stats
-                                 pk=ProcessLineagePK(
-                                     process_ref=self.process.to_ref(),
-                                     data_flow=data_flow
-                                 )
-                                 )._report()
-
-        if self.timestamp is None:
-            self.timestamp=int(time.time()) * 1000
-
-        lineage_run = LineageRun(pk=LineageRunPK(
-            lineage_ref=lineage.to_ref(),
-            process_run_ref=self.process_run.to_ref(),
-            timestamp=self.timestamp
-        )
-        )._report()
-
-        data_flow_inputs = list(
-            {to_hash_key(d.input_schema): (d.input_schema, d.input) for d in process_lineage_dependencies}.values())
-        data_flow_outputs = list(
-            {to_hash_key(d.output_schema): (d.output_schema, d.output) for d in process_lineage_dependencies}.values())
-
-        for (schema, df) in (data_flow_inputs + data_flow_outputs):
-            stats = self.extractors.extract_stats(df)
-            if report_stats and stats is not None:
-                DataStats(pk=DataStatsPK(schema_ref=schema.to_ref(),
-                                         lineage_run_ref=lineage_run.to_ref()),
-                          stats=stats,
-                          extra_as_json=None)._report()
-
-        # TODO Machine Learning part for OUTPUTS ONLY (right ?)
-        for (schema, df) in data_flow_outputs:
-            ml = self.extractors.extract_machine_learning_info(df)
-            if ml is not None:
-                model = Model(ModelPK(ml["name"]))._report()
-                model_training = ModelTraining(ModelTrainingPK(model_ref=model.to_ref(),
-                                                               process_lineage_ref=lineage.to_ref())
-                                               )._report()
-
-                metrics = self.extractors.extract_machine_learning_metrics(df, **kwargs)
-                if len(metrics) > 0:
-                    hp = self.extractors.extract_machine_learning_hyper_parameters(df)
-                    ModelMetrics(pk=ModelMetricsPK(
-                        model_training_ref=model_training.to_ref(),
-                        lineage_run_ref=lineage_run.to_ref(),
-                        stored_in_schema_ref=schema.to_ref()
-                    ),
-                        metrics=metrics,
-                        hyper_params_as_json=json.dumps(hp)
-                    )._report()
 
     def report_with_mapping(self):
         import pandas as pd
@@ -344,9 +266,7 @@ class Kensu(object):
                                                                  by_guid=self.process_run.to_guid()),
                                                              timestamp=round(self.timestamp)))._report()
                     self.sent_runs.append(lineage.to_guid())
-
         else:
-
             dependencies_per_columns = {}
             for element in unique_ids:
                 if element in self.real_schema_df:
@@ -440,9 +360,6 @@ class Kensu(object):
                                                            stored_in_schema_ref=SchemaRef(by_guid=to_guid)),
                                          metrics=metrics, hyper_params_as_json=hyperparams)._report()
 
-
-
-    dependencies_per_columns = {}
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
         visited = list()
@@ -480,3 +397,99 @@ class Kensu(object):
             self.dependencies_per_columns[destination_guid] = {}
             self.create_dependencies(destination_guid, guid, origin_column, column, all_deps,
                                 self.dependencies_per_columns)
+
+    def get_dependencies(self):
+        return self.dependencies
+    def add_dependency(self, i, o, mapping_strategy=mapping_strategies.FULL):
+        if not isinstance(i, tuple):
+            (ids, isc) = self.extractors.extract_data_source_and_schema(i, self.default_physical_location_ref)
+            i = (i, ids, isc)
+
+        if not isinstance(o, tuple):
+            (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
+            o = (o, ods, osc)
+
+        self.dependencies.append((i, o, mapping_strategy))
+    def add_dependencies(self, ins, outs, mapping_strategy=mapping_strategies.FULL):
+        new_ins = []
+        for i in ins:
+            if not isinstance(i, tuple):
+                (ids, isc) = self.extractors.extract_data_source_and_schema(i, self.default_physical_location_ref)
+                i = (i, ids, isc)
+                new_ins.append(i)
+
+        new_outs = []
+        for o in outs:
+            if not isinstance(o, tuple):
+                (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
+                o = (o, ods, osc)
+                new_outs.append(o)
+
+        self.dependencies.append((new_ins, new_outs, mapping_strategy))
+    @property
+    def s(self):
+        return self.start_lineage(True)
+    def start_lineage(self, report_stats=True):
+        lineage_builder = LineageBuilder(self, report_stats)
+        return lineage_builder
+    def new_lineage(self, process_lineage_dependencies, report_stats=True, **kwargs):
+        # if the new_lineage has a model training in it (output),
+        #   then kwargs will be pass to the function to compute metrics
+        #     ex: kwargs["y_test"] can refer to the test set to compute CV metrics
+        data_flow = [d.toSchemaLineageDependencyDef() for d in process_lineage_dependencies]
+
+        inputs = ",".join(sorted([d.from_schema_ref.by_guid for d in data_flow]))
+        outputs = ",".join(sorted([d.to_schema_ref.by_guid for d in data_flow]))
+
+        lineage = ProcessLineage(name=inputs+"->"+outputs,
+                                 operation_logic="APPEND",
+                                 # FIXME? => add control and the function level like report_stats
+                                 pk=ProcessLineagePK(
+                                     process_ref=self.process.to_ref(),
+                                     data_flow=data_flow
+                                 )
+                                 )._report()
+
+        if self.timestamp is None:
+            self.timestamp=int(time.time()) * 1000
+
+        lineage_run = LineageRun(pk=LineageRunPK(
+            lineage_ref=lineage.to_ref(),
+            process_run_ref=self.process_run.to_ref(),
+            timestamp=self.timestamp
+        )
+        )._report()
+
+        data_flow_inputs = list(
+            {to_hash_key(d.input_schema): (d.input_schema, d.input) for d in process_lineage_dependencies}.values())
+        data_flow_outputs = list(
+            {to_hash_key(d.output_schema): (d.output_schema, d.output) for d in process_lineage_dependencies}.values())
+
+        for (schema, df) in (data_flow_inputs + data_flow_outputs):
+            stats = self.extractors.extract_stats(df)
+            if report_stats and stats is not None:
+                DataStats(pk=DataStatsPK(schema_ref=schema.to_ref(),
+                                         lineage_run_ref=lineage_run.to_ref()),
+                          stats=stats,
+                          extra_as_json=None)._report()
+
+        # TODO Machine Learning part for OUTPUTS ONLY (right ?)
+        for (schema, df) in data_flow_outputs:
+            ml = self.extractors.extract_machine_learning_info(df)
+            if ml is not None:
+                model = Model(ModelPK(ml["name"]))._report()
+                model_training = ModelTraining(ModelTrainingPK(model_ref=model.to_ref(),
+                                                               process_lineage_ref=lineage.to_ref())
+                                               )._report()
+
+                metrics = self.extractors.extract_machine_learning_metrics(df, **kwargs)
+                if len(metrics) > 0:
+                    hp = self.extractors.extract_machine_learning_hyper_parameters(df)
+                    ModelMetrics(pk=ModelMetricsPK(
+                        model_training_ref=model_training.to_ref(),
+                        lineage_run_ref=lineage_run.to_ref(),
+                        stored_in_schema_ref=schema.to_ref()
+                    ),
+                        metrics=metrics,
+                        hyper_params_as_json=json.dumps(hp)
+                    )._report()

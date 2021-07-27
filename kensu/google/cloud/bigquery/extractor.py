@@ -49,23 +49,43 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
         }
         kensu = KensuProvider().instance()
         client: Client = kensu.data_collectors['BigQuery']
-        stats_aggs = {}
-        for f in table.schema:
-            # f.field_type is
-            # ["STRING", "BYTES",
-            # "INTEGER", "INT64",
-            # "FLOAT", "FLOAT64",
-            # "BOOLEAN", "BOOL",
-            # "TIMESTAMP", "DATE", "TIME", "DATETIME", "GEOGRAPHY", "NUMERIC", "BIGNUMERIC",
-            # "RECORD", "STRUCT",]
-            if f.field_type in ["INTEGER", "INT", "FLOAT", "FLOAT64", "NUMERIC", "BIGNUMERIC"]:
-                stats_aggs[f.name] = {"min": f"min({f.name})",
-                                      "max": f"max({f.name})",
-                                      "mean": f"avg({f.name})",
-                                      "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
-            elif f.field_type in ["BOOLEAN", "BOOL"]:
-                stats_aggs[f.name] = {"true": f"sum(case {f.name} when true then 1 else 0 end)",
-                                      "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+        try:
+            import requests
+            url = kensu.conf.get("sql.util.url")
+            metadata = {"tables": []}
+            table_id = "`"+table.full_table_id.replace(":",".")+"`"
+            table_md = {
+                "id": table_id,
+                "schema": {
+                    "fields" : [ { "name": f.name, "type": f.field_type } for f in table.schema]
+                }
+            }
+            metadata["tables"].append(table_md)
+            stats_aggs = requests.post(url + "/stats-criterions", json={"sql": "SQL_NOT_USED_NOR_AVAILABLE_HERE_YET", "metadata": metadata}).json()
+            stats_aggs = stats_aggs[table.get_real_name()]
+        except:
+            stats_aggs = {}
+            for f in table.schema:
+                # f.field_type is
+                # ["STRING", "BYTES",
+                # "INTEGER", "INT64",
+                # "FLOAT", "FLOAT64",
+                # "BOOLEAN", "BOOL",
+                # "TIMESTAMP", "DATE", "TIME", "DATETIME", "GEOGRAPHY", "NUMERIC", "BIGNUMERIC",
+                # "RECORD", "STRUCT",]
+                if f.field_type in ["INTEGER", "INT", "FLOAT", "FLOAT64", "NUMERIC", "BIGNUMERIC"]:
+                    stats_aggs[f.name] = {"min": f"min({f.name})",
+                                        "max": f"max({f.name})",
+                                        "mean": f"avg({f.name})",
+                                        "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+                elif f.field_type in ["TIMESTAMP", "DATE", "TIME", "DATETIME"]:
+                    stats_aggs[f.name] = {"min": f"min({f.name})",
+                                        "max": f"max({f.name})",
+                                        "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+                elif f.field_type in ["BOOLEAN", "BOOL"]:
+                    stats_aggs[f.name] = {"true": f"sum(case {f.name} when true then 1 else 0 end)",
+                                        "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+
         selector = ",".join([v+" "+c+"_"+s for c, vs in stats_aggs.items() for s, v in vs.items()])
         sts = client.query(f"select {selector} from `{str(table.reference)}`")
         sts_result = sts.result()
