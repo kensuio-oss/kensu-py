@@ -3,6 +3,7 @@ from hashlib import sha256
 import pandas as pd
 import google
 from google.cloud.bigquery import Table
+import datetime
 
 import kensu
 from kensu.client import *
@@ -94,7 +95,10 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
             stats = row # there is only one anyway
         for k, vs in stats_aggs.items():
             for s in vs.keys():
-                r[k + "." + s] = stats[k + "_" + s]
+                v = stats[k + "_" + s]
+                if v.__class__ in [datetime.date, datetime.datetime, datetime.time]:
+                    v = int(v.strftime("%s")+"000")
+                r[k + "." + s] = v
         return r
 
     # return dict of doubles (stats)

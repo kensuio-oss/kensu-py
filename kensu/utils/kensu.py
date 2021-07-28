@@ -101,7 +101,7 @@ class Kensu(object):
         pandas_support = kwargs_or_conf_or_default("pandas_support", True)
         sklearn_support = kwargs_or_conf_or_default("sklearn_support", True)
         bigquery_support = kwargs_or_conf_or_default("bigquery_support", False)
-        tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", True)
+        tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", False)
         self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
 
         project_names = kwargs_or_conf_or_default("project_names", [])
