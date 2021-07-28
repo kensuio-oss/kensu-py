@@ -5,7 +5,7 @@ import numpy as np
 
 import kensu
 from kensu.client import *
-from kensu.utils.dsl.extractors import ExtractorSupport
+from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
 from kensu.utils.helpers import singleton
 
 @singleton
@@ -45,8 +45,8 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             from kensu.pandas import DataFrame
             if isinstance(df,DataFrame):
                 df = df.get_df()
-            return "in-mem://AN_ID" + sha256(str(df.reset_index().to_dict()).encode("utf-8")).hexdigest() +'/in-mem-transformation'
-            
+            # FIXME: or should it be added as prop to the ksu wrapper instead?!
+            return get_or_set_rand_location(df)
 
     def extract_format(self, df, fmt):
         if fmt is not None:

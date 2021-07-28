@@ -4,7 +4,7 @@ import numpy
 
 import kensu
 from kensu.client import FieldDef, SchemaPK, Schema, DataSource, DataSourcePK
-from kensu.utils.dsl.extractors import ExtractorSupport
+from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
 from kensu.utils.helpers import singleton
 
 @singleton
@@ -33,13 +33,13 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
                 d.append(FieldDef(name=key, field_type=str(item[0]), nullable=True))
             return d
 
-
     def extract_location(self, nd, location):
         if location is not None:
             return location
         else:
             nd = self.skip_wr(nd)
-            return "in-mem://AN_ID" + sha256(str(nd.tolist()).encode("utf-8")).hexdigest()
+            # FIXME: or should it be added as prop to the ksu wrapper instead?!
+            return get_or_set_rand_location(nd)
 
     def extract_format(self, nd, fmt):
         if fmt is not None:
