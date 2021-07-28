@@ -37,7 +37,9 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
         if location is not None:
             return location
         else:
-            nd = self.skip_wr(nd)
+            # numpy.ndarray do not easily allow to set extra attributes, so get/set it on the wrapper itself
+            # otherwise - AttributeError: numpy.ndarray' object has no attribute '_ksu_loc_id'
+            # nd = self.skip_wr(nd)
             # FIXME: or should it be added as prop to the ksu wrapper instead?!
             return get_or_set_rand_location(nd)
 
