@@ -16,7 +16,7 @@ from setuptools import setup, find_packages
 NAME = "kensu"
 
 
-VERSION = "1.4.1.5"
+VERSION = "1.4.1.6"
 
 
 # To install the library, run the following
