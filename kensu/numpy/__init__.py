@@ -60,8 +60,8 @@ else:
 
                 # set_axis updates the DataFrame directly (self) and returns None, we loose the initial dataframe
                 # so we need to create the Kensu object before
-                orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref))
-                orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+                orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(kensu_nd, kensu.default_physical_location_ref))
+                orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, kensu_nd))
 
                 new_args=remove_ksu_wrappers(args)
                 new_args = tuple(new_args)
@@ -117,8 +117,8 @@ else:
 
 
                     else:
-                        orig_ds = kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref)._report()
-                        orig_sc = kensu.extractors.extract_schema(orig_ds, nd)._report()
+                        orig_ds = kensu.extractors.extract_data_source(kensu_df, kensu.default_physical_location_ref)._report()
+                        orig_sc = kensu.extractors.extract_schema(orig_ds, kensu_df)._report()
 
                         result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
                         result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
@@ -286,10 +286,12 @@ else:
             new_args = tuple(new_args)
 
             result = method(*new_args, **kwargs)
+            kensu_result = ndarray.using(result)
 
-            result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
+            # Note: must pass a kensu wrapped result
+            result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(kensu_result, kensu.default_physical_location_ref,
                                                            logical_naming=kensu.logical_naming))
-            result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+            result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, kensu_result))
 
             for element in origins:
                 df = element.get_s()
@@ -304,8 +306,8 @@ else:
 
                             kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
                                                          "Numpy Where")
-            result = ndarray.using(result)
-            return result
+
+            return kensu_result
 
         wrapper.__doc__ = method.__doc__
         return wrapper
