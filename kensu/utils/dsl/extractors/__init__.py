@@ -3,11 +3,15 @@ from kensu.utils.helpers import singleton
 import uuid
 
 
+def get_rand_location():
+    return "in-mem://AN_ID" + str(uuid.uuid4()) + '/in-mem-transformation'
+
+
 def get_or_set_rand_location(obj):
     if hasattr(obj, '_ksu_loc_id'):
         return obj._ksu_loc_id
     else:
-        new_id = "in-mem://AN_ID" + str(uuid.uuid4()) + '/in-mem-transformation'
+        new_id = get_rand_location()
         obj._ksu_loc_id = new_id
         return new_id
 
