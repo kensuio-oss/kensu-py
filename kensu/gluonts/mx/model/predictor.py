@@ -9,7 +9,7 @@ from kensu.gluonts.model.forecast import SampleForecast
 class RepresentableBlockPredictor(pred.RepresentableBlockPredictor):
 
     def predict(self, Y, *args, **kwargs):
-        Y, old_Field, dep_fields = make_dataset_reliable(X)
+        Y, old_Field, dep_fields = make_dataset_reliable(Y)
 
         original_result = list(super(RepresentableBlockPredictor, self).predict(dataset=Y, *args, **kwargs))
 
