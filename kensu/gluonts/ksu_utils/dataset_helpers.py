@@ -5,10 +5,11 @@ from kensu.pandas.data_frame import DataFrame,Series
 from kensu.numpy import ndarray
 
 def make_dataset_reliable(dataset):
+    dep_fields = []
+    old_Field = []
     if isinstance(dataset, ListDataset):
         new_Field = []
         old_Field = dataset.list_data
-        dep_fields = []
         for element in dataset.list_data:
             new_dict = {}
             for key in element.keys():
@@ -27,5 +28,5 @@ def make_dataset_reliable(dataset):
                 new_dict[key] = new_item
             new_Field.append(new_dict)
         dataset.list_data = new_Field
-
         return (dataset, old_Field, dep_fields)
+    return (dataset, old_Field, dep_fields)
