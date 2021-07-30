@@ -156,14 +156,14 @@ else:
                 other_np = other
             return other_np
 
-        def wrapped_ndarray_binary_op(self, other, wrapped_fn, op_title=None):
+        def wrapped_ndarray_binary_op(self, other_input, wrapped_fn, op_title=None):
             op_title = op_title or 'Numpy ' + str(wrapped_fn.__name__)
-            nd = self.get_nd()
-            other_np = ndarray.remove_np_wrapper(other)
+            input_kensu_nd = self
+            other_np = ndarray.remove_np_wrapper(other_input)
             result = ndarray.using(wrapped_fn(other_np))
-            numpy_report(nd, result, op_title)
-            if isinstance(other, ndarray):
-                numpy_report(nd, other, op_title)
+            numpy_report(input_kensu_nd, result, op_title)
+            if isinstance(other_input, ndarray):
+                numpy_report(other_input, result, op_title)
             return result
 
         def __sub__(self, other):
@@ -323,10 +323,21 @@ else:
             new_args = tuple(new_args)
 
             result = method(*new_args, **kwargs)
-
             original_result = result
-
-            return original_result
+            # with extra kwargs unique sometimes return tuples...
+            if isinstance(original_result, np.ndarray):
+                ksu_result = ndarray.using(original_result)
+                numpy_report(args, ksu_result, "Numpy unique")
+            elif isinstance(original_result, tuple) and all([isinstance(x, np.ndarray) for x in original_result]):
+                ksu_result = tuple([ndarray.using(x) for x in original_result])
+                for ksu_result_item in ksu_result:
+                    numpy_report(args, ksu_result_item, "Numpy unique")
+            else:
+                msg = "Kensu numpy.unique got an unexpected result which may be not fully tracked"
+                logging.warning(msg)
+                print(msg)
+                ksu_result = original_result
+            return ksu_result
 
         wrapper.__doc__ = method.__doc__
         return wrapper
@@ -338,15 +349,11 @@ else:
             new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
-            result = method(*new_args, **kwargs)
+            original_result = method(*new_args, **kwargs)
+            ksu_result = ndarray.using(original_result)
+            numpy_report(args,ksu_result,"Numpy abs")
 
-            original_result = result
-
-            nd = new_args[0]
-
-            numpy_report(nd,result,"Numpy abs")
-
-            return ndarray.using(original_result)
+            return ksu_result
 
         wrapper.__doc__ = method.__doc__
         return wrapper
@@ -358,17 +365,10 @@ else:
             new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
-            result = method(*new_args, **kwargs)
-
-            original_result = result
-
-            from kensu.itertools import kensu_list
-
-            nd = new_args[0]
-
-            numpy_report(nd,result,"Numpy abs")
-
-            return ndarray.using(original_result)
+            original_result = method(*new_args, **kwargs)
+            ksu_result = ndarray.using(original_result)
+            numpy_report(args,ksu_result,"Numpy abs")
+            return ksu_result
 
         wrapper.__doc__ = method.__doc__
         return wrapper
@@ -380,14 +380,11 @@ else:
             new_args = remove_ksu_wrappers(args)
             new_args = tuple(new_args)
 
-            result = method(*new_args, **kwargs)
-
-            original_result = result
-
-            for nd in new_args[0]:
-                numpy_report(nd,result,"Numpy concat")
-
-            return ndarray.using(original_result)
+            original_result = method(*new_args, **kwargs)
+            ksu_result = ndarray.using(original_result)
+            for input_nd in args:
+                numpy_report(input_nd,ksu_result,"Numpy concat")
+            return ksu_result
 
         wrapper.__doc__ = method.__doc__
         return wrapper
@@ -409,17 +406,21 @@ else:
 
             new_args = tuple(new_args)
 
-            result = method(*new_args, **kwargs)
-
-            original_result = result
-
-            return ndarray.using(result)
+            original_result = method(*new_args, **kwargs)
+            ksu_result = ndarray.using(original_result)
+            # FIXME: don't we need to call numpy_report here to attach the lineage?
+            return ksu_result
 
         wrapper.__doc__ = method.__doc__
         return wrapper
 
     array = array(np.array)
 
+    def extract_sc(kensu, nd):
+        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
+                                                                                logical_naming=kensu.logical_naming))
+        orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+        return orig_sc
 
 
     def numpy_report(nd,result,name):
@@ -430,13 +431,16 @@ else:
 
         if isinstance(nd,kensu_list):
             orig_sc_list = nd.deps
-
-
+        elif isinstance(nd, tuple) or isinstance(nd, list):
+            # FIXME: fail tolerance for unexpected arguments
+            for input_nd in nd:
+                if isinstance(input_nd, kensu_list):
+                    for x in input_nd.deps:
+                        orig_sc_list.append(x)
+                else:
+                    orig_sc_list.append(extract_sc(kensu, input_nd))
         else:
-            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
-                                                                                    logical_naming=kensu.logical_naming))
-            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
-            orig_sc_list.append(orig_sc)
+            orig_sc_list.append(extract_sc(kensu, nd))
 
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
