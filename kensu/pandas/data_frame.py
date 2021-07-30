@@ -395,11 +395,12 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
         if isinstance(data,ndarray):
             kensu = KensuProvider().instance()
+            orig_data = data
             data = data.get_nd()
             orig_ds = eventually_report_in_mem(
-                kensu.extractors.extract_data_source(data, kensu.default_physical_location_ref,
+                kensu.extractors.extract_data_source(orig_data, kensu.default_physical_location_ref,
                                                      logical_naming=kensu.logical_naming))
-            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, data))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, orig_data))
 
             df = pd.DataFrame(data,index,columns,dtype,copy)
 
