@@ -15,7 +15,7 @@ else:
 
 
     class ndarrayDelegator(object):
-        SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS"]
+        SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS", "_ksu_loc_id"]
         SKIP_KENSU_METHODS = ["get_nd", "kensu_init", "to_string"]
 
 
