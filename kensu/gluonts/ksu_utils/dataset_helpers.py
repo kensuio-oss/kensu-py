@@ -22,7 +22,7 @@ def make_dataset_reliable(dataset):
                     dep_fields.append(new_item)
                 elif isinstance(item, ndarray):
                     new_item = item.get_nd()
-                    dep_fields.append(new_item)
+                    dep_fields.append(item)
                 else:
                     new_item = item
                 new_dict[key] = new_item

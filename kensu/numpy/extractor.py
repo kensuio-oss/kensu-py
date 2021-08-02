@@ -41,7 +41,7 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
                 # not wrapped numpy.ndarray do not (easily) allow to set extra attributes,
                 # so return a random uuid even if we expect a stable one
                 # otherwise - AttributeError: numpy.ndarray' object has no attribute '_ksu_loc_id'
-                print('WARN: kensu ndarraySupport.extract_location got unexpected arg type')
+                print('WARN: kensu ndarraySupport.extract_location got unexpected arg type: '+str(type(nd)))
                 return get_rand_location()
             else:
                 return get_or_set_rand_location(nd)
