@@ -42,6 +42,11 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
                 # so return a random uuid even if we expect a stable one
                 # otherwise - AttributeError: numpy.ndarray' object has no attribute '_ksu_loc_id'
                 print('WARN: kensu ndarraySupport.extract_location got unexpected arg type: '+str(type(nd)))
+                try:
+                    raise Exception("no error, just marking stack trace for debugging")
+                except Exception:  # thrown by default extract_data_source/extract_schema
+                    import traceback
+                    traceback.print_stack()
                 return get_rand_location()
             else:
                 return get_or_set_rand_location(nd)
