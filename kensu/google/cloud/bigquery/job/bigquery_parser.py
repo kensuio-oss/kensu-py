@@ -41,7 +41,6 @@ class BqOfflineParser:
         #     # FIXME: this possibly don't fit here well...
         #     kensu.real_schema_df[sc.to_guid()] = table
 
-        table_id_to_schema_id = {}
         table_id_to_bqtable = {}
         metadata = {"tables": []}
         for table, ds, sc in table_infos:
@@ -53,9 +52,8 @@ class BqOfflineParser:
                 }
             }
             table_id_to_bqtable[table_id] = table
-            table_id_to_schema_id[table_id] = sc.to_guid()  # FIXME: should be not here?
             metadata["tables"].append(table_md)
-        return metadata, table_id_to_schema_id, table_id_to_bqtable, table_infos
+        return metadata,  table_id_to_bqtable, table_infos
 
     @staticmethod
     def get_table_info_for_id(client: bq.Client, id: sqlparse.sql.Identifier):
@@ -132,22 +130,25 @@ class BqRemoteParser:
         inputs = []
         lineage = []
         for lineage_entry in lineage_info:
-            logging.debug('lineage_entry["table"] = {}, table_id_to_bqtable.keys={}'.format(lineage_entry['table'], list(table_id_to_bqtable.keys())))
-            bq_table = table_id_to_bqtable.get(lineage_entry['table'])
+            table_id = lineage_entry['table']
+            logging.debug('lineage_entry["table"] = {}, table_id_to_bqtable.keys={}'.format(table_id, list(table_id_to_bqtable.keys())))
+            bq_table = table_id_to_bqtable.get(table_id)
             if bq_table is not None:
                 ds, sc = BqCommonHelpers.table_to_kensu(bq_table)
                 ds_path = ds.pk.location
                 sc = [(f.name, f.field_type) for f in sc.pk.fields]
             else:
                 sc = None
-                ds_path = 'bigquery:/' + lineage_entry['table']  # FIXME: add proper BQ prefix, and extract a shared helper
+                ds_path = 'bigquery:/' + table_id  # FIXME: add proper BQ prefix, and extract a shared helper
+            stats_aggs = stats_info.get(table_id)
+            logging.debug('table_id {} got stat_aggs:'.format(table_id, str(stats_aggs)))
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
                 ds_path=ds_path,
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=sc,
-                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_descriptions=stats_info) or None
+                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_aggs=stats_aggs) or None
             )
             lin_entry = ExtDependencyEntry(
                 input_ds=input,

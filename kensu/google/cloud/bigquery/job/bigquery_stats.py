@@ -14,17 +14,14 @@ from kensu.utils.helpers import singleton
 from kensu.utils.kensu_provider import KensuProvider
 
 
-def compute_bigquery_stats(table, client, stats_descriptions):
+def compute_bigquery_stats(table, client, stats_aggs):
     r = {
         "nrows": table.num_rows,
     }
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
-    try:
-        table_real_name = table.get_real_name()
-        logging.debug('table_real_name: {}'.format(table_real_name))
-        stats_aggs = stats_descriptions[table_real_name]
-    except:
+    if stats_aggs is None:
+        logging.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
         stats_aggs = {}
         for f in table.schema:
             # f.field_type is
