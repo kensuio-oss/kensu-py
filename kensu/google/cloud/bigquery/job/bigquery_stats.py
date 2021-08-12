@@ -15,9 +15,7 @@ from kensu.utils.kensu_provider import KensuProvider
 
 
 def compute_bigquery_stats(table, client, stats_aggs, input_filters=None):
-    r = {
-        "nrows": table.num_rows,
-    }
+    r = {}
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
     if stats_aggs is None:
@@ -31,6 +29,7 @@ def compute_bigquery_stats(table, client, stats_aggs, input_filters=None):
             # "BOOLEAN", "BOOL",
             # "TIMESTAMP", "DATE", "TIME", "DATETIME", "GEOGRAPHY", "NUMERIC", "BIGNUMERIC",
             # "RECORD", "STRUCT",]
+            # FIXME: decimal
             if f.field_type in ["INTEGER", "INT", "FLOAT", "FLOAT64", "NUMERIC", "BIGNUMERIC"]:
                 stats_aggs[f.name] = {"min": f"min({f.name})",
                                       "max": f"max({f.name})",
@@ -48,11 +47,15 @@ def compute_bigquery_stats(table, client, stats_aggs, input_filters=None):
     filters = ''
     if input_filters is not None and len(input_filters) > 0:
         filters = f"WHERE {' AND '.join(input_filters)}"
-    sts = client.query(f"select {selector} from `{str(table.reference)}` {filters}")
+    stats_query = f"select {selector}, sum(1) as nrows from `{str(table.reference)}` {filters}"
+    # FIXME: false vs FALSE ?
+    logging.debug(f"stats query: {stats_query}")
+    sts = client.query(stats_query)
     sts_result = sts.result()
     stats = None
     for row in sts_result:
         stats = row  # there is only one anyway
+    r['nrows'] = stats['nrows']
     for k, vs in stats_aggs.items():
         for s in vs.keys():
             v = stats[k + "_" + s]

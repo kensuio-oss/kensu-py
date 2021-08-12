@@ -59,6 +59,9 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     # return dict of doubles (stats)
     def extract_stats(self, df):
         df = self.skip_wr(df)
+        # skip stats when not wringing to BQ!
+        # FIXME: what about when  wringing to BQ!?
+        return None
         if isinstance(df, google.cloud.bigquery.table.Table):
             return self.extract_table_stats(df)
         elif isinstance(df, google.cloud.bigquery.table.RowIterator):

@@ -131,7 +131,7 @@ class BqRemoteParser:
         lineage = []
         for lineage_entry in lineage_info:
             table_id = lineage_entry['table']
-            logging.debug('lineage_entry["table"] = {}, table_id_to_bqtable.keys={}'.format(table_id, list(table_id_to_bqtable.keys())))
+            logging.debug('table_id = {}, table_id_to_bqtable.keys={}'.format(table_id, list(table_id_to_bqtable.keys())))
             bq_table = table_id_to_bqtable.get(table_id)
             if bq_table is not None:
                 ds, sc = BqCommonHelpers.table_to_kensu(bq_table)
@@ -143,14 +143,14 @@ class BqRemoteParser:
             table_stats_info = stats_info.get(table_id, {})
             stats_aggs = table_stats_info.get('stats')
             stats_filters = table_stats_info.get('input_filters')
-            logging.debug('table_id {} got stat_aggs:'.format(table_id, str(stats_aggs)))
+            logging.debug('table_id {} got input_filters: {} & stat_aggs:'.format(table_id, stats_filters, str(stats_aggs)))
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
                 ds_path=ds_path,
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=sc,
-                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_aggs=stats_aggs, input_filters=stats_filters) or None
+                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_aggs=stats_aggs, input_filters=stats_filters) or {}
             )
             lin_entry = ExtDependencyEntry(
                 input_ds=input,
