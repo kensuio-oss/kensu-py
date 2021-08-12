@@ -14,7 +14,7 @@ from kensu.utils.helpers import singleton
 from kensu.utils.kensu_provider import KensuProvider
 
 
-def compute_bigquery_stats(table, client, stats_aggs):
+def compute_bigquery_stats(table, client, stats_aggs, input_filters=None):
     r = {
         "nrows": table.num_rows,
     }
@@ -45,7 +45,10 @@ def compute_bigquery_stats(table, client, stats_aggs):
                                       "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
 
     selector = ",".join([v + " " + c + "_" + s for c, vs in stats_aggs.items() for s, v in vs.items()])
-    sts = client.query(f"select {selector} from `{str(table.reference)}`")
+    filters = ''
+    if input_filters is not None and len(input_filters) > 0:
+        filters = f"WHERE {' AND '.join(input_filters)}"
+    sts = client.query(f"select {selector} from `{str(table.reference)}` {filters}")
     sts_result = sts.result()
     stats = None
     for row in sts_result:

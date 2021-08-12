@@ -140,7 +140,9 @@ class BqRemoteParser:
             else:
                 sc = None
                 ds_path = 'bigquery:/' + table_id  # FIXME: add proper BQ prefix, and extract a shared helper
-            stats_aggs = stats_info.get(table_id)
+            table_stats_info = stats_info.get(table_id, {})
+            stats_aggs = table_stats_info.get('stats')
+            stats_filters = table_stats_info.get('input_filters')
             logging.debug('table_id {} got stat_aggs:'.format(table_id, str(stats_aggs)))
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
@@ -148,7 +150,7 @@ class BqRemoteParser:
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=sc,
-                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_aggs=stats_aggs) or None
+                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_aggs=stats_aggs, input_filters=stats_filters) or None
             )
             lin_entry = ExtDependencyEntry(
                 input_ds=input,

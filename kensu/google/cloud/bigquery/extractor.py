@@ -54,7 +54,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
         # FIXME: this is dummy default in case ANSI SQL parsing failed, and possibly should be just disabled?
         kensu = KensuProvider().instance()
         client: Client = kensu.data_collectors['BigQuery']
-        return compute_bigquery_stats(table, client, stats_descriptions={})
+        return compute_bigquery_stats(table, client, stats_aggs=None, input_filters=None)
 
     # return dict of doubles (stats)
     def extract_stats(self, df):
