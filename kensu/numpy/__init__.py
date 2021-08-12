@@ -26,6 +26,7 @@ else:
             elif name == "__class__":
                 return attr_value
             elif name in ['mean','std']:
+                # fixme: lin lost?
                 attr_value = object.__getattribute__(self.get_nd(), name)
                 return attr_value
             elif name in ['round','reshape']:
@@ -139,6 +140,7 @@ else:
 
         def __getitem__(self, item):
             returned = self.get_nd()[item]
+            # fixme: input lineage lost
             if isinstance(returned,str):
                 return returned
             else:
