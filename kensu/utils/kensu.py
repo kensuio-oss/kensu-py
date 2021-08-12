@@ -166,6 +166,8 @@ class Kensu(object):
         self.dependencies = []
         self.dependencies_mapping = []
         self.dependencies_per_columns = {}
+        # when set, it seems to indicate if a schema/DS is a real one (is not in memory),
+        # so must be not set for in memory DSes
         self.real_schema_df = {}
         self.sent_runs = []
         self.data_collectors = {}

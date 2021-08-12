@@ -20,7 +20,7 @@ class KensuDatasourceAndSchema:
 
 
     @staticmethod
-    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None):
+    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None, f_get_stats=lambda: {}):
         from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
         pl_ref = ksu.UNKNOWN_PHYSICAL_LOCATION.to_ref()
         ds_pk = DataSourcePK(location=ds_path, physical_location_ref=pl_ref)
@@ -34,13 +34,16 @@ class KensuDatasourceAndSchema:
         ])
         schema = Schema(name="schema:" + ds.name,
                         pk=SchemaPK(ds.to_ref(), fields=fields))
-        return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema)
+        return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema, f_get_stats=f_get_stats)
+
+    def __repr__(self):
+        return 'KensuDatasourceAndSchema(ksu_ds={}, ksu_schema={})'.format(str(self.ksu_ds), str(self.ksu_schema))
 
 
 class ExtDependencyEntry:
     def __init__(
             self,
-            input_ds,  # type: KensuDatasourceAndSchema
+            input_ds=None,  # type: KensuDatasourceAndSchema
             # {out_column: [input_column1, input_column2, ...]}
             lineage=None  # type: dict[str, list[str]]
     ):
@@ -53,16 +56,25 @@ class ExtDependencyEntry:
             lineage = {}
         self.lineage = lineage
 
+    def __repr__(self):
+        return 'ExtDependencyEntry(input_ds={}, lineage={})'.format(str(self.input_ds), str(self.lineage))
+
 
 class GenericComputedInMemDs:
     def __init__(
             self,
-            inputs,  # type: list[KensuDatasourceAndSchema]
-            lineage  # type: list[ExtDependencyEntry]
+            inputs=None,  # type: list[KensuDatasourceAndSchema]
+            lineage=None  # type: list[ExtDependencyEntry]
     ):
-        self.lineage = lineage
-        self.inputs = inputs
+        if inputs is None and lineage is not None:
+            inputs = [item.input_ds for item in lineage]
+        self.lineage = lineage or []
+        self.inputs = inputs or []
 
+    def __repr__(self):
+        return 'GenericComputedInMemDs(lineage={})'.format(str(self.lineage))
+
+    # FIXME: rename register_output_orig_data -> output_is_not_in_mem ?
     def report(self, ksu, df_result, operation_type, report_output=False, register_output_orig_data=False):
         from kensu.utils.helpers import extract_ksu_ds_schema
         from kensu.utils.dsl import mapping_strategies
