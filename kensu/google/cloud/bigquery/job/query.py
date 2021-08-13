@@ -91,7 +91,6 @@ class QueryJob(bqj.QueryJob):
             )
             # FIXME? kensu.report_with_mapping()
 
-
             return result
 
         wrapper.__doc__ = f.__doc__

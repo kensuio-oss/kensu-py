@@ -14,7 +14,7 @@ from kensu.utils.helpers import singleton
 from kensu.utils.kensu_provider import KensuProvider
 
 
-def compute_bigquery_stats(table, client, stats_aggs, input_filters=None):
+def compute_bigquery_stats(table_ref, table, client, stats_aggs, input_filters=None):
     r = {}
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
@@ -47,9 +47,8 @@ def compute_bigquery_stats(table, client, stats_aggs, input_filters=None):
     filters = ''
     if input_filters is not None and len(input_filters) > 0:
         filters = f"WHERE {' AND '.join(input_filters)}"
-    stats_query = f"select {selector}, sum(1) as nrows from `{str(table.reference)}` {filters}"
-    # FIXME: false vs FALSE ?
-    logging.debug(f"stats query: {stats_query}")
+    stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}` {filters}"
+    logging.debug(f"stats query for table {table_ref}: {stats_query}")
     sts = client.query(stats_query)
     sts_result = sts.result()
     stats = None

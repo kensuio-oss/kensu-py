@@ -22,9 +22,10 @@ class BqCommonHelpers:
     @staticmethod
     def table_to_kensu(table: Table):
         kensu = KensuProvider().instance()
+        # note: there should be no report here!
         ds = kensu.extractors.extract_data_source(table, kensu.default_physical_location_ref,
-                                                  logical_naming=kensu.logical_naming)._report()
-        sc = kensu.extractors.extract_schema(ds, table)._report()
+                                                  logical_naming=kensu.logical_naming)
+        sc = kensu.extractors.extract_schema(ds, table)
         return ds, sc
 
 
@@ -126,31 +127,42 @@ class BqRemoteParser:
         logging.debug("lineage_resp_body:" + str(lineage_resp.text))
         parsed_resp = lineage_resp.json()
         lineage_info = parsed_resp['lineage']
-        stats_info = parsed_resp['stats']  # FIXME
+        stats_info = parsed_resp['stats']
         inputs = []
         lineage = []
         for lineage_entry in lineage_info:
             table_id = lineage_entry['table']
-            logging.debug('table_id = {}, table_id_to_bqtable.keys={}'.format(table_id, list(table_id_to_bqtable.keys())))
+            logging.debug('table_id = {}, table_id_to_bqtable.keys={}'.format(table_id, str(table_id_to_bqtable)))
             bq_table = table_id_to_bqtable.get(table_id)
+            stats_values = {}
             if bq_table is not None:
                 ds, sc = BqCommonHelpers.table_to_kensu(bq_table)
                 ds_path = ds.pk.location
                 sc = [(f.name, f.field_type) for f in sc.pk.fields]
+                table_stats_info = stats_info.get(table_id, {})
+                stats_aggs = table_stats_info.get('stats')
+                stats_filters = table_stats_info.get('input_filters')
+                bg_table_ref = bq_table.reference
+                # note: making stats computation lazy in a f_get_stats lambda seem to behave very weirdly...
+                # so stats are computed eagerly now
+                stats_values = compute_bigquery_stats(
+                    table_ref=bg_table_ref,
+                    table=bq_table,
+                    client=client,
+                    stats_aggs=stats_aggs,
+                    input_filters=stats_filters)
             else:
                 sc = None
                 ds_path = 'bigquery:/' + table_id  # FIXME: add proper BQ prefix, and extract a shared helper
-            table_stats_info = stats_info.get(table_id, {})
-            stats_aggs = table_stats_info.get('stats')
-            stats_filters = table_stats_info.get('input_filters')
-            logging.debug('table_id {} got input_filters: {} & stat_aggs:'.format(table_id, stats_filters, str(stats_aggs)))
+
+            logging.debug(f'table_id {table_id} (table.ref={bg_table_ref}, ds_path: {ds_path}) got input_filters: {stats_filters} & stat_aggs:{str(stats_aggs)}')
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
                 ds_path=ds_path,
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=sc,
-                f_get_stats=lambda: (bq_table is not None) and compute_bigquery_stats(bq_table, client, stats_aggs=stats_aggs, input_filters=stats_filters) or {}
+                f_get_stats=lambda: stats_values
             )
             lin_entry = ExtDependencyEntry(
                 input_ds=input,
