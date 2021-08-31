@@ -160,6 +160,17 @@ class Kensu(object):
 
         return kensu_host
 
+    def register_schema(self, s):
+        self.schema_name_by_guid[s.to_guid()] = s.name
+        return s
+
+    def to_schema_name(self, s_guid):
+        return self.schema_name_by_guid.get(s_guid) or s_guid
+
+    def to_schema_names(self, s_guids):
+        return [self.to_schema_name(s_guid) for s_guid in s_guids]
+
+
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
         # list of triples i, o, mapping strategy
         # i and o are either one or a list of triples (object, DS, SC)
@@ -167,6 +178,7 @@ class Kensu(object):
         self.dependencies_mapping = []
         self.dependencies_per_columns = {}
         self.real_schema_df = {}
+        self.schema_name_by_guid = {}
         self.sent_runs = []
         self.data_collectors = {}
         self.model={}
@@ -311,8 +323,8 @@ class Kensu(object):
                     from_pks.add(from_guid)
                     schemas_pk.add(to_guid)
 
-
-                lineage = ProcessLineage(name='Lineage to %s from %s' %(to_guid, (',').join(list(from_pks))), operation_logic='APPEND',
+                lin_name = 'Lineage to %s from %s' %(self.to_schema_name(to_guid), (',').join(list(self.to_schema_names(from_pks))))
+                lineage = ProcessLineage(name=lin_name, operation_logic='APPEND',
                                          pk=ProcessLineagePK(
                                              process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                              data_flow=dataflow))._report()
@@ -438,8 +450,8 @@ class Kensu(object):
         #     ex: kwargs["y_test"] can refer to the test set to compute CV metrics
         data_flow = [d.toSchemaLineageDependencyDef() for d in process_lineage_dependencies]
 
-        inputs = ",".join(sorted([d.from_schema_ref.by_guid for d in data_flow]))
-        outputs = ",".join(sorted([d.to_schema_ref.by_guid for d in data_flow]))
+        inputs = ",".join(sorted(self.to_schema_names([d.from_schema_ref.by_guid for d in data_flow])))
+        outputs = ",".join(sorted(self.to_schema_names([d.to_schema_ref.by_guid for d in data_flow])))
 
         lineage = ProcessLineage(name=inputs+"->"+outputs,
                                  operation_logic="APPEND",

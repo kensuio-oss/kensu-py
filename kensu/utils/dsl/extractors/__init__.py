@@ -84,10 +84,15 @@ class Extractors(object):
 
         raise Exception("Not supported object: " + str(value.__class__))
 
+    def register_schema(self, schema):
+        from kensu.utils.kensu_provider import KensuProvider
+        KensuProvider().instance().register_schema(s=schema)
+        return schema
+
     def extract_schema(self, data_source, value):
         for support in self.supports:
             if support.is_supporting(value):
-                return support.extract_schema(data_source, value)
+                return self.register_schema(support.extract_schema(data_source, value))
 
         raise Exception("Not supported object: " + value.__class__)
 
