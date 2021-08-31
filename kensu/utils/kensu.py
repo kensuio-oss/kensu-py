@@ -160,9 +160,12 @@ class Kensu(object):
 
         return kensu_host
 
-    def register_schema(self, s):
-        self.schema_name_by_guid[s.to_guid()] = s.name
-        return s
+    def register_schema_name(self, ds, schema):
+        name = ds.name
+        if "in-mem" in name and ds.format is not None:
+            name = name + " of format=" + str(ds.format or '?')
+        self.schema_name_by_guid[schema.to_guid()] = name
+        return schema
 
     def to_schema_name(self, s_guid):
         return self.schema_name_by_guid.get(s_guid) or s_guid
@@ -268,7 +271,8 @@ class Kensu(object):
                                                         column_data_dependencies=data)
                 dataflow.append(schema_dep)
 
-                lineage = ProcessLineage(name='Lineage', operation_logic='APPEND',
+                lineage = ProcessLineage(name=self.get_lineage_name(dataflow),
+                                         operation_logic='APPEND',
                                          pk=ProcessLineagePK(process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                                              data_flow=dataflow))._report()
 
@@ -323,8 +327,8 @@ class Kensu(object):
                     from_pks.add(from_guid)
                     schemas_pk.add(to_guid)
 
-                lin_name = 'Lineage to %s from %s' %(self.to_schema_name(to_guid), (',').join(list(self.to_schema_names(from_pks))))
-                lineage = ProcessLineage(name=lin_name, operation_logic='APPEND',
+                lineage = ProcessLineage(name=self.get_lineage_name(dataflow),
+                                         operation_logic='APPEND',
                                          pk=ProcessLineagePK(
                                              process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                              data_flow=dataflow))._report()
@@ -438,22 +442,31 @@ class Kensu(object):
                 new_outs.append(o)
 
         self.dependencies.append((new_ins, new_outs, mapping_strategy))
+
+    def get_lineage_name(self,
+                         data_flow  # type: list[SchemaLineageDependencyDef]
+                         ):
+        inputs = ",".join(sorted(self.to_schema_names([d.from_schema_ref.by_guid for d in data_flow])))
+        outputs = ",".join(sorted(self.to_schema_names([d.to_schema_ref.by_guid for d in data_flow])))
+        return "Lineage to {} from {}".format(outputs, inputs)
+
+
     @property
     def s(self):
         return self.start_lineage(True)
+
+
     def start_lineage(self, report_stats=True):
         lineage_builder = LineageBuilder(self, report_stats)
         return lineage_builder
+
+
     def new_lineage(self, process_lineage_dependencies, report_stats=True, **kwargs):
         # if the new_lineage has a model training in it (output),
         #   then kwargs will be pass to the function to compute metrics
         #     ex: kwargs["y_test"] can refer to the test set to compute CV metrics
         data_flow = [d.toSchemaLineageDependencyDef() for d in process_lineage_dependencies]
-
-        inputs = ",".join(sorted(self.to_schema_names([d.from_schema_ref.by_guid for d in data_flow])))
-        outputs = ",".join(sorted(self.to_schema_names([d.to_schema_ref.by_guid for d in data_flow])))
-
-        lineage = ProcessLineage(name=inputs+"->"+outputs,
+        lineage = ProcessLineage(name=self.get_lineage_name(data_flow),
                                  operation_logic="APPEND",
                                  # FIXME? => add control and the function level like report_stats
                                  pk=ProcessLineagePK(
