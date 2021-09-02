@@ -16,7 +16,13 @@ else:
 
     class ndarrayDelegator(object):
         SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS", "_ksu_loc_id"]
-        SKIP_KENSU_METHODS = ["get_nd", "kensu_init", "to_string"]
+        SKIP_KENSU_METHODS = [
+            "get_nd",
+            "kensu_init",
+            "to_string",
+            "__array_finalize__",
+            'wrapped_ndarray_binary_op',
+        ]
 
 
         def __getattribute__(self, name):
@@ -24,6 +30,8 @@ else:
             if name == "_ndarray__k_nd":
                 return attr_value
             elif name == "__class__":
+                return attr_value
+            elif name in ndarrayDelegator.SKIP_KENSU_METHODS:
                 return attr_value
             elif name in ['mean','std']:
                 # fixme: lin lost?
@@ -33,6 +41,7 @@ else:
                 attr_value = object.__getattribute__(self.get_nd(), name)
                 return ndarrayDelegator.handle_callable(self, name, attr_value)
             elif hasattr(attr_value, '__call__'):
+                logging.warning('ndarray not delegated call to {}'.format(name))
                 #return ndarrayDelegator.handle_callable(self, name, attr_value)
                 return attr_value
             else:
