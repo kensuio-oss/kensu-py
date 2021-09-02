@@ -113,7 +113,7 @@ class KensuPandasDelegator(object):
                 result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
                 kensu.add_dependency((pd_df, orig_ds, orig_sc), (result, result_ds, result_sc),
-                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN_OR_FULL)
             elif result is not None and isinstance(result, ndarray):
                 kensu = KensuProvider().instance()
                 orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(pd_df, kensu.default_physical_location_ref))
@@ -123,7 +123,7 @@ class KensuPandasDelegator(object):
                 result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
                 kensu.add_dependency((pd_df, orig_ds, orig_sc), (result, result_ds, result_sc),
-                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN_OR_FULL)
 
 
             return result

@@ -48,5 +48,8 @@ FULL = Strategy(lambda i, o: True)
 DIRECT = Strategy(lambda i, o: i == o)
 def from_simple_io_dict(di):
     return Strategy(lambda i, o: di[i]==o)
+# FIXME: review all usages!!!???
 OUT_STARTS_WITH_IN = Strategy(lambda i,o: o[0:len(i)] == i)
 
+# FIXME: I want a different strategy actually...
+OUT_STARTS_WITH_IN_OR_FULL = OUT_STARTS_WITH_IN.or_else(FULL)
