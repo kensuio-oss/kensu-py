@@ -1,6 +1,9 @@
 import re
 from hashlib import sha1
 
+import pandas as pd
+
+
 def to_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
@@ -59,14 +62,19 @@ def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data
 
 def flatten(d, parent_key='', sep='.'):
     items = []
-    for k, v in d.items():
-        new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, dict):
-            items.extend(flatten(v, new_key, sep=sep).items())
-        elif isinstance(v, list):
-            new_key = new_key + '[]'
-            for i in v:
-                items.extend(flatten(i, new_key, sep=sep).items())
-        else:
-            items.append((new_key, type(v).__name__))
+    if isinstance(d,list):
+        for element in d:
+            items.extend(flatten(element, parent_key='[]', sep=sep).items())
+    else:
+        for k, v in d.items():
+            new_key = parent_key + sep + k if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten(v, new_key, sep=sep).items())
+            elif isinstance(v, list):
+                if isinstance(v[0], dict):
+                    new_key = new_key + '[]'
+                    for i in v:
+                        items.extend(flatten(i, new_key, sep=sep).items())
+            else:
+                items.append((new_key, type(v).__name__))
     return dict(items)
