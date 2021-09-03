@@ -1,3 +1,6 @@
+import logging
+
+
 class KensuDatasourceAndSchema:
     def __init__(self,
                  ksu_ds,
@@ -27,7 +30,7 @@ class KensuDatasourceAndSchema:
         ds = DataSource(name=ds_path, format=format, categories=categories, pk=ds_pk)
         if maybe_schema is None:
             maybe_schema = [("unknown", "unknown"), ]
-        print(maybe_schema)
+        logging.debug(str(maybe_schema))
         fields = list([
             FieldDef(name=str(name), field_type=str(dtype), nullable=True)
             for (name, dtype) in maybe_schema

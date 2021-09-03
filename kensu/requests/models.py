@@ -4,10 +4,21 @@ import requests.models as md
 from kensu.utils.helpers import eventually_report_in_mem
 from kensu.numpy import ndarray
 
+import builtins
+# Extended subclass
+class ksu_str(str):
+    ksu_metadata = None
 
 class Response(md.Response):
+
     ksu_schema = None
 
+    @property
+    def text(self) -> str:
+        result = super(Response, self).text
+        ksu_result = ksu_str(result)
+        ksu_result.metadata = {"schema":self.ksu_schema, "ds_location":self.ds_location}
+        return ksu_result
 
 
 

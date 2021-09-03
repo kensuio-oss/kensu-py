@@ -27,6 +27,7 @@ def wrap_get(method):
 
         result.__class__ = Response
         result.ksu_schema = result_sc
+        result.ds_location = result.url
         kensu.real_schema_df[result_sc.to_guid()] = None
 
         return result

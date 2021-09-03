@@ -1,3 +1,5 @@
+import logging
+
 from kensu.utils.dsl.extractors import ExtractorSupport
 from kensu.utils.helpers import singleton
 
@@ -16,9 +18,9 @@ class GenericDatasourceInfoSupport(ExtractorSupport):  # should extends some Dam
     # return dict of doubles (stats)
     # stats are reported inside spark itself (?)
     def extract_stats(self, df):
-        print('starting waiting for datastats for {}'.format(df.ksu_ds.name))
+        logging.debug('starting waiting for datastats for {}'.format(df.ksu_ds.name))
         stats = df.f_get_stats()
-        print('done waiting for datastats for {}'.format(df.ksu_ds.name))
+        logging.debug('done waiting for datastats for {}'.format(df.ksu_ds.name))
         return stats
 
     def extract_data_source(self,
