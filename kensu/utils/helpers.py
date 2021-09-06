@@ -8,6 +8,14 @@ from hashlib import sha1
 from kensu.client import FieldDef, SchemaPK, Schema, DataSource
 
 
+def stacktrace_without_error():
+    try:
+        raise Exception("no error, just marking stack trace for debugging")
+    except Exception:
+        import traceback
+        traceback.print_stack()
+
+
 def to_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()

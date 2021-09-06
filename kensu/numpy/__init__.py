@@ -435,7 +435,15 @@ else:
 
             original_result = method(*new_args, **kwargs)
             ksu_result = ndarray.using(original_result)
-            numpy_report(obj, ksu_result, "Numpy array")
+            if isinstance(obj, list):
+                # as a work around we report lineage only on the first item of the list,
+                # as it might be too big otherwise
+                # FIXME: in case we got a regular list as arg, we have to depend on each item of the list,
+                #  and it is very inefficient! we should at least take only unique deps of deps (if possible/easy)
+                for obj_item in obj[:1]:
+                    numpy_report(obj_item, ksu_result, "Numpy array item")
+            else:
+                numpy_report(obj, ksu_result, "Numpy array")
             return ksu_result
 
         wrapper.__doc__ = method.__doc__
