@@ -194,7 +194,7 @@ class KensuPandasDelegator(object):
 
                 if kensu.mapping :
                     if name in ['__getitem__','_slice','_reindex_with_indexers','head',
-                                '_take_with_is_copy','fillna','to_records','drop']:
+                                '_take_with_is_copy','fillna','to_records','drop', 'value', 'values']:
                         for col in [k.name for k in result_sc.pk.fields]:
                             kensu.add_dependencies_mapping(result_sc.to_guid(),col,orig_sc.to_guid(),col,name)
                     if name in ['pivot_table']:
