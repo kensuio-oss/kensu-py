@@ -15,8 +15,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
 
 
 class TestPandas(unittest.TestCase):
-    token = "eyJhbGciOiJIUzI1NiJ9.eyIkaW50X3Blcm1zIjpbXSwic3ViIjoib3JnLnBhYzRqLmNvcmUucHJvZmlsZS5Db21tb25Qcm9maWxlI3NhbW15IiwidG9rZW5faWQiOiI4NmYxMWU0Ni02NDk1LTRkNWItODhjZS01ODk1NTAxNDM0NzUiLCJhcHBncm91cF9pZCI6IjUyZTVkNDNjLTM0ZGYtNGRkZi1hM2Y3LTIwODU2Y2MzOWY2ZCIsIiRpbnRfcm9sZXMiOlsiYXBwIl0sImV4cCI6MTg4ODE0MTk2NiwiaWF0IjoxNTcyNzgxOTY2fQ.4CdaN9a80xc1ry6aT52MFxc33vb0nJVXX5TdGzdoJ7E"
-    kensu = KensuProvider().initKensu(api_url="https://api.sandbox.kensu.io", auth_token=token, init_context=True)
+    token = ""
+    kensu = KensuProvider().initKensu(api_url="", auth_token=token, init_context=True)
 
     # FIXME... dunno ... that sounds rather nasty
     # def _constructor(self):

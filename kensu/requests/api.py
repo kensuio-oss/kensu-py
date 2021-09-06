@@ -1,6 +1,7 @@
 from kensu.client import DataSourcePK, DataSource, SchemaPK, Schema, FieldDef
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.helpers import eventually_report_in_mem,flatten
+from kensu.requests.models import Response
 
 import requests as req
 
@@ -23,6 +24,21 @@ def wrap_get(method):
                          fields=fields)
 
         result_sc = Schema(name="schema:" + result_ds.name, pk=sc_pk)._report()
+
+        result.__class__ = Response
+        result.ksu_schema = result_sc
+        result.ds_location = result.url
+        try:
+            import json
+            d = json.loads(result.text)
+            count_json = len(d)
+            stats = {'count':count_json}
+
+        except:
+            stats = None
+        kensu.real_schema_df[result_sc.to_guid()] = None
+        result.ksu_stats = stats
+
         return result
 
     wrapper.__doc__ = method.__doc__
