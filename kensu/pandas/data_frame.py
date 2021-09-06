@@ -528,7 +528,7 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             else:
                 def process_dag(out):
 
-                    deps = kensu.get_dependencies()
+                    deps = kensu.get_dependencies() # FIXME: deprecated?
 
                     def process_dag_layer(out, layer="-"):
                         for [i, o, strategy] in iter(deps):
@@ -940,7 +940,7 @@ class Series(KensuSeriesDelegator, pd.Series):
                 kensu.add_dependency((s, orig_ds, orig_sc), (s, ds, sc), mapping_strategy=mapping_strategies.DIRECT)
 
                 def process_dag(out):
-                    deps = kensu.get_dependencies()
+                    deps = kensu.get_dependencies() # FIXME: deprecated?
 
                     def process_dag_layer(out, layer="-"):
                         for [i, o, strategy] in iter(deps):
