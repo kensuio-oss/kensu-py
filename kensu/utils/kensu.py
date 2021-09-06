@@ -463,11 +463,11 @@ class Kensu(object):
         (o, ods, osc) = o
         (i, ids, isc) = i
 
-        for o in [f.name for f in osc.fields]:
-            for i in [f.name for f in isc.fields]:
+        for o in [f.name for f in osc.pk.fields]:
+            for i in [f.name for f in isc.pk.fields]:
                 if mapping_strategy.mapping_function(i, o):
                     self.add_dependencies_mapping(osc.to_guid(), str(o), isc.to_guid(),
-                                       str(i), op_name or 'add_dependency '+ mapping_strategy)
+                                       str(i), op_name or 'add_dependency '+ str(mapping_strategy))
 
         #self.dependencies.append((i, o, mapping_strategy))
 

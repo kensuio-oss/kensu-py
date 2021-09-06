@@ -16,7 +16,8 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMe
 from kensu.utils.kensu_class_handlers import KensuClassHandlers
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
-from kensu.utils.helpers import eventually_report_in_mem, extract_ksu_ds_schema, get_absolute_path
+from kensu.utils.helpers import eventually_report_in_mem, extract_ksu_ds_schema, get_absolute_path, \
+    stacktrace_without_error
 
 from kensu.client import *
 from kensu.utils.wrappers import remove_ksu_wrappers
@@ -124,6 +125,9 @@ class KensuPandasDelegator(object):
 
                 kensu.add_dependency((pd_df, orig_ds, orig_sc), (result, result_ds, result_sc),
                                    mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN_OR_FULL)
+            elif result is not None and isinstance(result, numpy.ndarray) and not isinstance(result, ndarray):
+                logging.warning('unexpectedly got an numpy.ndarray instead of kensu.ndarray in handle_field(name={})'.format(name))
+                stacktrace_without_error()
 
 
             return result
@@ -194,7 +198,7 @@ class KensuPandasDelegator(object):
 
                 if kensu.mapping :
                     if name in ['__getitem__','_slice','_reindex_with_indexers','head',
-                                '_take_with_is_copy','fillna','to_records','drop', 'value', 'values']:
+                                '_take_with_is_copy','fillna','to_records','drop']:
                         for col in [k.name for k in result_sc.pk.fields]:
                             kensu.add_dependencies_mapping(result_sc.to_guid(),col,orig_sc.to_guid(),col,name)
                     if name in ['pivot_table']:
