@@ -28,7 +28,16 @@ def wrap_get(method):
         result.__class__ = Response
         result.ksu_schema = result_sc
         result.ds_location = result.url
+        try:
+            import json
+            d = json.loads(result.text)
+            count_json = len(d)
+            stats = {'count':count_json}
+
+        except:
+            stats = None
         kensu.real_schema_df[result_sc.to_guid()] = None
+        result.ksu_stats = stats
 
         return result
 

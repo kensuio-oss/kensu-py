@@ -331,9 +331,14 @@ class Kensu(object):
                         try:
                             stats = self.extractors.extract_stats(stats_df)
                         except:
+                            from kensu.requests.models import ksu_str
                             # FIXME weird... should be fine to delete (and try,except too)
                             if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
                                 stats = self.extractors.extract_stats(stats_df)
+                            elif isinstance(stats_df, ksu_str):
+                                stats = None
+                            elif isinstance(stats_df, dict):
+                                stats = stats_df
                             else:
                                 #TODO Support ndarray
                                 stats = None
