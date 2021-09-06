@@ -10,7 +10,7 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
-from kensu.utils.helpers import to_hash_key
+from kensu.utils.helpers import to_hash_key, stacktrace_without_error
 from kensu.utils.injection import Injection
 from kensu.pandas import DataFrame,Series
 
@@ -253,11 +253,22 @@ class Kensu(object):
         return self.dependencies_mapping
 
     def add_dependencies_mapping(self, guid, col, from_guid, from_col, type):
+        DEBUG = True # FIXME: make configurable?
+        DEBUG_ONLY_INMEM_INPUTS_WITHOUT_INPUTS = True
         dep = {'GUID': guid,
                'COLUMNS': col,
                'FROM_ID': from_guid,
                'FROM_COLUMNS': from_col,
                'TYPE': type}
+        if DEBUG:
+            is_input_in_mem = not bool(from_guid in self.real_schema_df)
+            if (not DEBUG_ONLY_INMEM_INPUTS_WITHOUT_INPUTS) or is_input_in_mem:
+                inputs_with_input_lineage = [1 for d in self.dependencies_mapping if d.get('GUID') == from_guid]
+                if not bool(inputs_with_input_lineage):
+                    id_with_name = lambda guid: "(name={}, id={})".format(self.schema_name_by_guid.get(guid) or '', guid)
+                    msg = "Adding a lineage {} to {} with in-mem input which has no its own inputs at all".format(id_with_name(from_guid), id_with_name(guid))
+                    logging.warning(msg)
+                    stacktrace_without_error()
         self.dependencies_mapping.append(dep)
 
     def in_mem(self, var_name):
