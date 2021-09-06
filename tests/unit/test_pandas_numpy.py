@@ -12,7 +12,7 @@ from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.mapping_strategies import Strategy
 
 log_format = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format=log_format)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
 
 def ndarray_to_csv(nd_arr, fn):
     return pd.DataFrame(nd_arr).to_csv(fn)

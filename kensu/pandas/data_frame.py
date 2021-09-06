@@ -412,8 +412,9 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
                 kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref))
             result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df))
 
-            for col in [k.name for k in result_sc.pk.fields]:
-                kensu.add_dependencies_mapping(result_sc.to_guid(), col, orig_sc.to_guid(), col, 'init')
+            for out_col in [k.name for k in result_sc.pk.fields]:
+                for orig_col in [k.name for k in orig_sc.pk.fields]:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), out_col, orig_sc.to_guid(), orig_col, 'DataFrame init')
 
         elif isinstance(data,dict):
             from kensu.itertools import kensu_list
@@ -439,8 +440,8 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
             for key in deps.keys():
                 for orig_sc in deps[key]:
-                    for col in [k.name for k in orig_sc.pk.fields]:
-                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(key), orig_sc.to_guid(), str(col), 'init')
+                    for out_col in [k.name for k in orig_sc.pk.fields]:
+                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(key), orig_sc.to_guid(), str(out_col), 'init')
 
 
 
