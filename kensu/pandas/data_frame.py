@@ -373,7 +373,7 @@ class KensuPandasDelegator(object):
             # assigning the Kensu DF to the indexer to continue the tracing, wrapping the internal iloc/loc object
             prop_value.obj = dao
         else:
-            # TODO log?
+            logging.warning("Kensu unhandled callable property name=" + name)
             pass
 
         return prop_value
