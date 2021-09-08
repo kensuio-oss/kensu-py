@@ -48,8 +48,9 @@ jobs:
           release_bucket: ${{ secrets.S3_BUCKET_NAME }}
           # '<the uri for your S3 bucket - like s3://my_bucket_name>'
           release_bucket_uri: ${{ format('s3://{0}', secrets.S3_BUCKET_NAME) }}
-          release_id: ${{ format('kensu-py-{0}-dev.zip', github.head_ref )}}
-          release_layer: ${{ format('kensu-py-{0}-dev', github.head_ref )}}
+          # for layers of PRs we could also use github.ref_head
+          release_id: ${{ format('kensu-py-{0}-dev.zip', github.sha )}}
+          release_layer: 'kensu-py--dev'
         run: |
           mkdir python
           pip install -r requirements.txt -t python
