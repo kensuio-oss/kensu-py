@@ -50,7 +50,7 @@ jobs:
           # e.g. ${{ format('s3://{0}', secrets.S3_BUCKET_NAME) }}
           release_bucket_uri: ${{ format('{0}/', secrets.S3_LAYER_UPLOAD_DIR) }}
           # for layers of PRs we could also use github.ref_head
-          release_id: ${{ format('{}/kensu-py-{0}-dev.zip', secrets.S3_LAYER_UPLOAD_DIR, github.sha )}}
+          release_id: ${{ format('{0}/kensu-py-{1}-dev.zip', secrets.S3_LAYER_UPLOAD_DIR, github.sha )}}
           release_layer: 'kensu-py--dev'
         run: |
           mkdir python
