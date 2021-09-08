@@ -22,7 +22,7 @@ class KensuProvider(object):
         if ksu_provided_inst is not None and allow_reinit:
             logging.warning("KensuProvider.initKensu called more than once - reinitializing as requested by allow_reinit=True")
             KensuProvider().setKensu(None)
-        if ksu_provided_inst is None:
+        if ksu_provided_inst is None or allow_reinit:
             from kensu.utils.kensu import Kensu
             pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
             sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
