@@ -35,16 +35,19 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+          # if you have/need it
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
-      - name: Setup Python 3.8
+      - name: Setup Python 3.x
         uses: actions/setup-python@v1
         with:
           python-version: '3.x'
 
       - name: Zip it all up and upload to S3
         env:
-          release_bucket: '<your AWS S3 bucket name goes here>'
-          release_bucket_uri: '<the uri for your S3 bucket - like s3://my_bucket_name>'
+          release_bucket: ${{ secrets.S3_BUCKET_NAME }}
+          # '<the uri for your S3 bucket - like s3://my_bucket_name>'
+          release_bucket_uri: ${{ format('s3://{0}', secrets.S3_BUCKET_NAME) }}
           release_id: ${{ format('kensu-py-{0}-dev.zip', github.head_ref )}}
           release_layer: ${{ format('kensu-py-{0}-dev', github.head_ref )}}
         run: |
