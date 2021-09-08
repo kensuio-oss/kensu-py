@@ -8,3 +8,6 @@ urllib3 >= 1.15.1
 datetime
 requests
 configparser
+# these can be made optional
+pandas>=1.2.4
+numpy>=1.19.5
