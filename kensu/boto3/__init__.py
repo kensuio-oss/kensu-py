@@ -42,9 +42,13 @@ def kensu_put(event_params, event_ctx, **kwargs):
             kensu.add_dependencies_mapping(result_sc.to_guid(),str(col),input_schema_pk,str(col),'s3_put')
         kensu.report_with_mapping()
 
+def kensu_get(event_params,**kwargs):
+    print(event_params.get())
+    print('--------------')
 
 def add_custom_method(class_attributes, **kwargs):
     class_attributes['kensu_put'] = kensu_put
+    class_attributes['kensu_get'] = kensu_get
 
 boto3._get_default_session().events.register("creating-resource-class.s3.Object",
                         add_custom_method)
@@ -52,6 +56,7 @@ boto3._get_default_session().events.register("creating-resource-class.s3.Object"
 
 
 def kensu_tracker(*class_attributes, **kwargs):
+    import logging
     param_types = [
     ]
     import pprint
@@ -69,12 +74,16 @@ def kensu_tracker(*class_attributes, **kwargs):
     event_ctx = kwargs.get('context')
     if event_name == 'provide-client-params.s3.PutObject' and event_params:
         kensu_put(event_params=event_params, event_ctx=event_ctx, **kwargs)
+    if event_name == 'provide-client-params.s3.GetObject':
+        kensu_get(event_params = event_params, **kwargs)
+
 
 #boto3._get_default_session().events.register('creating-resource-class.s3.ServiceResource',kensu_tracker)
 #boto3._get_default_session().events.register('before-send.s3.PutObject', kensu_tracker)
 boto3._get_default_session().events.register('provide-client-params.s3.PutObject', kensu_tracker)
 
 # in case we wanted to see all events - use *
-# event_system = S3.meta.client.meta.events
-# event_system.register("*",kensu_tracker)
+#S3 = boto3.resource('s3' , region_name='eu-west-1')
+#event_system = S3.meta.client.meta.events
+#event_system.register("*",kensu_tracker)
 #event_system.register('creating-resource-class.s3.*', prt)
