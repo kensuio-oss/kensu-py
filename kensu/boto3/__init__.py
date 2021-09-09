@@ -42,9 +42,6 @@ def kensu_put(event_params, event_ctx, **kwargs):
             kensu.add_dependencies_mapping(result_sc.to_guid(),str(col),input_schema_pk,str(col),'s3_put')
         kensu.report_with_mapping()
 
-def kensu_get(event_params,**kwargs):
-    print(event_params.get())
-    print('--------------')
 
 def add_custom_method(class_attributes, **kwargs):
     class_attributes['kensu_put'] = kensu_put
