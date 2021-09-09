@@ -48,6 +48,16 @@ def kensu_get(event_params,**kwargs):
 
 def add_custom_method(class_attributes, **kwargs):
     class_attributes['kensu_put'] = kensu_put
+    
+    original_get = class_attributes.get
+    # or ?     original_get = class_attributes['get']
+    
+    def kensu_get(event_params,**kwargs):
+        result = original_get(event_params)
+        print(result)
+        print('--------------')
+        
+    
     class_attributes['kensu_get'] = kensu_get
 
 boto3._get_default_session().events.register("creating-resource-class.s3.Object",
