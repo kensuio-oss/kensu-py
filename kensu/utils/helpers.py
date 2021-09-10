@@ -75,3 +75,8 @@ def flatten(d, parent_key='', sep='.'):
             else:
                 items.append((new_key, type(v).__name__))
     return dict(items)
+
+def logical_naming_batch(string):
+    from itertools import groupby, chain
+    grouped = groupby(string, str.isdigit)
+    return ''.join(chain.from_iterable("#" if k else g for k,g in grouped))
