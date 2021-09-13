@@ -4,6 +4,7 @@ from boto3 import *
 from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
 from kensu.requests.models import ksu_str
 from kensu.utils.kensu_provider import KensuProvider
+from kensu.utils.helpers import logical_naming_batch
 
 class ksu_dict(dict):
     ksu_metadata = None
@@ -27,9 +28,14 @@ def kensu_put(event_params, event_ctx, **kwargs):
         location = 'aws::S3::' + s3_bucket + '/' + s3_key
         name = s3_key
 
+        if kensu.logical_naming == 'ReplaceNumbers':
+            logical = logical_naming_batch(name)
+        else:
+            logical = name
+
         result_pk = DataSourcePK(location=location,
                                  physical_location_ref=kensu.default_physical_location_ref)
-        result_ds = DataSource(name=name, format=name.split('.')[-1],
+        result_ds = DataSource(name=name, categories=['logical::'+logical],format=name.split('.')[-1],
                                pk=result_pk)._report()
 
         input_fields = [k.name for k in input_schema.pk.fields]
