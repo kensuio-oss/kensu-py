@@ -14,8 +14,6 @@ def wrap_get(method):
         kensu = KensuProvider().instance()
 
         try:
-            fields_dict = flatten(result.json())
-
             # Construct the file location
 
             url = kwargs['url'] if 'url' in kwargs else args[0]
@@ -29,20 +27,47 @@ def wrap_get(method):
             else:
                 location = url
 
-
             result_pk = DataSourcePK(location=location,
                                      physical_location_ref=kensu.default_physical_location_ref)
             result_ds = DataSource(name=location, format='API',
                                    pk=result_pk)._report()
 
+            # Construct the real schema
+            result_json = result.json()
+
+            fields_dict = flatten(result_json)
+
             fields = [FieldDef(name = k,  field_type=fields_dict[k], nullable=True ) for k in  fields_dict]
             sc_pk = SchemaPK(result_ds.to_ref(),
                              fields=fields)
 
-            result_sc = Schema(name="schema:" + result_ds.name, pk=sc_pk)._report()
+            real_sc = Schema(name="schema:" + result_ds.name, pk=sc_pk)
+
+
+            #Construct the concise schema
+
+            fields_set = set()
+
+            if isinstance(result_json, list):
+                for element in result_json:
+                    for e in element.keys():
+                        fields_set.add(('[].'+str(e),type(e).__name__))
+            elif isinstance(result_json, dict):
+                for e in result_json.keys():
+                    fields_set.add((e, type(e).__name__))
+            else:
+                fields_set.add(('value','unknown'))
+
+            fields = [FieldDef(name=k[0], field_type=k[1], nullable=True) for k in fields_set]
+            sc_pk = SchemaPK(result_ds.to_ref(),
+                             fields=fields)
+
+            result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)._report()
+
 
             result.__class__ = Response
-            result.ksu_schema = result_sc
+            result.ksu_short_schema = result_sc
+            result.ksu_schema = real_sc
             result.ds_location = result.url
             try:
                 import json

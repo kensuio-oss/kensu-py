@@ -27,6 +27,7 @@ class chain(itertools.chain):
 
 
 class kensu_list(list):
+    ksu_metadata = {}
     deps=[]
     def __init__(self, *args):
         list.__init__(self, *args)
