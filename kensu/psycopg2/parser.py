@@ -43,15 +43,20 @@ def parse_update(cur, cur_catalog, cur_schema, stmt, argslist):
     else:
         explicit_column_names = []
 
+    out_stats_data_pandas = None
     # explicit param_field_names of those inside argslist
-    if stmt.fromClause and stmt.fromClause[0].alias.colnames:
+    if stmt.fromClause and stmt.fromClause[0].alias and stmt.fromClause[0].alias.colnames:
         # FIXME: take union of out_columns & param_field_names
-        pass
+        argslist_columns = [c.val for c in stmt.fromClause[0].alias.colnames]
+        print('argslist_columns', argslist_columns)
+        out_stats_data_pandas=datastats_data(argslist_columns, argslist)
+        # FIXME: and here we probably need to filter only columns used in UPDATE SET clause
+
     # if unable to figure out, assume write columns to be all the columns
     out_columns = schema_of_used_cols_or_all(cur, stmt.relation, explicit_column_names)
     report_write((out_table_qualified_name, out_columns),
                  op_type='psycopg2 update',
-                 out_stats_data_pandas=datastats_data(out_columns, argslist),
+                 out_stats_data_pandas=out_stats_data_pandas,
                  inputs=None)
 
 
@@ -70,11 +75,11 @@ def schema_of_used_cols_or_all(cur, relation, explicit_column_names):
 
 def datastats_data(columns, argslist):
     import pandas as pd_orig
-    columns = [c['field_name'] for c in columns]
     # data = [['tom', 10], ['nick', 15], ['juli', 14]]
     try:
         if len(argslist) == 0 or len(argslist[0]) != len(columns):
-            logging.warning("Kensu - failed converting argslist to pandas.DataFrame: columns do not match")
+            logging.warning("Kensu - failed converting argslist to pandas.DataFrame: columns count do not match")
+            # print("columns: {}\n arglist item: {}".format(columns, argslist[0]))
             return None
         else:
             return pd_orig.DataFrame(argslist, columns=columns)
@@ -93,7 +98,8 @@ def parse_insert(cur, cur_catalog, cur_schema, stmt, argslist):
     # here out_columns are also columns of argslist
     report_write((out_table_qualified_name, out_columns),
                  op_type='psycopg2 insert',
-                 out_stats_data_pandas=datastats_data(out_columns, argslist),
+                 out_stats_data_pandas=datastats_data(columns = [c['field_name'] for c in out_columns],
+                                                      argslist=argslist),
                  inputs=None)
 
 
@@ -134,7 +140,8 @@ def report_write(out_table, op_type, out_stats_data_pandas, inputs=None):
     input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu,
                                                                   ds_path=input_path,
                                                                   maybe_schema=[("unknown", "unknown")],
-                                                                  ds_name=input_path)
+                                                                  ds_name=input_path,
+                                                                 f_get_stats=None)
     inputs = [input_ds]
     lineage_info = [ExtDependencyEntry(
         input_ds=input_ds,
