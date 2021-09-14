@@ -113,14 +113,24 @@ def format_relation_name(relation, cur_catalog=None, cur_schema=None):
 
 def report_write(out_table, op_type, out_stats_data_pandas, inputs=None):
     # FIXME: logical name etc?
+    from kensu.utils.kensu_provider import KensuProvider
+    ksu = KensuProvider().instance()
     if not inputs:
         inputs = []
 
+        if len(ksu.inputs_ds)>0:
+            inputs=[KensuDatasourceAndSchema(ksu_ds=ds['DataSource'], ksu_schema=ds['Schema']) for ds in ksu.inputs_ds]
+        else:
+            input_path = 'in-mem://'+str(uuid.uuid4())
+            input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu,
+                                                                          ds_path=input_path,
+                                                                          maybe_schema=[("unknown", "unknown")],
+                                                                          ds_name=input_path,
+                                                                         f_get_stats=None)
+            inputs = [input_ds]
+
     dest_name, out_schema = out_table
     dest_path = 'postgres://{}'.format(dest_name)
-
-    from kensu.utils.kensu_provider import KensuProvider
-    ksu = KensuProvider().instance()
     if out_schema is None:
         out_schema = [("unknown", "unknown")]
     else:
@@ -135,18 +145,15 @@ def report_write(out_table, op_type, out_stats_data_pandas, inputs=None):
                                                                   f_get_stats=f_get_stats,
                                                                   format='postgres table')
 
-    # FIXME: this is fake input and lineage for now!
-    input_path = 'in-mem://'+str(uuid.uuid4())
-    input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu,
-                                                                  ds_path=input_path,
-                                                                  maybe_schema=[("unknown", "unknown")],
-                                                                  ds_name=input_path,
-                                                                 f_get_stats=None)
-    inputs = [input_ds]
-    lineage_info = [ExtDependencyEntry(
+
+    lineage_info = [
+        ExtDependencyEntry(
         input_ds=input_ds,
-        lineage=dict([(str(fieldname), [str(fieldname)])
-                      for (fieldname, dtype) in out_schema]))]
+            # all to all lineage
+        lineage=dict([(str(out_fieldname), [in_field for in_field in input_ds.field_names()])
+                      for (out_fieldname, dtype) in out_schema]))
+        for input_ds in inputs
+    ]
     inputs_lineage = GenericComputedInMemDs(inputs=inputs, lineage=lineage_info)
     # register lineage in KensuProvider, if any
     inputs_lineage.report(ksu=ksu,
