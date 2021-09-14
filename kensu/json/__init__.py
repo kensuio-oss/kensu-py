@@ -5,6 +5,7 @@ from kensu.boto3 import ksu_dict
 from kensu.botocore.response import ksu_bytes
 from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
 from kensu.itertools import kensu_list
+from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
 from kensu.utils.helpers import logical_naming_batch
 from kensu.utils.kensu_provider import KensuProvider
 
@@ -59,8 +60,7 @@ def wrap_loads(method):
 
             kensu.real_schema_df[short_result_sc.to_guid()] = None
 
-            KensuDSSchema = {'DataSource':result_ds, 'Schema':short_result_sc}
-            kensu.add_input_ref(KensuDSSchema)
+            kensu.add_input_ref(KensuDatasourceAndSchema(ksu_ds=result_ds, ksu_schema=short_result_sc))
 
         return result
 

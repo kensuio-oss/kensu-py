@@ -115,19 +115,17 @@ def report_write(out_table, op_type, out_stats_data_pandas, inputs=None):
     # FIXME: logical name etc?
     from kensu.utils.kensu_provider import KensuProvider
     ksu = KensuProvider().instance()
-    if not inputs:
-        inputs = []
+    if not inputs and len(ksu.inputs_ds)>0:
+        inputs=ksu.inputs_ds
 
-        if len(ksu.inputs_ds)>0:
-            inputs=[KensuDatasourceAndSchema(ksu_ds=ds['DataSource'], ksu_schema=ds['Schema']) for ds in ksu.inputs_ds]
-        else:
-            input_path = 'in-mem://'+str(uuid.uuid4())
-            input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu,
-                                                                          ds_path=input_path,
-                                                                          maybe_schema=[("unknown", "unknown")],
-                                                                          ds_name=input_path,
-                                                                         f_get_stats=None)
-            inputs = [input_ds]
+    if not inputs:
+        input_path = 'in-mem://'+str(uuid.uuid4())
+        input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu,
+                                                                     ds_path=input_path,
+                                                                     maybe_schema=[("unknown", "unknown")],
+                                                                     ds_name=input_path,
+                                                                     f_get_stats=None)
+        inputs = [input_ds]
 
     dest_name, out_schema = out_table
     dest_path = 'postgres://{}'.format(dest_name)
