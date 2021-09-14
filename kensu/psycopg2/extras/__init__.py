@@ -26,7 +26,7 @@ def execute_values(cur, sql, argslist, template=None, page_size=100, fetch=False
 
     pre, post = _split_sql(sql)
 
-    sql_query_bytes = None
+    first_sql_query_bytes = None
     for page in _paginate(argslist, page_size=page_size):
         if template is None:
             template = b'(' + b','.join([b'%s'] * len(page[0])) + b')'
@@ -35,11 +35,11 @@ def execute_values(cur, sql, argslist, template=None, page_size=100, fetch=False
             parts.append(cur.mogrify(template, args))
             parts.append(b',')
         parts[-1:] = post
-        sql_query_bytes = b''.join(parts)
+        first_sql_query_bytes = b''.join(parts)
         break
 
-    if sql_query_bytes is not None:
-        parse_and_report(cur, sql_query_bytes, argslist)
+    if first_sql_query_bytes is not None:
+        parse_and_report(cur, first_sql_query_bytes, argslist)
 
     return result
 
