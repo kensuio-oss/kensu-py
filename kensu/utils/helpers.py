@@ -89,11 +89,14 @@ def extract_short_json_schema(result, result_ds):
     fields_set = set()
     if isinstance(result, list):
         for element in result:
-            for e in element.keys():
-                fields_set.add(('[].' + str(e), type(e).__name__))
+            if isinstance(element,dict):
+                for e in element.keys():
+                    fields_set.add(('[].' + str(e), type((element[e])).__name__))
+            else:
+                fields_set.add(('value', 'unknown'))
     elif isinstance(result, dict):
         for e in result.keys():
-            fields_set.add((e, type(e).__name__))
+            fields_set.add((e, type(result[e]).__name__))
     else:
         fields_set.add(('value', 'unknown'))
     fields = [FieldDef(name=k[0], field_type=k[1], nullable=True) for k in fields_set]
