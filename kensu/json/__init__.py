@@ -5,7 +5,8 @@ from kensu.boto3 import ksu_dict
 from kensu.botocore.response import ksu_bytes
 from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
 from kensu.itertools import kensu_list
-from kensu.utils.helpers import logical_naming_batch
+from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
+from kensu.utils.helpers import logical_naming_batch, extract_short_json_schema
 from kensu.utils.kensu_provider import KensuProvider
 
 
@@ -38,24 +39,7 @@ def wrap_loads(method):
             result_ds = DataSource(name=origin_name, categories=['logical::' + logical], format=origin_name.split('.')[-1],
                                    pk=result_pk)._report()
 
-            fields_set = set()
-
-            if isinstance(result, list):
-                for element in result:
-                    for e in element.keys():
-                        fields_set.add(('[].' + str(e), type(e).__name__))
-            elif isinstance(result, dict):
-                for e in result.keys():
-                    fields_set.add((e, type(e).__name__))
-            else:
-                fields_set.add(('value', 'unknown'))
-
-            fields = [FieldDef(name=k[0], field_type=k[1], nullable=True) for k in fields_set]
-
-            sc_pk = SchemaPK(result_ds.to_ref(),
-                             fields=fields)
-
-            short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)._report()
+            short_result_sc = extract_short_json_schema(result, result_ds)._report()
 
             kensu.real_schema_df[short_result_sc.to_guid()] = None
 

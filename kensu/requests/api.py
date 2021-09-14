@@ -2,7 +2,7 @@ import logging
 
 from kensu.client import DataSourcePK, DataSource, SchemaPK, Schema, FieldDef
 from kensu.utils.kensu_provider import KensuProvider
-from kensu.utils.helpers import eventually_report_in_mem,flatten
+from kensu.utils.helpers import eventually_report_in_mem, flatten, extract_short_json_schema
 from kensu.requests.models import Response
 
 import requests as req
@@ -45,24 +45,7 @@ def wrap_get(method):
 
 
             #Construct the concise schema
-
-            fields_set = set()
-
-            if isinstance(result_json, list):
-                for element in result_json:
-                    for e in element.keys():
-                        fields_set.add(('[].'+str(e),type(e).__name__))
-            elif isinstance(result_json, dict):
-                for e in result_json.keys():
-                    fields_set.add((e, type(e).__name__))
-            else:
-                fields_set.add(('value','unknown'))
-
-            fields = [FieldDef(name=k[0], field_type=k[1], nullable=True) for k in fields_set]
-            sc_pk = SchemaPK(result_ds.to_ref(),
-                             fields=fields)
-
-            result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)._report()
+            result_sc = extract_short_json_schema(result_json, result_ds)._report()
 
             result.__class__ = Response
             result.ksu_short_schema = result_sc
@@ -79,7 +62,7 @@ def wrap_get(method):
             kensu.real_schema_df[result_sc.to_guid()] = None
             result.ksu_stats = stats
         except:
-            None
+            pass
 
         return result
 
