@@ -38,10 +38,10 @@ jobs:
           # if you have/need it
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
-      - name: Setup Python 3.x
+      - name: Setup Python 3.8
         uses: actions/setup-python@v1
         with:
-          python-version: '3.x'
+          python-version: '3.8'
 
       - name: Zip it all up and upload to S3
         env:
@@ -64,4 +64,4 @@ jobs:
           # copy the file to S3 and install it in lambda layers
           aws s3 cp $release_id $release_bucket_uri
           # fixme: update compatible runtimes
-          aws lambda publish-layer-version --layer-name $release_layer  --content S3Bucket=$release_bucket,S3Key=$release_file_key --compatible-runtimes python3.6 python3.7 python3.8 python3.9
+          aws lambda publish-layer-version --layer-name $release_layer  --content S3Bucket=$release_bucket,S3Key=$release_file_key --compatible-runtimes  python3.8
