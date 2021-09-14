@@ -8,3 +8,4 @@ urllib3 >= 1.15.1
 datetime
 requests
 configparser
+pglast==v3.4
