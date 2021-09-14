@@ -17,7 +17,12 @@ class KensuProvider(object):
     # FIXME: probably we don't need get_explicit_code_version_fn & get_code_version_fn anymore. but keeping it for backwards-compat for now...
     @staticmethod
     def initKensu(api_url=None, auth_token=None, process_name=None, user_name=None, code_location=None, get_code_version_fn=None, get_explicit_code_version_fn=None, init_context=True, do_report=None, report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
-        if KensuProvider().instance() is None:
+        allow_reinit = kwargs["allow_reinit"] if "allow_reinit" in kwargs else False
+        ksu_provided_inst = KensuProvider().instance()
+        if ksu_provided_inst is not None and allow_reinit:
+            logging.warning("KensuProvider.initKensu called more than once - reinitializing as requested by allow_reinit=True")
+            KensuProvider().setKensu(None)
+        if ksu_provided_inst is None or allow_reinit:
             from kensu.utils.kensu import Kensu
             pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
             sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
@@ -42,4 +47,4 @@ class KensuProvider(object):
             KensuProvider().setKensu(_kensu)
             return _kensu
         else:
-            logging.error("Kensu default is already set kensu={}" % KensuProvider.instance())
+            logging.error("Kensu default is already set kensu={}".format(str(ksu_provided_inst)))
