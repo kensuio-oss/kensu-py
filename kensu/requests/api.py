@@ -64,7 +64,6 @@ def wrap_get(method):
 
             result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)._report()
 
-
             result.__class__ = Response
             result.ksu_short_schema = result_sc
             result.ksu_schema = real_sc
