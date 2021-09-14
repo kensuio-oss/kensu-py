@@ -19,9 +19,6 @@ def kensu_put(event_params, event_ctx, **kwargs):
         kensu = KensuProvider().instance()
         put_body = event_params.get('Body')
 
-
-
-
         #The input is the ksu_str, the metadata contains its schema pk
         input_schema = put_body.metadata['real_schema']
         short_schema = put_body.metadata['short_schema']
@@ -56,6 +53,10 @@ def kensu_put(event_params, event_ctx, **kwargs):
         result_sc = Schema(name="schema:" + result_ds.name, pk=sc_pk)._report()
 
         fields = [FieldDef(name=k.name, field_type=k.field_type, nullable=True) for k in short_schema.pk.fields]
+
+        sc_pk = SchemaPK(result_ds.to_ref(),
+                         fields=fields)
+
         short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)._report()
 
         kensu.real_schema_df[short_result_sc.to_guid()] = put_body.metadata['stats']

@@ -186,6 +186,9 @@ class Kensu(object):
         self.data_collectors = {}
         self.model={}
         self.set_timestamp(timestamp)
+        self.inputs_ds = []
+        self.write_reinit = False
+
         if user_name is None:
             user_name = Kensu.discover_user_name()
         if code_location is None:
@@ -220,7 +223,15 @@ class Kensu(object):
             , projects_refs=self.project_refs
             , environment = environment
         )._report()
-        
+
+    def set_reinit(self, bool = True):
+        self.write_reinit = bool
+
+    def add_input_ref(self, entities):
+        if self.write_reinit == True:
+            self.inputs_ds = []
+            self.write_reinit = False
+        self.inputs_ds.append(entities)
 
     def set_timestamp(self, timestamp):
         if timestamp is not None:
@@ -249,6 +260,7 @@ class Kensu(object):
         return "in-memory-data://" + self.process.pk.qualified_name + "/" + var_name
 
     def report_with_mapping(self):
+        self.set_reinit()
         import pandas as pd
         deps = self.dependencies_mapping
         ddf = pd.DataFrame(deps)
