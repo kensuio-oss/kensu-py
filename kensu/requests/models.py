@@ -12,13 +12,14 @@ class ksu_str(str):
 class Response(md.Response):
 
     ksu_schema = None
+    ksu_short_schema = None
     ksu_stats = None
 
     @property
     def text(self) -> str:
         result = super(Response, self).text
         ksu_result = ksu_str(result)
-        ksu_result.metadata = {"schema":self.ksu_schema, "ds_location":self.ds_location, "stats":self.ksu_stats}
+        ksu_result.metadata = {"short_schema":self.ksu_short_schema, "real_schema":self.ksu_schema, "ds_location":self.ds_location, "stats":self.ksu_stats}
         return ksu_result
 
 

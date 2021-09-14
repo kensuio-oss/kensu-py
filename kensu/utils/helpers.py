@@ -1,6 +1,9 @@
 import re
 from hashlib import sha1
 
+from kensu.client import FieldDef, SchemaPK, Schema
+
+
 def to_snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
@@ -79,4 +82,26 @@ def flatten(d, parent_key='', sep='.'):
 def logical_naming_batch(string):
     from itertools import groupby, chain
     grouped = groupby(string, str.isdigit)
-    return ''.join(chain.from_iterable("#" if k else g for k,g in grouped))
+    return ''.join(chain.from_iterable("<number>" if k else g for k,g in grouped))
+
+
+def extract_short_json_schema(result, result_ds):
+    fields_set = set()
+    if isinstance(result, list):
+        for element in result:
+            if isinstance(element,dict):
+                for e in element.keys():
+                    fields_set.add(('[].' + str(e), type((element[e])).__name__))
+            else:
+                fields_set.add(('value', 'unknown'))
+    elif isinstance(result, dict):
+        for e in result.keys():
+            fields_set.add((e, type(result[e]).__name__))
+    else:
+        fields_set.add(('value', 'unknown'))
+    fields = [FieldDef(name=k[0], field_type=k[1], nullable=True) for k in fields_set]
+
+    sc_pk = SchemaPK(result_ds.to_ref(),fields=fields)
+
+    short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)
+    return short_result_sc
