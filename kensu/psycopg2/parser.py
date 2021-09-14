@@ -15,9 +15,8 @@ def parse_and_report(cur,
                      argslist  # type: list
                      ):
     try:
-        # FIXME: bytes docoding might give some issues...
+        # FIXME: bytes decoding might give some issues...
         final_sql = final_sql.decode(cur.connection.encoding)
-        print(final_sql)
         cur_catalog, cur_schema = get_current_db_info(cur)
 
         for stmt in parse_sql(final_sql):
@@ -48,7 +47,7 @@ def parse_update(cur, cur_catalog, cur_schema, stmt, argslist):
     if stmt.fromClause and stmt.fromClause[0].alias and stmt.fromClause[0].alias.colnames:
         # FIXME: take union of out_columns & param_field_names
         argslist_columns = [c.val for c in stmt.fromClause[0].alias.colnames]
-        print('argslist_columns', argslist_columns)
+        #print('argslist_columns', argslist_columns)
         out_stats_data_pandas=datastats_data(argslist_columns, argslist)
         # FIXME: and here we probably need to filter only columns used in UPDATE SET clause
 
@@ -133,7 +132,8 @@ def report_write(out_table, op_type, out_stats_data_pandas, inputs=None):
                                                                   ds_path=dest_path,
                                                                   maybe_schema=out_schema,
                                                                   ds_name=dest_name,
-                                                                  f_get_stats=f_get_stats)
+                                                                  f_get_stats=f_get_stats,
+                                                                  format='postgres table')
 
     # FIXME: this is fake input and lineage for now!
     input_path = 'in-mem://'+str(uuid.uuid4())

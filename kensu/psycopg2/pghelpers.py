@@ -7,10 +7,8 @@ def pg_result_to_dict(cur, res):
         row_dict = {}
         idx = 0
         for col in cur.description:
-            # help(col)
             row_dict.update({str(col.name): row[idx]})
             idx += 1
-        print(row_dict)
         rows.append(row_dict)
     return rows
 
@@ -40,5 +38,4 @@ def get_table_schema(cur, table_name):
             FROM (VALUES %s) AS q(field_name, field_type_oid)"""
     result = extras.execute_values(cur, q, fields_with_typeid, fetch=True)
     res_dict = pg_result_to_dict(cur=cur, res=result)
-    print(res_dict)
     return res_dict
