@@ -23,7 +23,7 @@ class KensuDatasourceAndSchema:
 
 
     @staticmethod
-    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None, ds_name=None):
+    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None, ds_name=None, f_get_stats=lambda: {}):
         from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
         pl_ref = ksu.UNKNOWN_PHYSICAL_LOCATION.to_ref()
         ds_pk = DataSourcePK(location=ds_path, physical_location_ref=pl_ref)
@@ -37,7 +37,7 @@ class KensuDatasourceAndSchema:
         ])
         schema = Schema(name="schema:" + ds.name,
                         pk=SchemaPK(ds.to_ref(), fields=fields))
-        return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema)
+        return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema, f_get_stats=f_get_stats)
 
 
 class ExtDependencyEntry:
