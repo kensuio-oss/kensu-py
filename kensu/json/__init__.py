@@ -43,8 +43,7 @@ def wrap_loads(method):
 
             kensu.real_schema_df[short_result_sc.to_guid()] = None
 
-            KensuDSSchema = {'DataSource':result_ds, 'Schema':short_result_sc}
-            kensu.add_input_ref(KensuDSSchema)
+            kensu.add_input_ref(KensuDatasourceAndSchema(ksu_ds=result_ds, ksu_schema=short_result_sc))
 
         return result
 

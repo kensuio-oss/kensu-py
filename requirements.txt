@@ -11,3 +11,4 @@ configparser
 # these can be made optional later on
 #pandas>=1.2.4
 #numpy>=1.19.5
+pglast==v3.4
