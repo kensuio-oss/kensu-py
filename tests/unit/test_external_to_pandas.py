@@ -1,20 +1,17 @@
 #  python -m unittest discover -s tests/unit
 
-import logging
-import sys
 import unittest
 
 import kensu.pandas as pd
 from kensu.client import ApiClient
 from kensu.utils.kensu_provider import KensuProvider
-
-log_format = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
+from tests.unit.helpers import setup_kensu_tracker, setup_logging
 
 # Below is an example of how easily one could track a lineage of data conversion from an external library into pandas
 # A real world example would be Apache Spark's DataFrame.toPandas() function,
 # here to reduce need of heavy dependency we use a mocked version of such function
 
+setup_logging()
 
 class FakeSparkDataFrame:
 
@@ -58,14 +55,10 @@ def patch_external_transformation():
 
 
 class TestExternalToPandas(unittest.TestCase):
-    offline = True
-    kensu = KensuProvider().initKensu(init_context=True,
-                                      report_to_file=offline,
-                                      offline_file_name='kensu-offline-to-pandas-test.jsonl',
-                                      mapping=True, report_in_mem=True)
 
     def setUp(self):
         self.ac = ApiClient()
+        setup_kensu_tracker(test_cls=self)
         patch_external_transformation()
 
     def test_one(self):
