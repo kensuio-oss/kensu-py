@@ -161,6 +161,20 @@ class Kensu(object):
 
         return kensu_host
 
+    def register_schema_name(self, ds, schema):
+        name = ds.name
+        if "in-mem" in name and ds.format is not None:
+            name = name + " of format=" + str(ds.format or '?')
+        self.schema_name_by_guid[schema.to_guid()] = name
+        return schema
+
+    def to_schema_name(self, s_guid):
+        return self.schema_name_by_guid.get(s_guid) or s_guid
+
+    def to_schema_names(self, s_guids):
+        return [self.to_schema_name(s_guid) for s_guid in s_guids]
+
+
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
         # list of triples i, o, mapping strategy
         # i and o are either one or a list of triples (object, DS, SC)
@@ -170,10 +184,14 @@ class Kensu(object):
         # when set, it seems to indicate if a schema/DS is a real one (is not in memory),
         # so must be not set for in memory DSes
         self.real_schema_df = {}
+        self.schema_name_by_guid = {}
         self.sent_runs = []
         self.data_collectors = {}
         self.model={}
         self.set_timestamp(timestamp)
+        self.inputs_ds = []
+        self.write_reinit = False
+
         if user_name is None:
             user_name = Kensu.discover_user_name()
         if code_location is None:
@@ -208,7 +226,15 @@ class Kensu(object):
             , projects_refs=self.project_refs
             , environment = environment
         )._report()
-        
+
+    def set_reinit(self, bool = True):
+        self.write_reinit = bool
+
+    def add_input_ref(self, entities):
+        if self.write_reinit == True:
+            self.inputs_ds = []
+            self.write_reinit = False
+        self.inputs_ds.append(entities)
 
     def set_timestamp(self, timestamp):
         if timestamp is not None:
@@ -237,6 +263,7 @@ class Kensu(object):
         return "in-memory-data://" + self.process.pk.qualified_name + "/" + var_name
 
     def report_with_mapping(self):
+        self.set_reinit()
         import pandas as pd
         deps = self.dependencies_mapping
         ddf = pd.DataFrame(deps)
@@ -259,7 +286,8 @@ class Kensu(object):
                                                         column_data_dependencies=data)
                 dataflow.append(schema_dep)
 
-                lineage = ProcessLineage(name='Lineage', operation_logic='APPEND',
+                lineage = ProcessLineage(name=self.get_lineage_name(dataflow),
+                                         operation_logic='APPEND',
                                          pk=ProcessLineagePK(process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                                              data_flow=dataflow))._report()
 
@@ -314,8 +342,8 @@ class Kensu(object):
                     from_pks.add(from_guid)
                     schemas_pk.add(to_guid)
 
-
-                lineage = ProcessLineage(name='Lineage to %s from %s' %(to_guid, (',').join(list(from_pks))), operation_logic='APPEND',
+                lineage = ProcessLineage(name=self.get_lineage_name(dataflow),
+                                         operation_logic='APPEND',
                                          pk=ProcessLineagePK(
                                              process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                              data_flow=dataflow))._report()
@@ -335,9 +363,14 @@ class Kensu(object):
                         try:
                             stats = self.extractors.extract_stats(stats_df)
                         except:
+                            from kensu.requests.models import ksu_str
                             # FIXME weird... should be fine to delete (and try,except too)
                             if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
                                 stats = self.extractors.extract_stats(stats_df)
+                            elif isinstance(stats_df, ksu_str):
+                                stats = None
+                            elif isinstance(stats_df, dict):
+                                stats = stats_df
                             else:
                                 #TODO Support ndarray
                                 stats = None
@@ -430,22 +463,31 @@ class Kensu(object):
                 new_outs.append(o)
 
         self.dependencies.append((new_ins, new_outs, mapping_strategy))
+
+    def get_lineage_name(self,
+                         data_flow  # type: list[SchemaLineageDependencyDef]
+                         ):
+        inputs = ",".join(sorted(self.to_schema_names([d.from_schema_ref.by_guid for d in data_flow])))
+        outputs = ",".join(sorted(self.to_schema_names([d.to_schema_ref.by_guid for d in data_flow])))
+        return "Lineage to {} from {}".format(outputs, inputs)
+
+
     @property
     def s(self):
         return self.start_lineage(True)
+
+
     def start_lineage(self, report_stats=True):
         lineage_builder = LineageBuilder(self, report_stats)
         return lineage_builder
+
+
     def new_lineage(self, process_lineage_dependencies, report_stats=True, **kwargs):
         # if the new_lineage has a model training in it (output),
         #   then kwargs will be pass to the function to compute metrics
         #     ex: kwargs["y_test"] can refer to the test set to compute CV metrics
         data_flow = [d.toSchemaLineageDependencyDef() for d in process_lineage_dependencies]
-
-        inputs = ",".join(sorted([d.from_schema_ref.by_guid for d in data_flow]))
-        outputs = ",".join(sorted([d.to_schema_ref.by_guid for d in data_flow]))
-
-        lineage = ProcessLineage(name=inputs+"->"+outputs,
+        lineage = ProcessLineage(name=self.get_lineage_name(data_flow),
                                  operation_logic="APPEND",
                                  # FIXME? => add control and the function level like report_stats
                                  pk=ProcessLineagePK(

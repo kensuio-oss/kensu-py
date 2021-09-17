@@ -8,4 +8,6 @@ pandas>=1.2.4
 numpy>=1.19.5
 scikit-learn>=0.24.2
 GitPython
-gluonts
+gluonts==0.6.5
+boto3
+psycopg2-binary==2.8.4
