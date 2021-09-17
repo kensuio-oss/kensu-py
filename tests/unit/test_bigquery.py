@@ -3,6 +3,7 @@
 import unittest
 import pytest
 from tests.unit import mocked_bigquery
+from tests.unit.testing_helpers import assert_log_msg_exists
 
 
 @pytest.mark.usefixtures("mocker")
@@ -31,7 +32,11 @@ class TestBigQuery(unittest.TestCase):
         q = client.query(mocked_bigquery.sample_sql)
         df = q.to_dataframe()
         df.to_csv('test_res_from_bigquery')
-        # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_SOURCE, SCHEMA, PROCESS_LINEAGE
+        assert_log_msg_exists(
+            # FIXME: output name repeated, why?
+            'Lineage to unit/test_res_from_bigquery,unit/test_res_from_bigquery from bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-stores,bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-tickets',
+        )
+        # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_SOURCE, SCHEMA
         # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_STATS
 
 

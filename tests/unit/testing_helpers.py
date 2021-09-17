@@ -27,6 +27,10 @@ def setup_kensu_tracker(
             out_file = test_name + '.jsonl'
         if project_names is None:
             project_names =[test_name]
+    try:
+        os.remove(out_file)
+    except:
+        pass
     KensuProvider().initKensu(
         init_context=True,
         allow_reinit=True,
@@ -38,3 +42,8 @@ def setup_kensu_tracker(
         mapping=True,
         report_in_mem=report_in_mem,
        **kwargs)
+
+
+def assert_log_msg_exists(msg, msg2=None):
+    with open(KensuProvider().instance().offline_file_name, "r") as f:
+        assert bool([True for l in f.readlines() if msg in l and (msg2 is None or msg2 in l)])

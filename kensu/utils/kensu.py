@@ -143,6 +143,7 @@ class Kensu(object):
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats
+        self.offline_file_name = offline_file_name
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
