@@ -5,7 +5,7 @@ import unittest
 import kensu.pandas as pd
 from kensu.client import ApiClient
 from kensu.utils.kensu_provider import KensuProvider
-from tests.unit.helpers import setup_kensu_tracker, setup_logging
+from tests.unit.testing_helpers import setup_kensu_tracker, setup_logging
 
 # Below is an example of how easily one could track a lineage of data conversion from an external library into pandas
 # A real world example would be Apache Spark's DataFrame.toPandas() function,

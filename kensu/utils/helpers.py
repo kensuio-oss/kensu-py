@@ -1,7 +1,9 @@
+import logging
 import re
 from hashlib import sha1
 
-from kensu.utils.kensu_provider import KensuProvider
+# fixme: circular import, so need to inline in each fn?
+# from kensu.utils.kensu_provider import KensuProvider
 
 
 def to_snake_case(name):
@@ -25,6 +27,7 @@ def to_hash_key(o):
 
 
 def eventually_report_in_mem(o):
+    from kensu.utils.kensu_provider import KensuProvider
     kensu = KensuProvider().instance()
     if kensu.report_in_mem:
         o._report()
@@ -42,6 +45,7 @@ def get_absolute_path(path):
 
 
 def maybe_report(o, report):
+    from kensu.utils.kensu_provider import KensuProvider
     dam = KensuProvider().instance()
     if report:
         o._report()
@@ -59,6 +63,7 @@ def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data
 
 
 def report_all2all_lineage(in_obj, out_obj, op_type, in_inmem=True, out_inmem=True):
+    from kensu.utils.kensu_provider import KensuProvider
     kensu = KensuProvider().instance()
     in_ds, in_schema = extract_ksu_ds_schema(kensu,
                                              in_obj,

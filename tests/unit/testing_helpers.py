@@ -15,6 +15,8 @@ def setup_kensu_tracker(
         out_file=None,
         offline=True,
         project_names=None,
+        report_in_mem=False,
+        **kwargs
 ):
     offline = True
     api_url = os.environ.get('KSU_API_URL') or ''
@@ -34,4 +36,5 @@ def setup_kensu_tracker(
         project_names=project_names,
         offline_file_name=out_file,
         mapping=True,
-        report_in_mem=False)
+        report_in_mem=report_in_mem,
+       **kwargs)

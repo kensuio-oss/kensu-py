@@ -10,7 +10,7 @@ import pytest
 from kensu import pysftp
 from kensu.client import ApiClient
 from kensu.utils.kensu_provider import KensuProvider
-from tests.unit.helpers import setup_logging, setup_kensu_tracker
+from tests.unit.testing_helpers import setup_logging, setup_kensu_tracker
 
 setup_logging()
 

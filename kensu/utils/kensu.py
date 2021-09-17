@@ -65,7 +65,7 @@ class Kensu(object):
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
                  user_name=None, code_location=None, init_context=True, 
-                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
+                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, compute_stats=True, **kwargs):
         """
         """
         from configparser import ConfigParser, ExtendedInterpolation
@@ -142,6 +142,7 @@ class Kensu(object):
         self.logical_naming = logical_naming
         self.mapping = mapping
         self.report_in_mem = report_in_mem
+        self.compute_stats = compute_stats
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -330,6 +331,7 @@ class Kensu(object):
 
                     for schema in schemas_pk:
                         stats_df = self.real_schema_df[schema]
+
                         try:
                             stats = self.extractors.extract_stats(stats_df)
                         except:
