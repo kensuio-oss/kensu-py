@@ -50,25 +50,13 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
     def tk(self, k, k1): return k + '.' + k1
 
-    def extract_table_stats(self, table: Table):
-        # FIXME: this is dummy default in case ANSI SQL parsing failed, and possibly should be just disabled?
-        kensu = KensuProvider().instance()
-        client: Client = kensu.data_collectors['BigQuery']
-        return compute_bigquery_stats(table, client, stats_aggs=None, input_filters=None)
-
     # return dict of doubles (stats)
     def extract_stats(self, df):
-        df = self.skip_wr(df)
-        # skip stats when not wringing to BQ!
-        # FIXME: what about when  wringing to BQ!?
+        # stats definitions are computed directly in wrapper in more efficient fashion, see `query.py`
         return None
-        if isinstance(df, google.cloud.bigquery.table.Table):
-            return self.extract_table_stats(df)
-        elif isinstance(df, google.cloud.bigquery.table.RowIterator):
-            # FIXME?
-            return None
 
     def extract_data_source(self, df, pl, **kwargs):
+        # FIXME: is this not used?
         df=self.skip_wr(df)
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
 

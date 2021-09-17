@@ -1,6 +1,7 @@
 # for tests only
 pytest-sftpserver
 pytest>=6.2.4
+pytest-mock
 # optional dependencies of external libs that we integrate with
 pysftp>=0.2.9
 pandas>=1.2.4
