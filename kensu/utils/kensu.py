@@ -173,7 +173,7 @@ class Kensu(object):
         return self.schema_name_by_guid.get(s_guid) or s_guid
 
     def to_schema_names(self, s_guids):
-        return [self.to_schema_name(s_guid) for s_guid in s_guids]
+        return list(set([self.to_schema_name(s_guid) for s_guid in s_guids]))
 
 
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
