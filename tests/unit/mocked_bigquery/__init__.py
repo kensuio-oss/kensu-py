@@ -59,7 +59,6 @@ def mock(mocker):
                               schema=[SchemaField(f, "DATE") for f in res_fields])
     job_result = mocker.Mock(
         spec=res_table,
-        # wraps=out_table,
         path=res_table.path,
         schema=res_table.schema,
         to_dataframe=lambda: pandas.DataFrame(res_sample_data, columns=res_fields))
