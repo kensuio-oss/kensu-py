@@ -11,7 +11,7 @@ from kensu.client import *
 from kensu.google.cloud.bigquery import Client
 from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
 from kensu.utils.dsl.extractors import ExtractorSupport
-from kensu.utils.helpers import singleton
+from kensu.utils.helpers import singleton, to_datasource
 from kensu.utils.kensu_provider import KensuProvider
 
 
@@ -70,12 +70,8 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         # fixme: copy-paste!
         name = ('/').join(location.split('/')[-2:])
-        if logical_naming == 'File':
-            logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=fmt, categories=['logical::'+logical_category], pk=ds_pk)
-        else:
-            ds = DataSource(name=name, format=fmt, categories=[], pk=ds_pk)
-        return ds
+        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
+
 
     def extract_schema(self, data_source, df):
         df = self.skip_wr(df)

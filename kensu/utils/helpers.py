@@ -5,8 +5,7 @@ from hashlib import sha1
 # fixme: circular import, so need to inline in each fn?
 # from kensu.utils.kensu_provider import KensuProvider
 
-from kensu.client import FieldDef, SchemaPK, Schema
-
+from kensu.client import FieldDef, SchemaPK, Schema, DataSource
 
 
 def to_snake_case(name):
@@ -108,6 +107,15 @@ def logical_naming_batch(string):
     from itertools import groupby, chain
     grouped = groupby(string, str.isdigit)
     return ''.join(chain.from_iterable("<number>" if k else g for k,g in grouped))
+
+
+def to_datasource(ds_pk, format, location, logical_naming, name):
+        if logical_naming == 'File':
+            logical_category = location.split('/')[-1]
+            ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+        else:
+            ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
+        return ds
 
 
 def extract_short_json_schema(result, result_ds):
