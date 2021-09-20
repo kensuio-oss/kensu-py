@@ -3,6 +3,8 @@
 #
 # Copyright 2021 Kensu Inc
 #
+import logging
+
 from kensu.google.cloud.bigquery.job.bq_helpers import BqKensuHelpers
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, GenericComputedInMemDs, \
     ExtDependencyEntry
@@ -45,7 +47,8 @@ class BqOfflineParser:
             table = client.get_table(name)
             ds, sc = BqKensuHelpers.table_to_kensu(table)  # FIXME?
             return table, ds, sc
-        except:
+        except Exception as e:
+            logging.debug("get_table_info_for_id failed for table={}, maybe not BQ table: {}".format(id, str(e)))
             # FIXME this is because the current find_sql_identifiers also returns the column names...
             #  (see aboveREF_GET_TABLE)
             #  Therefore get_table of a column name should fail

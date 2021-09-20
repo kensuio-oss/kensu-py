@@ -28,5 +28,5 @@ jobs:
     - name: Test with pytest
       run: |
         # have to be in right dir to pickup tests/unit/conf.ini file
-        ( cd tests/unit && pytest test_sftp.py test_bigquery.py )
+        ( cd tests/unit && pytest --log-cli-level=INFO test_sftp.py test_bigquery.py )
         python3 -m unittest tests.unit.test_external_to_pandas

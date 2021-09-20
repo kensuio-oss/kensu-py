@@ -65,6 +65,8 @@ class BqRemoteParser:
             logging.debug(
                 f'table_id {table_id} (table.ref={bg_table_ref}, ds_path: {ds_path}) got input_filters: {stats_filters} & stat_aggs:{str(stats_aggs)}')
         else:
+            logging.warning('table_id={} as reported by remote service was not found in table_id cache: {}'.format(
+                table_id, str(table_id_to_bqtable.keys())))
             sc = None
             ds_path = 'bigquery:/' + table_id  # FIXME: add proper BQ prefix, and extract a shared helper
         input = KensuDatasourceAndSchema.for_path_with_opt_schema(

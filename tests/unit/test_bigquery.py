@@ -40,8 +40,6 @@ class TestBigQuery(unittest.TestCase):
             out_ds =['unit/test_res_from_bigquery']
             # FIXME: output name repeated, why?
             lineage_name = 'Lineage to unit/test_res_from_bigquery,unit/test_res_from_bigquery from bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-stores,bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-tickets'
-            # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_STATS
-
             # p.s. these can be extracted as helpers, we'll see
             assert_log_msg_exists(
                 lineage_name
@@ -49,6 +47,7 @@ class TestBigQuery(unittest.TestCase):
             for ds in out_ds + in_ds:
                 assert_log_msg_exists('"entity": "DATA_SOURCE"', ds)
                 assert_log_msg_exists('"entity": "SCHEMA"', 'schema:'+ds)
+            # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_STATS (stats disabled now, harder to mock bigquery)
 
 
 
