@@ -85,6 +85,7 @@ class BqOfflineParser:
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
                 ds_path=ds_path,
+                ds_name=ds.name,
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=schema_fields,

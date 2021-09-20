@@ -65,10 +65,9 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
         if location is None or fmt is None:
             raise Exception(
-                "cannot report new pandas dataframe without location ({}) a format provided ({})!".format(location, fmt))
+                "cannot report new bigquery dataframe without location ({}) a format provided ({})!".format(location, fmt))
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
-        # fixme: copy-paste!
         name = ('/').join(location.split('/')[-2:])
         return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
 

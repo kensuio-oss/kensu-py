@@ -1,5 +1,5 @@
 #  python -m unittest discover -s tests/unit
-
+import re
 import unittest
 import pytest
 import vcr
@@ -35,17 +35,21 @@ class TestBigQuery(unittest.TestCase):
             df = q.to_dataframe()
             df.to_csv('test_res_from_bigquery')
 
-            in_ds = ['bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-tickets',
-                     'bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-stores']
-            out_ds =['unit/test_res_from_bigquery']
-            lineage_name = 'Lineage to unit/test_res_from_bigquery from bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-stores,bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-tickets'
+            in_ds = {
+                # uri => short_name
+                'bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-tickets': 'tables/ARG-tickets',
+                'bigquery://projects/psyched-freedom-306508/datasets/cf/tables/ARG-stores': 'tables/ARG-stores'
+            }
+            out_ds = {
+                # only suffix checked now...
+                re.compile(r'"([^"]+)kensu-py/tests/unit/test_res_from_bigquery"'): 'unit/test_res_from_bigquery'
+            }
+            lineage_name = 'Lineage to unit/test_res_from_bigquery from tables/ARG-stores,tables/ARG-tickets'
             # p.s. these can be extracted as helpers, we'll see
-            assert_log_msg_exists(
-                lineage_name
-            )
-            for ds in out_ds + in_ds:
-                assert_log_msg_exists('"entity": "DATA_SOURCE"', ds)
-                assert_log_msg_exists('"entity": "SCHEMA"', 'schema:'+ds)
+            assert_log_msg_exists(lineage_name)
+            for ds_uri, ds_name in ({**out_ds, **in_ds}).items():
+                assert_log_msg_exists('DATA_SOURCE', ds_name, ds_uri, full_str_match=True)
+                assert_log_msg_exists('SCHEMA', 'schema:' + ds_name, full_str_match=True)
             # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_STATS (stats disabled now, harder to mock bigquery)
 
 

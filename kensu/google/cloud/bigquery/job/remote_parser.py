@@ -45,9 +45,11 @@ class BqRemoteParser:
         logging.debug('table_id = {}, table_id_to_bqtable.keys={}'.format(table_id, str(table_id_to_bqtable)))
         bq_table = table_id_to_bqtable.get(table_id)
         stats_values = {}
+        ds_name = None
         if bq_table is not None:
             ds, sc = BqKensuHelpers.table_to_kensu(bq_table)
             ds_path = ds.pk.location
+            ds_name = ds.name
             sc = [(f.name, f.field_type) for f in sc.pk.fields]
             table_stats_info = stats_info.get(table_id, {})
             stats_aggs = table_stats_info.get('stats')
@@ -72,6 +74,7 @@ class BqRemoteParser:
         input = KensuDatasourceAndSchema.for_path_with_opt_schema(
             kensu,
             ds_path=ds_path,
+            ds_name=ds_name,
             format='BigQuery table',
             categories=None,
             maybe_schema=sc,

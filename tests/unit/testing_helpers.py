@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 
 from kensu.utils.kensu_provider import KensuProvider
@@ -44,6 +45,15 @@ def setup_kensu_tracker(
        **kwargs)
 
 
-def assert_log_msg_exists(msg, msg2=None):
+def assert_log_msg_exists(msg, msg2=None, msg3=None, full_str_match=False):
+    def contains(m, line):
+        if isinstance(m, re.Pattern):
+            return bool(re.search(m, line))
+        else:
+            if full_str_match:
+                return m is None or '"{}"'.format(m) in line
+            else:
+                return m is None or m in line
     with open(KensuProvider().instance().offline_file_name, "r") as f:
-        assert bool([True for l in f.readlines() if msg in l and (msg2 is None or msg2 in l)])
+        assert bool([True for l in f.readlines()
+                     if msg in l and contains(msg2, l) and contains(msg3, l)])
