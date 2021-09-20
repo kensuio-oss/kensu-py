@@ -18,7 +18,14 @@ import google.cloud.bigquery.job as bqj
 
 
 class QueryJob(bqj.QueryJob):
-    # .to_dataframe (and possibly other methods) calls .result
+    # - client.query(sql) returns QueryJob which we patch here for tracking
+    # - for both QueryJob.to_dataframe and QueryJob.result() we return a monkey-patched QueryJob
+    #      having QueryJob.result set to our wrapper fn
+    #  * we add a .ksu_dest field to QueryJob.result() which is internally used to connect lineage later on
+    # - QueryJob.to_dataframe calls original .result() internally, so to be able to track it, currently
+    # we do not call the original .to_dataframe(), but obtain .result() and then convert it to DataFrame
+    # Limitations:
+    # - currently bq.TableReference (temp table) is tested as destination of job (could be RowIterator too)
 
     @staticmethod
     def patch(job: bqj.QueryJob) -> bqj.QueryJob:
