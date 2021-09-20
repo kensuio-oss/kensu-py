@@ -337,7 +337,6 @@ else:
             else:
                 msg = "Kensu numpy.unique got an unexpected result which may be not fully tracked"
                 logging.warning(msg)
-                print(msg)
                 ksu_result = original_result
             return ksu_result
 
@@ -424,7 +423,6 @@ else:
         except Exception:  # thrown by default extract_data_source/extract_schema
             msg = "Kensu numpy.array got an unexpected argument which can not be fully tracked (yet): " + str(type(nd))
             logging.warning(msg)
-            print(msg)
             #import traceback
             #traceback.print_stack()
             orig_sc = None

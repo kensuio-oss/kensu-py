@@ -10,31 +10,32 @@ def compute_bigquery_stats(table_ref, table, client, stats_aggs, input_filters=N
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
     if stats_aggs is None:
+        logging.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
         stats_aggs = generate_fallback_stats_queries(table)
 
-    selector = ",".join([v + " " + c + "_" + s for c, vs in stats_aggs.items() for s, v in vs.items()])
+    selector = ",".join([sql_aggregation + " " + col + "_" + stat_name
+                         for col, stats_for_col in stats_aggs.items()
+                         for stat_name, sql_aggregation in stats_for_col.items()])
     filters = ''
     if input_filters is not None and len(input_filters) > 0:
         filters = f"WHERE {' AND '.join(input_filters)}"
     stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}` {filters}"
     logging.debug(f"stats query for table {table_ref}: {stats_query}")
-    sts = client.query(stats_query)
-    sts_result = sts.result()
-    stats = None
-    for row in sts_result:
-        stats = row  # there is only one anyway
-    r['nrows'] = stats['nrows']
-    for k, vs in stats_aggs.items():
-        for s in vs.keys():
-            v = stats[k + "_" + s]
-            if v.__class__ in [datetime.date, datetime.datetime, datetime.time]:
-                v = int(v.strftime("%s") + "000")
-            r[k + "." + s] = v
+    for row in client.query(stats_query).result():
+        # total num rows (independent of column)
+        r['nrows'] = row['nrows']
+        # extract column specific stats
+        for col, stat_names in stats_aggs.items():
+            for stat_name in stat_names.keys():
+                v = row[col + "_" + stat_name]
+                if v.__class__ in [datetime.date, datetime.datetime, datetime.time]:
+                    v = int(v.strftime("%s") + "000")
+                r[col + "." + stat_name] = v
+        break  # there should be only one row here
     return r
 
 
 def generate_fallback_stats_queries(table):
-    logging.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
     stats_aggs = {}
     for f in table.schema:
         # f.field_type is

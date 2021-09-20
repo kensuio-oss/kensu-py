@@ -21,7 +21,7 @@ class BqOfflineParser:
             kensu: Kensu,
             client: bq.Client,
             query: str):
-        table_infos = BqOfflineParser.get_table_infos_from_sql(client, query)
+        table_infos = BqOfflineParser.get_table_info_from_sql(client, query)
         # for table, ds, sc in table_infos:
         #     # FIXME: this possibly don't fit here well...
         #     kensu.real_schema_df[sc.to_guid()] = table
@@ -55,7 +55,7 @@ class BqOfflineParser:
             return None
 
     @staticmethod
-    def get_table_infos_from_sql(client: bq.Client, query: str):
+    def get_table_info_from_sql(client: bq.Client, query: str):
         sq = sqlparse.parse(query)
         ids = BqOfflineParser.find_sql_identifiers(sq[0].tokens)  # FIXME we only take the first element
         table_infos = list(
