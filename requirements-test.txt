@@ -8,7 +8,9 @@ pysftp>=0.2.9
 pandas>=1.2.4
 numpy>=1.19.5
 scikit-learn>=0.24.2
-GitPython
 gluonts==0.6.5
 boto3
 psycopg2-binary==2.8.4
+google-cloud-bigquery==2.26.0
+# optional dependencies used in kensu-py collectors
+GitPython
