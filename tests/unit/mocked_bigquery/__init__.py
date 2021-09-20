@@ -70,22 +70,23 @@ def mock(mocker):
     kensu_bigquery.job.query.QueryJob.__bases__ = (
         FakeBaseClass.imitate(mocker, google.cloud.bigquery.job.query.QueryJob,
                               method_return_values={'query': sample_sql,
-                                                    'result': lambda: job_result}),)
+                                                    'result': job_result}),)
 
-    kensu_bigquery.Client.__bases__ = (FakeBaseClass.imitate(mocker, google.cloud.bigquery.Client,
-                                                             method_return_values={
-                                                                 # returns a Job with attr query returning sql
-                                                                 'query': mocker.Mock(
-                                                                     # define job.result here with type Iterator?
-                                                                     spec=google.cloud.bigquery.job.query.QueryJob,
-                                                                     query=sample_sql,
-                                                                     result=lambda: job_result
-                                                                 ),
-                                                             },
-                                                             attr_values={
-                                                                 'get_table': lambda self, table_id:
-                                                                 table_id_to_bqtable[table_id]
-                                                             }),)
+    kensu_bigquery.Client.__bases__ = (FakeBaseClass.imitate(
+        mocker,
+        google.cloud.bigquery.Client,
+        method_return_values={
+            # returns a Job with attr query returning sql
+            'query': mocker.Mock(
+                # define job.result here with type Iterator?
+                spec=google.cloud.bigquery.job.query.QueryJob,
+                query=sample_sql,
+                result=lambda: job_result
+            ),
+        },
+        attr_values={
+            'get_table': lambda self, table_id: table_id_to_bqtable[table_id]
+        }),)
 
 
 class FakeBaseClass(object):
