@@ -92,4 +92,4 @@ class BqOfflineParser:
                 lineage=dict([(v.name, v.name) for v in sc.pk.fields])  # FIXME: check if output field exists
             )
             global_lineage.append(lin_entry)
-        return global_lineage
+        return GenericComputedInMemDs(lineage=global_lineage)

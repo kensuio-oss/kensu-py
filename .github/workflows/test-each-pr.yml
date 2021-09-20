@@ -27,7 +27,7 @@ jobs:
         if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
     - name: Test with pytest
       run: |
-        # fixme: add more later...
-        # p.s. kensu collector can be initialized only once, so we currently run each test separately
-        pytest tests/unit/test_sftp.py
+        # have to be in right dir to pickup tests/unit/conf.ini file
+        cd tests/unit
+        pytest tests/unit/test_sftp.py tests/unit/test_bigquery.py
         python3 -m unittest tests.unit.test_external_to_pandas
