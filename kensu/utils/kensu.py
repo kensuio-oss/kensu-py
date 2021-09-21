@@ -65,7 +65,7 @@ class Kensu(object):
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
                  user_name=None, code_location=None, init_context=True, 
-                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
+                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, compute_stats=True, **kwargs):
         """
         """
         from configparser import ConfigParser, ExtendedInterpolation
@@ -142,6 +142,8 @@ class Kensu(object):
         self.logical_naming = logical_naming
         self.mapping = mapping
         self.report_in_mem = report_in_mem
+        self.compute_stats = compute_stats
+        self.offline_file_name = offline_file_name
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -171,7 +173,7 @@ class Kensu(object):
         return self.schema_name_by_guid.get(s_guid) or s_guid
 
     def to_schema_names(self, s_guids):
-        return [self.to_schema_name(s_guid) for s_guid in s_guids]
+        return list(set([self.to_schema_name(s_guid) for s_guid in s_guids]))
 
 
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
@@ -180,6 +182,8 @@ class Kensu(object):
         self.dependencies = []
         self.dependencies_mapping = []
         self.dependencies_per_columns = {}
+        # when set, it seems to indicate if a schema/DS is a real one (is not in memory),
+        # so must be not set for in memory DSes
         self.real_schema_df = {}
         self.schema_name_by_guid = {}
         self.sent_runs = []
@@ -356,6 +360,7 @@ class Kensu(object):
 
                     for schema in schemas_pk:
                         stats_df = self.real_schema_df[schema]
+
                         try:
                             stats = self.extractors.extract_stats(stats_df)
                         except:

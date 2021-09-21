@@ -4,177 +4,102 @@
 # Copyright 2021 Kensu Inc
 #
 import logging
+import traceback
 
+import google
+
+from kensu.google.cloud.bigquery.job.offline_parser import BqOfflineParser
+from kensu.google.cloud.bigquery.job.remote_parser import BqRemoteParser
 from kensu.pandas import DataFrame
+from kensu.utils.helpers import report_all2all_lineage
 from kensu.utils.kensu_provider import KensuProvider
 import google.cloud.bigquery as bq
 import google.cloud.bigquery.job as bqj
-from google.cloud.bigquery import Table
-import sqlparse
+
 
 class QueryJob(bqj.QueryJob):
+    # - client.query(sql) returns QueryJob which we patch here for tracking
+    # - for both QueryJob.to_dataframe and QueryJob.result() we return a monkey-patched QueryJob
+    #      having QueryJob.result set to our wrapper fn
+    #  * we add a .ksu_dest field to QueryJob.result() which is internally used to connect lineage later on
+    # - QueryJob.to_dataframe calls original .result() internally, so to be able to track it, currently
+    # we do not call the original .to_dataframe(), but obtain .result() and then convert it to DataFrame
+    # Limitations:
+    # - currently bq.TableReference (temp table) is tested as destination of job (could be RowIterator too)
 
     @staticmethod
     def patch(job: bqj.QueryJob) -> bqj.QueryJob:
         return QueryJob.override_result(QueryJob.override_to_dataframe(job))
 
-
     @staticmethod
     def override_to_dataframe(job: bqj.QueryJob) -> bqj.QueryJob:
-        f = job.to_dataframe
+        f_orig_to_dataframe = job.to_dataframe
 
         def wrapper(*args, **kwargs):
-            kensu = KensuProvider().instance()
-            result = f(*args, **kwargs)
-            df = DataFrame.using(result)
+            # instead of calling .to_dataframe(),  to be able to track lineage
+            # we get raw .result() and later convert result to pandas
+            # (otherwise original input info is lost inside to_dataframe fn)
+            job_result = job.result()
+            to_dataframe_res = job_result.to_dataframe(*args, **kwargs)
+            final_result = DataFrame.using(to_dataframe_res)
+            report_all2all_lineage(in_obj=job_result, out_obj=to_dataframe_res, in_inmem=True, out_inmem=True,
+                                   op_type='to_dataframe')
+            return final_result
 
-            read_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
-                                                         logical_naming=kensu.logical_naming)._report()
-            read_sc = kensu.extractors.extract_schema(read_ds, df)._report()
-
-            query = job.query
-            sq = sqlparse.parse(query)
-            ids = list(filter(lambda x: isinstance(x, sqlparse.sql.Identifier), sq[0].tokens))
-            client = kensu.data_collectors['BigQuery']
-            for id in ids:
-                name = (id.get_real_name()).strip('`')
-                table = client.get_table(name)
-                path = table.path
-                location = "bigquery:/" + path
-                fmt = "BigQuery Table"
-                ds = kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref, location=location,
-                                                        format=fmt, logical_naming=kensu.logical_naming)._report()
-                sc = kensu.extractors.extract_schema(ds, table)._report()
-
-                if kensu.mapping:
-                    for col in result:
-                        if col in [v.name for v in sc.pk.fields]:
-                            dep = {'GUID': read_sc.to_guid(),
-                                   'COLUMNS': col,
-                                   'FROM_ID': sc.to_guid(),
-                                   'FROM_COLUMNS': col,
-                                   'TYPE': 'read'}
-                            kensu.dependencies_mapping.append(dep)
-
-                kensu.real_schema_df[sc.to_guid()] = result[[v.name for v in sc.pk.fields]]
-
-            return df
-        wrapper.__doc__ = f.__doc__
+        wrapper.__doc__ = f_orig_to_dataframe.__doc__
         setattr(job, 'to_dataframe', wrapper)
         return job
 
     @staticmethod
-    def find_sql_identifiers(tokens):
-        for t in tokens:
-            if isinstance(t, sqlparse.sql.Identifier):
-                if t.is_group and len(t.tokens) > 0:
-                    # String values like "World" in `N == "World"` are also Identifier
-                    # but their first child is of ttype `Token.Literal.String.Symbol`
-                    # although table seems to have a first child of ttype `Token.Name`
-                    if str(t.tokens[0].ttype) == "Token.Name":
-                        # FIXME .. this is also returning the column names... (REF_GET_TABLE)
-                        yield t
-            elif t.is_group:
-                yield from QueryJob.find_sql_identifiers(t)
-
-
-    @staticmethod
-    def table_to_kensu(table: Table):
-        kensu = KensuProvider().instance()
-        ds = kensu.extractors.extract_data_source(table, kensu.default_physical_location_ref,
-                                                logical_naming=kensu.logical_naming)._report()
-        sc = kensu.extractors.extract_schema(ds, table)._report()
-        return ds, sc
-
-
-    @staticmethod
-    def get_table_info_for_id(client: bq.Client, id: sqlparse.sql.Identifier):
-        try:
-            name = (id.get_real_name()).strip('`')
-            table = client.get_table(name)
-            ds, sc = QueryJob.table_to_kensu(table)
-            return table, ds, sc
-        except:
-            # FIXME this is because the current find_sql_identifiers also returns the column names...
-            #  (see aboveREF_GET_TABLE)
-            #  Therefore get_table of a column name should fail
-            return None
-
-
-    @staticmethod
-    def get_table_infos_from_sql(client: bq.Client, query: str):
-        sq = sqlparse.parse(query)
-        ids = QueryJob.find_sql_identifiers(sq[0].tokens) # FIXME we only take the first element
-        table_infos = list(filter(lambda x: x is not None, [QueryJob.get_table_info_for_id(client, id) for id in ids]))
-        return table_infos
-
-
-    @staticmethod
     def override_result(job: bqj.QueryJob) -> bqj.QueryJob:
         f = job.result
+
         def wrapper(*args, **kwargs):
             kensu = KensuProvider().instance()
             result = f(*args, **kwargs)
             client = kensu.data_collectors['BigQuery']
-            # FIXME lots of copy paste from above function to_dataframe
             dest = job.destination
-            if not dest:
-                logging.debug("Not implemented job without destination")
-            else:
-                if isinstance(dest, bq.TableReference):
-                    dest = client.get_table(dest)
-                destination_ds, destination_sc = QueryJob.table_to_kensu(dest)
-                kensu.real_schema_df[destination_sc.to_guid()] = dest
-                dest_field_names = [f.name for f in destination_sc.pk.fields]
-                table_infos = QueryJob.get_table_infos_from_sql(client, job.query)
-                for table, ds, sc in table_infos:
-                    kensu.real_schema_df[sc.to_guid()] = table
-                try:
-                    import requests
-                    url = kensu.conf.get("sql.util.url")
+            if isinstance(dest, bq.TableReference):
+                dest = client.get_table(dest)
+            db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
+                kensu=kensu,
+                client=client,
+                query=job.query)
+            try:
+                bq_lineage = BqRemoteParser.parse(
+                    kensu=kensu,
+                    client=client,
+                    query=job.query,
+                    db_metadata=db_metadata,
+                    table_id_to_bqtable=table_id_to_bqtable)
+            except:
+                logging.warning("Error in BigQuery collector, using fallback implementation")
+                traceback.print_exc()
+                bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
 
-                    table_id_to_schema_id = {}
-                    metadata = {"tables": []}
-                    for table, ds, sc in table_infos:
-                        table_id = "`"+table.full_table_id.replace(":",".")+"`"
-                        table_md = {
-                            "id": table_id,
-                            "schema": {
-                                "fields": [ { "name": f.name, "type": f.field_type } for f in sc.pk.fields]
-                            }
-                        }
-                        table_id_to_schema_id[table_id] = sc.to_guid()
-                        metadata["tables"].append(table_md)
-                    ## POST REQUEST to /lineage
-                    lineage_info = requests.post(url + "/lineage", json={"sql": job.query, "metadata": metadata}).json()
-                    for l in lineage_info:
-                        t = l["table"]
-                        mapping = l["mapping"]
-                        for o in mapping:
-                            for i in mapping[o]:
-                                dep = {'GUID': destination_sc.to_guid(),
-                                                'COLUMNS': o,
-                                                'FROM_ID': table_id_to_schema_id[t],
-                                                'FROM_COLUMNS': i,
-                                                'TYPE': 'read'}
-                                kensu.dependencies_mapping.append(dep)
-                except:
-                    for table, ds, sc in table_infos:
-                        if kensu.mapping:
-                            sc_field_names = [v.name for v in sc.pk.fields]
-                            for col in dest_field_names:
-                                if col in sc_field_names:
-                                    dep = {'GUID': destination_sc.to_guid(),
-                                        'COLUMNS': col,
-                                        'FROM_ID': sc.to_guid(),
-                                        'FROM_COLUMNS': col,
-                                        'TYPE': 'read'}
-                                    kensu.dependencies_mapping.append(dep)
-                kensu.report_with_mapping()
+            QueryJob._store_bigquery_job_destination(result=result, dest=dest)
 
-            return result #TODO lineage and stuff if lost from here on
+            bq_lineage.report(
+                ksu=kensu,
+                df_result=result,
+                operation_type='BigQuery SQL result',
+                report_output=kensu.report_in_mem,
+                # FIXME: how to know when in mem or when bigquery://projects/psyched-freedom-306508/datasets/_b63f45da1cafbd073e5c2770447d963532ac43ec/tables/anonc79d9038a13ab2dbe40064636b0aceedc62b5d69
+                register_output_orig_data=False  # FIXME? when do we need this? INSERT INTO?
+            )
+            # FIXME? kensu.report_with_mapping()
+
+            return result
 
         wrapper.__doc__ = f.__doc__
         setattr(job, 'result', wrapper)
         return job
 
+    @staticmethod
+    def _store_bigquery_job_destination(result, dest):
+        try:
+            if (dest is not None) and isinstance(dest, google.cloud.bigquery.table.Table):
+                result.ksu_dest = dest
+        except:
+            logging.warning('setting _store_bigquery_job_destination failed')
+            traceback.print_exc()

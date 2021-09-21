@@ -10,26 +10,16 @@ import pytest
 from kensu import pysftp
 from kensu.client import ApiClient
 from kensu.utils.kensu_provider import KensuProvider
+from tests.unit.testing_helpers import setup_logging, setup_kensu_tracker
 
-log_format = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
-
+setup_logging()
 
 @pytest.mark.usefixtures("sftpserver")
 class TestSftp(unittest.TestCase):
-    offline = True
-    api_url = os.environ.get('KSU_API_URL') or ''
-    auth_token = os.environ.get('KSU_API_TOKEN') or ''
-    kensu = KensuProvider().initKensu(init_context=True,
-                                      api_url=api_url,
-                                      auth_token=auth_token,
-                                      report_to_file=offline,
-                                      project_names=['pysftp'],
-                                      offline_file_name='kensu-offline-to-pysftp-test.jsonl',
-                                      mapping=True, report_in_mem=False)
 
     def setUp(self):
         self.ac = ApiClient()
+        setup_kensu_tracker(test_cls=self)
 
     # see https://docs.pytest.org/en/reorganize-docs/unittest.html#autouse-fixtures-and-accessing-other-fixtures
     @pytest.fixture(autouse=True)

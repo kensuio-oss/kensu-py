@@ -26,6 +26,7 @@ else:
             elif name == "__class__":
                 return attr_value
             elif name in ['mean','std']:
+                # fixme: lin lost?
                 attr_value = object.__getattribute__(self.get_nd(), name)
                 return attr_value
             elif name in ['round','reshape']:
@@ -139,6 +140,7 @@ else:
 
         def __getitem__(self, item):
             returned = self.get_nd()[item]
+            # fixme: input lineage lost
             if isinstance(returned,str):
                 return returned
             else:
@@ -335,7 +337,6 @@ else:
             else:
                 msg = "Kensu numpy.unique got an unexpected result which may be not fully tracked"
                 logging.warning(msg)
-                print(msg)
                 ksu_result = original_result
             return ksu_result
 
@@ -394,10 +395,8 @@ else:
 
     def array(method):
         def wrapper(*args, **kwargs):
-
             args = list(args)
             obj = args[0]
-
             if isinstance(obj,list):
                 args[0] = remove_ksu_wrappers(obj)
                 new_args = args
@@ -408,7 +407,7 @@ else:
 
             original_result = method(*new_args, **kwargs)
             ksu_result = ndarray.using(original_result)
-            # FIXME: don't we need to call numpy_report here to attach the lineage?
+            numpy_report(obj, ksu_result, "Numpy array")
             return ksu_result
 
         wrapper.__doc__ = method.__doc__
@@ -417,9 +416,17 @@ else:
     array = array(np.array)
 
     def extract_sc(kensu, nd):
-        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
+        try:
+            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
                                                                                 logical_naming=kensu.logical_naming))
-        orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
+        except Exception:  # thrown by default extract_data_source/extract_schema
+            msg = "Kensu numpy.array got an unexpected argument which can not be fully tracked (yet): " + str(type(nd))
+            logging.warning(msg)
+            #import traceback
+            #traceback.print_stack()
+            orig_sc = None
+
         return orig_sc
 
 
@@ -447,9 +454,10 @@ else:
                                                  logical_naming=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
-        if kensu.mapping == True:
+        if kensu.mapping:
             for orig_sc in orig_sc_list:
-                for col in [s.name for s in result_sc.pk.fields]:
-                    for col_orig in [s.name for s in orig_sc.pk.fields]:
-                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
-                                                       name)
+                if orig_sc is not None:
+                    for col in [s.name for s in result_sc.pk.fields]:
+                        for col_orig in [s.name for s in orig_sc.pk.fields]:
+                            kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col_orig),
+                                                           name)

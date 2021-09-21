@@ -1,7 +1,11 @@
+import logging
 import re
 from hashlib import sha1
 
-from kensu.client import FieldDef, SchemaPK, Schema
+# fixme: circular import, so need to inline in each fn?
+# from kensu.utils.kensu_provider import KensuProvider
+
+from kensu.client import FieldDef, SchemaPK, Schema, DataSource
 
 
 def to_snake_case(name):
@@ -60,6 +64,26 @@ def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data
     return ds, schema
 
 
+def report_all2all_lineage(in_obj, out_obj, op_type, in_inmem=True, out_inmem=True):
+    from kensu.utils.kensu_provider import KensuProvider
+    kensu = KensuProvider().instance()
+    in_ds, in_schema = extract_ksu_ds_schema(kensu,
+                                             in_obj,
+                                             report=kensu.report_in_mem or not in_inmem,
+                                             register_orig_data=not in_inmem)
+    out_ds, out_schema = extract_ksu_ds_schema(kensu,
+                                               out_obj,
+                                               report=kensu.report_in_mem or not out_inmem,
+                                               register_orig_data=not out_inmem)
+    logging.debug("in_schema=" + str(in_schema) + "\nout_schema=" + str(out_schema))
+    if kensu.mapping:
+        for col in out_obj:
+            if col in [v.name for v in in_schema.pk.fields]:
+                kensu.add_dependencies_mapping(guid=out_schema.to_guid(),
+                                               col=str(col),
+                                               from_guid=in_schema.to_guid(),
+                                               from_col=str(col),
+                                               type=op_type)
 def flatten(d, parent_key='', sep='.'):
     items = []
     if isinstance(d,list):
@@ -85,6 +109,15 @@ def logical_naming_batch(string):
     return ''.join(chain.from_iterable("<number>" if k else g for k,g in grouped))
 
 
+def to_datasource(ds_pk, format, location, logical_naming, name):
+        if logical_naming == 'File':
+            logical_category = location.split('/')[-1]
+            ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+        else:
+            ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
+        return ds
+
+
 def extract_short_json_schema(result, result_ds):
     fields_set = set()
     if isinstance(result, list):
@@ -105,3 +138,4 @@ def extract_short_json_schema(result, result_ds):
 
     short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)
     return short_result_sc
+

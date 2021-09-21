@@ -1,6 +1,6 @@
 from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport
-from kensu.utils.helpers import singleton
+from kensu.utils.helpers import singleton, to_datasource
 from hashlib import sha256
 
 
@@ -60,12 +60,7 @@ class KensuSKLearnSupport(ExtractorSupport):
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-3:])
-        if logical_naming == 'File':
-            logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_category], pk=ds_pk)
-        else:
-            ds = DataSource(name=name, format=fmt, categories=[], pk=ds_pk)
-        return ds
+        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
 
 
     # FIXME
