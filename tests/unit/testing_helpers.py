@@ -43,6 +43,7 @@ def setup_kensu_tracker(
         mapping=True,
         report_in_mem=report_in_mem,
        **kwargs)
+    return KensuProvider().instance()
 
 
 def assert_log_msg_exists(msg, msg2=None, msg3=None, full_str_match=False):
