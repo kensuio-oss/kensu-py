@@ -43,7 +43,7 @@ jobs:
         with:
           python-version: '3.8'
 
-      - name: Zip it all up and upload to S3
+      - name: Zip it all up and create a lambda layer
         env:
           release_bucket: ${{ secrets.S3_BUCKET_NAME }}
           # '<the uri for your S3 bucket - like s3://my_bucket_name>'
@@ -63,8 +63,6 @@ jobs:
           
           # copy the file to S3 and install it in lambda layers
           aws s3 cp $release_id $release_bucket_uri
-      - name: Create lambda layer
-      - run: |
           aws lambda publish-layer-version --layer-name $release_layer  --content S3Bucket=$release_bucket,S3Key=$release_file_key  --license-info 'Apache-2.0' --compatible-runtimes  python3.8 > layer.json
       
       - name: Extract layer info
