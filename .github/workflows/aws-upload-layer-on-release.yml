@@ -52,7 +52,7 @@ jobs:
           # for layers of PRs we could also use github.ref_head
           release_id: ${{ format('kensu-py-{0}-dev.zip', github.sha ) }}
           release_file_key: ${{ format('{0}/{1}', secrets.S3_LAYER_UPLOAD_DIR, format('kensu-py-{0}-dev.zip', github.sha )) }}
-          release_layer: 'kensu-py-vidma-testing-dev'
+          release_layer: 'kensu-py--dev'
         run: |
           mkdir python
           pip install -r requirements.txt -t python
