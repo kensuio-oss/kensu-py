@@ -52,7 +52,7 @@ jobs:
           # for layers of PRs we could also use github.ref_head
           release_id: ${{ format('kensu-py-{0}-dev.zip', github.sha ) }}
           release_file_key: ${{ format('{0}/{1}', secrets.S3_LAYER_UPLOAD_DIR, format('kensu-py-{0}-dev.zip', github.sha )) }}
-          release_layer: 'kensu-py--dev'
+          release_layer: 'kensu-py-vidma-testing-dev'
         run: |
           mkdir python
           pip install -r requirements.txt -t python
@@ -63,5 +63,22 @@ jobs:
           
           # copy the file to S3 and install it in lambda layers
           aws s3 cp $release_id $release_bucket_uri
-          # fixme: update compatible runtimes
-          aws lambda publish-layer-version --layer-name $release_layer  --content S3Bucket=$release_bucket,S3Key=$release_file_key --compatible-runtimes  python3.8
+      - name: Create lambda layer
+      - run: |
+          aws lambda publish-layer-version --layer-name $release_layer  --content S3Bucket=$release_bucket,S3Key=$release_file_key  --license-info 'Apache-2.0' --compatible-runtimes  python3.8 > layer.json
+      
+      - name: Extract layer info
+        run: |
+          # see https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#setting-an-environment-variable
+          # without version
+          echo "LAYER_ARN=$(cat layer.json | jq -r '.LayerArn')" >> $GITHUB_ENV
+          # arn with version
+          echo "LAYER_VERSION_ARN=$(cat layer.json| jq -r '.LayerVersionArn')" >> $GITHUB_ENV
+          # just the version number, without ARN
+          echo "LAYER_VERSION_NUMBER=$(cat layer.json| jq -r '.Version')" >> $GITHUB_ENV
+
+      - name: Tag resource and set permissions
+        run: |
+          aws lambda tag-resource --resource "$LAYER_VERSION_ARN" --tags '{"VantaOwner":"customer services","VantaNonProd":"true","VantaDescription":"AWS Lambda Layer built from public kensu-py repo","VantaContainsUserData":"false","VantaNoAlert":"created only from public kensuio-oss kensu-py repo"}'
+          # make layer version public
+          aws lambda add-layer-version-permission --layer-name "$LAYER_ARN" --version-number "$LAYER_VERSION_NUMBER" --statement-id allow-all --principal '*' --action lambda:GetLayerVersion --output text
