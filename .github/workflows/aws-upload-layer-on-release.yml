@@ -28,15 +28,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Import Secrets
+        id: secrets
+        uses: hashicorp/vault-action@v2.3.1
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          # method: github
+          # githubToken: ${{ secrets.VAULT_TOKEN }}
+          secrets: |
+            secret/aws/presales/eng_integration_bot access_key | AWS_ACCESS_KEY_ID ;
+            secret/aws/presales/eng_integration_bot encrypted_secret_key | AWS_SECRET_ACCESS_KEY ;
+
       # For more info: https://github.com/aws-actions/configure-aws-credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ steps.secrets.outputs.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ steps.secrets.outputs.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.LAMBDA_LAYERAWS_REGION }}
           # if you have/need it
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          # aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Setup Python 3.8
         uses: actions/setup-python@v1
@@ -45,13 +57,13 @@ jobs:
 
       - name: Zip it all up and create a lambda layer
         env:
-          release_bucket: ${{ secrets.S3_BUCKET_NAME }}
+          release_bucket: ${{ secrets.LAMBDA_LAYER_S3_BUCKET_NAME }}
           # '<the uri for your S3 bucket - like s3://my_bucket_name>'
-          # e.g. ${{ format('s3://{0}', secrets.S3_BUCKET_NAME) }}
-          release_bucket_uri: ${{ format('s3://{0}/{1}/', secrets.S3_BUCKET_NAME, secrets.S3_LAYER_UPLOAD_DIR) }}
+          # e.g. ${{ format('s3://{0}', secrets.LAMBDA_LAYER_S3_BUCKET_NAME) }}
+          release_bucket_uri: ${{ format('s3://{0}/{1}/', secrets.LAMBDA_LAYER_S3_BUCKET_NAME, secrets.LAMBDA_LAYER_S3_UPLOAD_DIR) }}
           # for layers of PRs we could also use github.ref_head
           release_id: ${{ format('kensu-py-{0}-dev.zip', github.sha ) }}
-          release_file_key: ${{ format('{0}/{1}', secrets.S3_LAYER_UPLOAD_DIR, format('kensu-py-{0}-dev.zip', github.sha )) }}
+          release_file_key: ${{ format('{0}/{1}', secrets.LAMBDA_LAYER_S3_UPLOAD_DIR, format('kensu-py-{0}-dev.zip', github.sha )) }}
           release_layer: 'kensu-py--dev'
         run: |
           mkdir python
