@@ -38,7 +38,7 @@ jobs:
           # githubToken: ${{ secrets.VAULT_TOKEN }}
           secrets: |
             secret/aws/presales/eng_integration_bot access_key | AWS_ACCESS_KEY_ID ;
-            secret/aws/presales/eng_integration_bot encrypted_secret_key | AWS_SECRET_ACCESS_KEY ;
+            secret/aws/presales/eng_integration_bot secret_key | AWS_SECRET_ACCESS_KEY ;
 
       # For more info: https://github.com/aws-actions/configure-aws-credentials
       - name: Configure AWS credentials
