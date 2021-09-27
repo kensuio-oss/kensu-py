@@ -46,9 +46,7 @@ jobs:
         with:
           aws-access-key-id: ${{ steps.secrets.outputs.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ steps.secrets.outputs.AWS_SECRET_ACCESS_KEY }}
-          # aws-region: ${{ secrets.LAMBDA_LAYERAWS_REGION }}
-          # FIXME: this is only temporarily
-          aws-region: 'eu-west-1'
+          aws-region: ${{ secrets.LAMBDA_LAYERAWS_REGION }}
           # if you have/need it
           # aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
