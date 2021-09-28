@@ -87,8 +87,7 @@ jobs:
           # just the version number, without ARN
           echo "LAYER_VERSION_NUMBER=$(cat layer.json| jq -r '.Version')" >> $GITHUB_ENV
 
-      - name: Set tags and permissions for lambda layer
+      - name: Set permissions for new lambda layer version
         run: |
-          aws resourcegroupstaggingapi tag-resources --resource-arn-list "$LAYER_VERSION_ARN" --tags '{"VantaOwner":"customer services","VantaNonProd":"true","VantaDescription":"AWS Lambda Layer built from public kensu-py repo","VantaContainsUserData":"false","VantaNoAlert":"created only from public kensuio-oss kensu-py repo"}'
           # make layer version public
           aws lambda add-layer-version-permission --layer-name "$LAYER_ARN" --version-number "$LAYER_VERSION_NUMBER" --statement-id allow-all --principal '*' --action lambda:GetLayerVersion --output text
