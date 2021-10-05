@@ -1,8 +1,14 @@
+import logging
 import json
 import re
 from hashlib import sha1
-
 from numpy.random import RandomState
+
+# fixme: circular import, so need to inline in each fn?
+# from kensu.utils.kensu_provider import KensuProvider
+
+from kensu.client import FieldDef, SchemaPK, Schema, DataSource
+
 
 
 def to_snake_case(name):
@@ -85,3 +91,81 @@ def new_arg(list_or_args):
 
     new_args = tuple(new_args)
     return new_args
+
+def report_all2all_lineage(in_obj, out_obj, op_type, in_inmem=True, out_inmem=True):
+    from kensu.utils.kensu_provider import KensuProvider
+    kensu = KensuProvider().instance()
+    in_ds, in_schema = extract_ksu_ds_schema(kensu,
+                                             in_obj,
+                                             report=kensu.report_in_mem or not in_inmem,
+                                             register_orig_data=not in_inmem)
+    out_ds, out_schema = extract_ksu_ds_schema(kensu,
+                                               out_obj,
+                                               report=kensu.report_in_mem or not out_inmem,
+                                               register_orig_data=not out_inmem)
+    logging.debug("in_schema=" + str(in_schema) + "\nout_schema=" + str(out_schema))
+    if kensu.mapping:
+        for col in out_obj:
+            if col in [v.name for v in in_schema.pk.fields]:
+                kensu.add_dependencies_mapping(guid=out_schema.to_guid(),
+                                               col=str(col),
+                                               from_guid=in_schema.to_guid(),
+                                               from_col=str(col),
+                                               type=op_type)
+def flatten(d, parent_key='', sep='.'):
+    items = []
+    if isinstance(d,list):
+        for element in d:
+            items.extend(flatten(element, parent_key='[]', sep=sep).items())
+    else:
+        for k, v in d.items():
+            new_key = parent_key + sep + k if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten(v, new_key, sep=sep).items())
+            elif isinstance(v, list):
+                if isinstance(v[0], dict):
+                    new_key = new_key + '[]'
+                    for i in v:
+                        items.extend(flatten(i, new_key, sep=sep).items())
+            else:
+                items.append((new_key, type(v).__name__))
+    return dict(items)
+
+def logical_naming_batch(string):
+    from itertools import groupby, chain
+    grouped = groupby(string, str.isdigit)
+    return ''.join(chain.from_iterable("<number>" if k else g for k,g in grouped))
+
+
+def to_datasource(ds_pk, format, location, logical_naming, name):
+        if logical_naming == 'File':
+            logical_category = location.split('/')[-1]
+            ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+        elif logical_naming is not None:
+            ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_naming], pk=ds_pk)
+        else:
+            ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
+        return ds
+
+
+def extract_short_json_schema(result, result_ds):
+    fields_set = set()
+    if isinstance(result, list):
+        for element in result:
+            if isinstance(element,dict):
+                for e in element.keys():
+                    fields_set.add(('[].' + str(e), type((element[e])).__name__))
+            else:
+                fields_set.add(('value', 'unknown'))
+    elif isinstance(result, dict):
+        for e in result.keys():
+            fields_set.add((e, type(result[e]).__name__))
+    else:
+        fields_set.add(('value', 'unknown'))
+    fields = [FieldDef(name=k[0], field_type=k[1], nullable=True) for k in fields_set]
+
+    sc_pk = SchemaPK(result_ds.to_ref(),fields=fields)
+
+    short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)
+    return short_result_sc
+

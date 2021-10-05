@@ -1,8 +1,11 @@
+import logging
+
+
 class KensuDatasourceAndSchema:
     def __init__(self,
                  ksu_ds,
                  ksu_schema,
-                 f_get_stats=lambda: {},
+                 f_get_stats=lambda: None,
                  f_publish_stats = lambda lineage_run_id : {}):
         """
         :param kensu.client.DataSource ksu_ds: Datasource info which was extracted from external system
@@ -18,29 +21,34 @@ class KensuDatasourceAndSchema:
         # this allows remote computation of stats to be published by the remote processor (if at all)
         self.f_publish_stats = f_publish_stats
 
+    def field_names(self):
+        return [f.name for f in self.ksu_schema.pk.fields]
 
     @staticmethod
-    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None):
+    def for_path_with_opt_schema(ksu, ds_path, format=None, categories=None, maybe_schema=None, ds_name=None, f_get_stats=lambda: {}):
         from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
         pl_ref = ksu.UNKNOWN_PHYSICAL_LOCATION.to_ref()
         ds_pk = DataSourcePK(location=ds_path, physical_location_ref=pl_ref)
-        ds = DataSource(name=ds_path, format=format, categories=categories, pk=ds_pk)
+        ds = DataSource(name=ds_name or ds_path, format=format, categories=categories, pk=ds_pk)
         if maybe_schema is None:
             maybe_schema = [("unknown", "unknown"), ]
-        print(maybe_schema)
+        # logging.debug(str(maybe_schema))
         fields = list([
             FieldDef(name=str(name), field_type=str(dtype), nullable=True)
             for (name, dtype) in maybe_schema
         ])
         schema = Schema(name="schema:" + ds.name,
                         pk=SchemaPK(ds.to_ref(), fields=fields))
-        return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema)
+        return KensuDatasourceAndSchema(ksu_ds=ds, ksu_schema=schema, f_get_stats=f_get_stats)
+
+    def __repr__(self):
+        return 'KensuDatasourceAndSchema(ksu_ds={}, ksu_schema={})'.format(str(self.ksu_ds), str(self.ksu_schema))
 
 
 class ExtDependencyEntry:
     def __init__(
             self,
-            input_ds,  # type: KensuDatasourceAndSchema
+            input_ds=None,  # type: KensuDatasourceAndSchema
             # {out_column: [input_column1, input_column2, ...]}
             lineage=None  # type: dict[str, list[str]]
     ):
@@ -53,16 +61,25 @@ class ExtDependencyEntry:
             lineage = {}
         self.lineage = lineage
 
+    def __repr__(self):
+        return 'ExtDependencyEntry(input_ds={}, lineage={})'.format(str(self.input_ds), str(self.lineage))
+
 
 class GenericComputedInMemDs:
     def __init__(
             self,
-            inputs,  # type: list[KensuDatasourceAndSchema]
-            lineage  # type: list[ExtDependencyEntry]
+            inputs=None,  # type: list[KensuDatasourceAndSchema]
+            lineage=None  # type: list[ExtDependencyEntry]
     ):
-        self.lineage = lineage
-        self.inputs = inputs
+        if inputs is None and lineage is not None:
+            inputs = [item.input_ds for item in lineage]
+        self.lineage = lineage or []
+        self.inputs = inputs or []
 
+    def __repr__(self):
+        return 'GenericComputedInMemDs(lineage={})'.format(str(self.lineage))
+
+    # FIXME: rename register_output_orig_data -> output_is_not_in_mem ?
     def report(self, ksu, df_result, operation_type, report_output=False, register_output_orig_data=False):
         from kensu.utils.helpers import extract_ksu_ds_schema
         from kensu.utils.dsl import mapping_strategies
@@ -94,11 +111,11 @@ class GenericComputedInMemDs:
 
 
     @staticmethod
-    def report_copy_with_opt_schema(src, dest, operation_type, maybe_schema=None):
+    def report_copy_with_opt_schema(src, dest, operation_type, maybe_schema=None, dest_name=None, src_name=None):
         from kensu.utils.kensu_provider import KensuProvider
         ksu = KensuProvider().instance()
-        input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=src, maybe_schema=maybe_schema)
-        output_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=dest, maybe_schema=maybe_schema)
+        input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=src, maybe_schema=maybe_schema, ds_name=src_name)
+        output_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=dest, maybe_schema=maybe_schema, ds_name=dest_name)
         if maybe_schema is None:
             maybe_schema = [("unknown", "unknown")]
         lineage_info = [ExtDependencyEntry(

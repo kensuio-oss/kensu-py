@@ -7,3 +7,10 @@ setuptools >= 21.0.0
 urllib3 >= 1.15.1
 datetime
 requests
+configparser
+# required for bigquery currently
+sqlparse >= 0.4.2
+# these can be made optional later on
+#pandas>=1.2.4
+#numpy>=1.19.5
+pglast==v3.4

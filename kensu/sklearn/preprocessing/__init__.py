@@ -86,11 +86,11 @@ class StandardScalerDelegator(object):
                     orig_ds = kensu.extractors.extract_data_source(orig_o, kensu.default_physical_location_ref)._report()
                     orig_sc = kensu.extractors.extract_schema(orig_ds, orig_o)._report()
 
-                    result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
-                    result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
-
                     if not isinstance(result, ndarray):
                         result = ndarray.using(result)
+
+                    result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)._report()
+                    result_sc = kensu.extractors.extract_schema(result_ds, result)._report()
 
                     kensu.add_dependency((orig_o, orig_ds, orig_sc), (result, result_ds, result_sc),
                                        mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)

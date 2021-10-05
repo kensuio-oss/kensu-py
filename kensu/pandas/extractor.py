@@ -5,7 +5,7 @@ import numpy as np
 
 import kensu
 from kensu.client import *
-from kensu.utils.dsl.extractors import ExtractorSupport
+from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
 from kensu.utils.helpers import singleton
 
 @singleton
@@ -45,8 +45,8 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             from kensu.pandas import DataFrame
             if isinstance(df,DataFrame):
                 df = df.get_df()
-            return "in-mem://AN_ID" + sha256(str(df.reset_index().to_dict()).encode("utf-8")).hexdigest() +'/in-mem-transformation'
-            
+            # FIXME: or should it be added as prop to the ksu wrapper instead?!
+            return get_or_set_rand_location(df)
 
     def extract_format(self, df, fmt):
         if fmt is not None:
@@ -67,6 +67,22 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                     stats_dict[key] = int(item)
                 if np.isnan(item):
                     del stats_dict[key]
+            #Extract datetime for timeliness
+            date_df = df.select_dtypes(['datetime', 'datetimetz'])
+            date_dict = {}
+            # if not checked, when there's no Datetime types,
+            # it would throw `ValueError: Cannot describe a DataFrame without columns`
+            if not (date_df.ndim == 2 and date_df.columns.size == 0):
+                date_describe = date_df.describe().to_dict()
+                for col in date_describe:
+                    first = date_describe[col]['first'].timestamp()*1000
+                    last = date_describe[col]['last'].timestamp()*1000
+                    date_dict[col + '.first'] = first
+                    date_dict[col + '.last'] = last
+
+            stats_dict = {**stats_dict,**date_dict}
+
+
             return stats_dict
         elif isinstance(df, pd.Series):
             return {k: v for k, v in df.describe().to_dict().items() if type(v) in [int,float] }

@@ -1,7 +1,7 @@
 import gluonts.mx.model.predictor as pred
+
+from kensu.gluonts.ksu_utils.dataset_helpers import make_dataset_reliable
 from kensu.utils.helpers import eventually_report_in_mem
-from kensu.pandas.data_frame import DataFrame,Series
-from kensu.numpy import ndarray
 from gluonts.dataset.common import ListDataset
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.gluonts.model.forecast import SampleForecast
@@ -9,31 +9,7 @@ from kensu.gluonts.model.forecast import SampleForecast
 class RepresentableBlockPredictor(pred.RepresentableBlockPredictor):
 
     def predict(self, Y, *args, **kwargs):
-        dep_fields = []
-        if isinstance(Y, ListDataset):
-            new_Field = []
-            old_Field = Y.list_data
-
-            for element in Y.list_data:
-                new_dict = {}
-
-                for key in element.keys():
-                    item = element[key]
-
-                    if isinstance(item, DataFrame):
-                        new_item = item.get_df()
-                        dep_fields.append(new_item)
-                    elif isinstance(item, Series):
-                        new_item = item.get_s()
-                        dep_fields.append(new_item)
-                    elif isinstance(item, ndarray):
-                        new_item = item.get_nd()
-                        dep_fields.append(new_item)
-                    else:
-                        new_item = item
-                    new_dict[key] = new_item
-                new_Field.append(new_dict)
-            Y.list_data = new_Field
+        Y, old_Field, dep_fields = make_dataset_reliable(Y)
 
         original_result = list(super(RepresentableBlockPredictor, self).predict(dataset=Y, *args, **kwargs))
 

@@ -1,0 +1,53 @@
+interactions:
+- request:
+    body: '{"sql": "SELECT DATE_KEY, \"ARG\" AS COUNTRY_KEY, s.STORE_KEY, CHAIN_TYPE_DESC,
+      CARD_FLAG, sum(TOTAL) AS CA \n            FROM `psyched-freedom-306508.cf.ARG-stores`
+      AS s \n            INNER JOIN `psyched-freedom-306508.cf.ARG-tickets` AS t \n            ON
+      s.STORE_KEY = t.STORE_KEY\n            WHERE DATE_KEY = \"2021-05-23\" \n            GROUP
+      BY DATE_KEY, s.STORE_KEY, CHAIN_TYPE_DESC, CARD_FLAG", "metadata": {"tables":
+      [{"id": "`psyched-freedom-306508.cf.ARG-stores`", "schema": {"fields": [{"name":
+      "CHAIN_TYPE_DESC", "type": "STRING"}, {"name": "STORE_KEY", "type": "INTEGER"}]}},
+      {"id": "`psyched-freedom-306508.cf.ARG-tickets`", "schema": {"fields": [{"name":
+      "TICKET_KEY", "type": "STRING"}, {"name": "CUSTOMER_KEY", "type": "STRING"},
+      {"name": "DATE_KEY", "type": "DATE"}, {"name": "STORE_KEY", "type": "INTEGER"},
+      {"name": "TOTAL", "type": "FLOAT"}, {"name": "NBR_ITEMS", "type": "INTEGER"},
+      {"name": "CARD_FLAG", "type": "INTEGER"}, {"name": "CARD_FLAGGED", "type": "BOOLEAN"}]}}]}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '998'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.26.0
+    method: POST
+    uri: http://127.0.0.1:5000/lineage-and-stats-criterions
+  response:
+    body:
+      string: '{"lineage":[{"mapping":{"CA":["TOTAL"],"CARD_FLAG":["CARD_FLAG"],"DATE_KEY":["DATE_KEY"]},"table":"`psyched-freedom-306508.cf.ARG-tickets`"},{"mapping":{"CHAIN_TYPE_DESC":["CHAIN_TYPE_DESC"],"STORE_KEY":["STORE_KEY"]},"table":"`psyched-freedom-306508.cf.ARG-stores`"}],"stats":{"`psyched-freedom-306508.cf.ARG-stores`":{"input_filters":["STORE_KEY
+        IS NOT NULL"],"stats":{"CHAIN_TYPE_DESC":{"levels":"count(distinct CHAIN_TYPE_DESC)","nullrows":"sum(case
+        CHAIN_TYPE_DESC when null then 1 else 0 end)"},"STORE_KEY":{"max":"max(STORE_KEY)","mean":"avg(STORE_KEY)","min":"min(STORE_KEY)","nullrows":"sum(case
+        STORE_KEY when null then 1 else 0 end)"}}},"`psyched-freedom-306508.cf.ARG-tickets`":{"input_filters":["(
+        ( ( ( DATE_KEY IS NOT NULL )  AND ( DATE_KEY = ''2021-05-23'' ) ) )  AND (
+        STORE_KEY IS NOT NULL ) )"],"stats":{"CARD_FLAG":{"max":"max(CARD_FLAG)","mean":"avg(CARD_FLAG)","min":"min(CARD_FLAG)","nullrows":"sum(case
+        CARD_FLAG when null then 1 else 0 end)"},"DATE_KEY":{"max":"max(DATE_KEY)","min":"min(DATE_KEY)","nullrows":"sum(case
+        DATE_KEY when null then 1 else 0 end)"},"TOTAL":{"max":"max(TOTAL)","mean":"avg(TOTAL)","min":"min(TOTAL)","nullrows":"sum(case
+        TOTAL when null then 1 else 0 end)"}}}}}
+
+        '
+    headers:
+      Content-Length:
+      - '1212'
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 20 Sep 2021 06:41:54 GMT
+    status:
+      code: 200
+      message: OK
+version: 1

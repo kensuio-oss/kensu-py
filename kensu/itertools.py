@@ -11,10 +11,11 @@ class chain(itertools.chain):
         for it in iterables:
             kensu = KensuProvider().instance()
             if isinstance(it,ndarray):
+                orig_it = it
                 it = it.get_nd()
                 orig_ds = eventually_report_in_mem(
-                    kensu.extractors.extract_data_source(it, kensu.default_physical_location_ref))
-                orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, it))
+                    kensu.extractors.extract_data_source(orig_it, kensu.default_physical_location_ref))
+                orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, orig_it))
                 self.deps.append(orig_sc)
 
             for element in it:
@@ -26,6 +27,7 @@ class chain(itertools.chain):
 
 
 class kensu_list(list):
+    ksu_metadata = {}
     deps=[]
     def __init__(self, *args):
         list.__init__(self, *args)

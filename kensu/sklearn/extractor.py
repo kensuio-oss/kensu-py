@@ -1,6 +1,6 @@
 from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport
-from kensu.utils.helpers import singleton
+from kensu.utils.helpers import singleton, to_datasource
 from hashlib import sha256
 
 
@@ -64,43 +64,54 @@ class KensuSKLearnSupport(ExtractorSupport):
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-3:])
-        if logical_naming == 'File':
-            logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_category], pk=ds_pk)
-        elif logical_naming is not None:
-            ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_naming], pk=ds_pk)
-        else:
-            ds = DataSource(name=name, format=fmt, categories=[], pk=ds_pk)
-        return ds
+
+        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
+
 
 
     # FIXME
     #  THIS can be extended, refactored, ...
     def extract_machine_learning_metrics(self, m, **kwargs):
         from sklearn import metrics
+        from kensu.sklearn.metrics import classification_report
 
         def compute_metrics(X_name,y_name,prefix='train.'):
             ml_metrics = {}
+            if 'classification' in kwargs:
+                classification = kwargs['classification']
+            else:
+                classification = False
+
             if y_name in kwargs and X_name in kwargs:
                 x = kwargs[X_name]
                 y = kwargs[y_name]
-                # FIXME... what is m has no predict function
-                pred_y = m.predict(x).get_nd()
-                # This pretty much for regression
-                # regression : http://scikit-learn.org/stable/modules/model_evaluation.html
-                try :
-                    ml_metrics = {
-                    #prefix+"score": m.score(x, y),
-                    prefix+"explained_variance": metrics.explained_variance_score(pred_y, y),
-                    prefix+"neg_mean_absolute_error": metrics.mean_absolute_error(pred_y, y),
-                    prefix+"neg_mean_squared_error": metrics.mean_squared_error(pred_y, y),
-                    prefix+"neg_mean_squared_log_error": metrics.mean_squared_log_error(pred_y, y),
-                    prefix+"neg_median_absolute_error": metrics.median_absolute_error(pred_y, y),
-                    prefix+"r2": metrics.r2_score(pred_y, y)
-                    }
-                except :
-                    ml_metrics = None
-                return ml_metrics
+
+                if classification:
+                    import pandas
+                    pred_y = m.predict(x)
+                    e=classification_report(y,pred_y,output_dict=True)
+                    df = pandas.json_normalize(e, sep='.')
+                    ml_metrics = (df.to_dict(orient='records')[0])
+                    return ml_metrics
+
+                else:
+                    # FIXME... what is m has no predict function
+                    pred_y = m.predict(x).get_nd()
+                    # This pretty much for regression
+                    # regression : http://scikit-learn.org/stable/modules/model_evaluation.html
+                    try :
+                        ml_metrics = {
+                        #prefix+"score": m.score(x, y),
+                        prefix+"explained_variance": metrics.explained_variance_score(pred_y, y),
+                        prefix+"neg_mean_absolute_error": metrics.mean_absolute_error(pred_y, y),
+                        prefix+"neg_mean_squared_error": metrics.mean_squared_error(pred_y, y),
+                        prefix+"neg_mean_squared_log_error": metrics.mean_squared_log_error(pred_y, y),
+                        prefix+"neg_median_absolute_error": metrics.median_absolute_error(pred_y, y),
+                        prefix+"r2": metrics.r2_score(pred_y, y)
+                        }
+                    except :
+                        ml_metrics = None
+                    return ml_metrics
 
         m1= compute_metrics('x_test','y_test',prefix='test')
         m2= compute_metrics('x_train', 'y_train')
@@ -111,8 +122,6 @@ class KensuSKLearnSupport(ExtractorSupport):
         if bool(m2):
             m_total.update(m2)
         return m_total
-
-
 
 
     def extract_machine_learning_hyper_parameters(self, m):

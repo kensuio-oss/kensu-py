@@ -17,7 +17,7 @@ class LogisticRegression(lm.LogisticRegression):
         result = super(LogisticRegression,self).fit( X_train , y_train,sample_weight )
         kensu = KensuProvider().instance()
 
-        metrics = kensu.extractors.extract_machine_learning_metrics(result,x_train = X_train, y_train = y_train )
+        metrics = kensu.extractors.extract_machine_learning_metrics(result,x_train = X_train, y_train = y_train,classification = True )
         kensu = KensuProvider().instance()
 
         train_X_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(X_train, kensu.default_physical_location_ref))
@@ -62,12 +62,13 @@ class LogisticRegression(lm.LogisticRegression):
             kensu.extractors.extract_data_source(X_test, kensu.default_physical_location_ref))
         X_test_sc = eventually_report_in_mem(kensu.extractors.extract_schema(X_test_ds, X_test))
 
+        ksu_result = ndarray.using(result)
 
         result_ds = eventually_report_in_mem(
-            kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref))
-        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+            kensu.extractors.extract_data_source(ksu_result, kensu.default_physical_location_ref))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, ksu_result))
 
-        result = ndarray.using(result)
+        result = ksu_result
 
         try:
             model_ds = self.kensu_ds
