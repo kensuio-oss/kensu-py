@@ -15,7 +15,6 @@ class RandomForestClassifier(en.RandomForestClassifier):
         elif isinstance(y,Series):
             y_train = y.get_s()
         result = super(RandomForestClassifier,self).fit( X_train , y_train,sample_weight )
-        kensu = KensuProvider().instance()
 
         kensu = KensuProvider().instance()
 
@@ -64,11 +63,10 @@ class RandomForestClassifier(en.RandomForestClassifier):
             kensu.extractors.extract_data_source(X, kensu.default_physical_location_ref))
         X_test_sc = eventually_report_in_mem(kensu.extractors.extract_schema(X_test_ds, X))
 
+        result = ndarray.using(result)
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
-
-        result = ndarray.using(result)
 
         try:
             model_ds = self.kensu_ds
@@ -94,21 +92,21 @@ class RandomForestClassifier(en.RandomForestClassifier):
 
     def predict_proba(self, X):
         if isinstance(X,DataFrame):
-            X = X.get_df()
+            X_t = X.get_df()
+        else:
+            X_t = X
 
-        result = super(RandomForestClassifier,self).predict_proba(X)
+        result = super(RandomForestClassifier,self).predict_proba(X_t)
 
         kensu = KensuProvider().instance()
+        result = ndarray.using(result)
 
         X_test_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(X, kensu.default_physical_location_ref))
         X_test_sc = eventually_report_in_mem(kensu.extractors.extract_schema(X_test_ds, X))
 
-
         result_ds = kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref)
         result_sc = kensu.extractors.extract_schema(result_ds, result)
-
-        result = ndarray.using(result)
 
         try:
             model_ds = self.kensu_ds

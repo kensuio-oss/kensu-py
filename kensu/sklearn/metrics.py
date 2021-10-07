@@ -25,16 +25,16 @@ def wrap_roc_auc_score(method):
         kensu.real_schema_df[result_sc.to_guid()] = {'AUC':result}
 
 
-        for df in new_args:
+        for df in args:
             input_ds = eventually_report_in_mem(
                 kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
                                                      logical_naming=kensu.logical_naming))
             input_sc = eventually_report_in_mem(kensu.extractors.extract_schema(input_ds, df))
 
-            if numpy.array_equal(df,new_args[1]):
-                input_ds._report()
-                input_sc._report()
-                kensu.real_schema_df[input_sc.to_guid()] = df
+            #if numpy.array_equal(df,new_args[1]):
+                # input_ds._report()
+                # input_sc._report()
+                # kensu.real_schema_df[input_sc.to_guid()] = df
 
 
             result_col = 'AUC'

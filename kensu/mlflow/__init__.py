@@ -5,10 +5,8 @@ from mlflow import *
 import kensu.mlflow.pyfunc as pyfunc
 from kensu.client import DataSourcePK, FieldDef, DataSource, SchemaPK, Schema
 from kensu.pandas import DataFrame
-
 from kensu.utils.helpers import eventually_report_in_mem
 from kensu.utils.kensu_provider import KensuProvider
-
 
 def wrap_register(method):
     def wrapper(*args, **kwargs):

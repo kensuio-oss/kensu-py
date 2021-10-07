@@ -142,7 +142,7 @@ def to_datasource(ds_pk, format, location, logical_naming, name):
             logical_category = location.split('/')[-1]
             ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
         elif logical_naming is not None:
-            ds = DataSource(name=name, format=fmt, categories=['logical::' + logical_naming], pk=ds_pk)
+            ds = DataSource(name=name, format=format, categories=['logical::' + logical_naming], pk=ds_pk)
         else:
             ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
         return ds
