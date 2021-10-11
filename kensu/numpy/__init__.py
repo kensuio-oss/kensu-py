@@ -144,7 +144,10 @@ else:
             if isinstance(returned,str):
                 return returned
             else:
-                return ndarray.using(returned)
+                returned = ndarray.using(returned)
+                numpy_report(self, returned, 'getitem')
+                return returned
+
 
         def __repr__(self):
             nd = self.get_nd()
@@ -203,7 +206,7 @@ else:
 
         def __ge__(self, other):
             return self.wrapped_ndarray_binary_op(other, self.get_nd().__ge__)
-
+          
         def __array_finalize__(self, obj):
             if obj is None: return
             self.__k_nd = getattr(obj, '__k_nd', None)
@@ -231,12 +234,11 @@ else:
     def wrap_save(method):
         def wrapper(*args, **kwargs):
             kensu = KensuProvider().instance()
-            result = method(*args, **kwargs)
-
+            new_args = remove_ksu_wrappers(args)
+            result = method(*new_args, **kwargs)
 
             loc = args[0]
             df = args[1]
-
 
             if df.__class__ == ndarray:
 

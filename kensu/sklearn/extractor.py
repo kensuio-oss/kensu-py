@@ -42,8 +42,12 @@ class KensuSKLearnSupport(ExtractorSupport):
             try:
                 return "in-mem://model/" + sha256(str(model.coef_).encode("utf-8")).hexdigest() + '/in-mem-transformation'
             except:
-                return "in-mem://model/" + sha256(
-                    str(model.leaf_size).encode("utf-8")).hexdigest() + '/in-mem-transformation'
+                try:
+                    return "in-mem://model/" + sha256(
+                        str(model.leaf_size).encode("utf-8")).hexdigest() + '/in-mem-transformation'
+                except:
+                    return "in-mem://model/" + sha256(
+                        str(model.estimators_).encode("utf-8")).hexdigest() + '/in-mem-transformation'
 
 
 
@@ -60,7 +64,9 @@ class KensuSKLearnSupport(ExtractorSupport):
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-3:])
+
         return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
+
 
 
     # FIXME

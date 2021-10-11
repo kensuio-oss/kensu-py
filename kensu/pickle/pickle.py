@@ -24,11 +24,10 @@ def wrap_dump(method):
 
         location = get_absolute_path(loc)
 
-
-
         orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(model.attr[0], kensu.default_physical_location_ref,
                                                      logical_naming=kensu.logical_naming,format=fmt))
         orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, model.attr[0]))
+
 
 
         result_ds = kensu.extractors.extract_data_source(model.attr[0], kensu.default_physical_location_ref, location = location,
@@ -39,11 +38,11 @@ def wrap_dump(method):
         kensu.model[result_sc.to_guid()] = model.attr
 
         if kensu.mapping == True:
-            for col in [s.name for s in result_sc.pk.fields]:
-                kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
-                                             "Pickle Dump")
+            #for col in [s.name for s in result_sc.pk.fields]:
+            #    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
+            #                                 "Pickle Dump")
+            kensu.register_alias(ref_guid= orig_sc.to_guid(),alias_guid=result_sc.to_guid())
             kensu.report_with_mapping()
-
 
         return result
 

@@ -6,9 +6,10 @@ else:
     import pandas as pd
     from pandas import *
 
+
     from .data_frame import DataFrame
     from .data_frame import Series
-    from .data_frame import wrap_pandas_reader, wrap_pandas_get_dummies, wrap_merge, wrap_to_datetime
+    from .data_frame import wrap_pandas_reader, wrap_pandas_get_dummies, wrap_merge, wrap_to_datetime, wrap_concat
     from .extractor import KensuPandasSupport
 
     if hasattr(pd, "read_clipboard"):
@@ -47,3 +48,5 @@ else:
         merge = wrap_merge(pd.merge)
     if hasattr(pd, 'to_datetime'):
         to_datetime = wrap_to_datetime(pd.to_datetime)
+    if hasattr(pd, "concat"):
+        concat = wrap_concat(pd.concat)

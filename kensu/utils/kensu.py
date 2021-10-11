@@ -16,6 +16,17 @@ from kensu.pandas import DataFrame,Series
 
 
 class Kensu(object):
+    # list of triples i, o, mapping strategy
+    # i and o are either one or a list of triples (object, DS, SC)
+    dependencies = []
+    dependencies_mapping = []
+    dependencies_per_columns = {}
+    real_schema_df = {}
+    sent_runs = []
+    data_collectors = {}
+    model={}
+    aliases = {}
+
     UNKNOWN_PHYSICAL_LOCATION = PhysicalLocation(name="Unknown", lat=0.12341234, lon=0.12341234,
                                                  pk=PhysicalLocationPK(city="Unknown", country="Unknown"))
 
@@ -249,16 +260,44 @@ class Kensu(object):
         pl._report()
         self.default_physical_location_ref = pl.to_ref()
 
-    def get_dependencies_mapping(self):
-        return self.dependencies_mapping
+    def get_dependencies(self):
+        return self.dependencies
 
-    def add_dependencies_mapping(self, guid, col, from_guid, from_col, type):
+    def get_dependencies_mapping(self, replace_aliases = False):
+        deps = self.dependencies_mapping
+
+
+        if replace_aliases:
+            new_deps = []
+            for dep in deps:
+                guid = dep['GUID']
+                if guid in self.aliases:
+                    guid = self.aliases[guid]
+                from_id = dep['FROM_ID']
+                if from_id in self.aliases:
+                    from_id = self.aliases[from_id]
+                new_deps.append(self.copy_dep(dep, guid = guid, from_guid = from_id))
+            return new_deps
+
+        return deps
+
+    def new_dep(self, guid, col, from_guid, from_col, type):
         dep = {'GUID': guid,
                'COLUMNS': col,
                'FROM_ID': from_guid,
                'FROM_COLUMNS': from_col,
                'TYPE': type}
-        self.dependencies_mapping.append(dep)
+        return dep
+
+    def copy_dep(self, dep, guid=None, col=None, from_guid=None, from_col=None, type=None):
+        return self.new_dep(guid or dep["GUID"], col or dep["COLUMNS"], from_guid or dep["FROM_ID"], from_col or dep["FROM_COLUMNS"], type or dep["TYPE"])
+
+    def add_dependencies_mapping(self, guid, col, from_guid, from_col, type):
+        dep = self.new_dep(guid, col, from_guid, from_col, type)
+        self.get_dependencies_mapping().append(dep)
+
+    def register_alias(self, ref_guid, alias_guid):
+        self.aliases[ref_guid] = alias_guid
 
     def in_mem(self, var_name):
         return "in-memory-data://" + self.process.pk.qualified_name + "/" + var_name
@@ -266,7 +305,7 @@ class Kensu(object):
     def report_with_mapping(self):
         self.set_reinit()
         import pandas as pd
-        deps = self.dependencies_mapping
+        deps = self.get_dependencies_mapping(replace_aliases = True)
         ddf = pd.DataFrame(deps)
         df = ddf.set_index(['GUID', 'COLUMNS', 'FROM_ID']).groupby(['GUID', 'COLUMNS', 'FROM_ID']).agg(list)
         df = df[~df.index.duplicated(keep='first')].reset_index()
@@ -348,6 +387,7 @@ class Kensu(object):
                                          pk=ProcessLineagePK(
                                              process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                              data_flow=dataflow))._report()
+                #print(lineage)
 
 
 
@@ -368,6 +408,7 @@ class Kensu(object):
                             # FIXME weird... should be fine to delete (and try,except too)
                             if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
                                 stats = self.extractors.extract_stats(stats_df)
+
                             elif isinstance(stats_df, ksu_str):
                                 stats = None
                             elif isinstance(stats_df, dict):
@@ -387,7 +428,11 @@ class Kensu(object):
                             model_name = self.model[to_guid][1]
                             metrics = self.model[to_guid][2]
                             import json
-                            hyperparams = json.dumps(self.model[to_guid][3])
+                            hyperparameters_dict = self.model[to_guid][3]
+                            #Random_state doesn't support json serialization
+                            if 'random_state' in hyperparameters_dict.keys():
+                                del hyperparameters_dict['random_state']
+                            hyperparams = json.dumps(hyperparameters_dict)
 
                             model = Model(ModelPK(name=model_name))._report()
                             train = ModelTraining(pk=ModelTrainingPK(model_ref=ModelRef(by_guid=model.to_guid()),

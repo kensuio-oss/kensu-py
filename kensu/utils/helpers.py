@@ -1,11 +1,14 @@
 import logging
+import json
 import re
 from hashlib import sha1
+from numpy.random import RandomState
 
 # fixme: circular import, so need to inline in each fn?
 # from kensu.utils.kensu_provider import KensuProvider
 
 from kensu.client import FieldDef, SchemaPK, Schema, DataSource
+
 
 
 def to_snake_case(name):
@@ -64,6 +67,31 @@ def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data
     return ds, schema
 
 
+def new_arg(list_or_args):
+    from kensu.pandas import Series, DataFrame
+    from kensu.numpy import ndarray
+    def new_args(list_or_args):
+        new_args = []
+        for item in list_or_args:
+            if isinstance(item, Series):
+                new_args.append(item.get_s())
+            elif isinstance(item,DataFrame):
+                new_args.append(item.get_df())
+            elif isinstance(item, ndarray):
+                new_args.append(item.get_nd())
+            else:
+                new_args.append(item)
+        return new_args
+
+    if isinstance(list_or_args, list):
+            list_or_args[0] = new_args(list_or_args[0])
+            new_args = list_or_args
+    else:
+        new_args = new_args(list_or_args)
+
+    new_args = tuple(new_args)
+    return new_args
+
 def report_all2all_lineage(in_obj, out_obj, op_type, in_inmem=True, out_inmem=True):
     from kensu.utils.kensu_provider import KensuProvider
     kensu = KensuProvider().instance()
@@ -113,6 +141,8 @@ def to_datasource(ds_pk, format, location, logical_naming, name):
         if logical_naming == 'File':
             logical_category = location.split('/')[-1]
             ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+        elif logical_naming is not None:
+            ds = DataSource(name=name, format=format, categories=['logical::' + logical_naming], pk=ds_pk)
         else:
             ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
         return ds

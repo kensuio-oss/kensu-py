@@ -1,3 +1,5 @@
+import logging
+
 from kensu.utils.helpers import singleton
 
 import uuid
