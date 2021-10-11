@@ -242,7 +242,9 @@ class KensuPandasDelegator(object):
                         col_dest = [k.name for k in result_sc.pk.fields]
                         col_orig = [k.name for k in orig_sc.pk.fields]
 
+
                         try:
+                            item = args[1]
                             orig_series = eventually_report_in_mem(kensu.extractors.extract_data_source(item, kensu.default_physical_location_ref))
                             orig_sc_series = eventually_report_in_mem(kensu.extractors.extract_schema(orig_series, item))
                         except:
