@@ -13,6 +13,8 @@ from kensu.utils.dsl.lineage_builder import LineageBuilder
 from kensu.utils.helpers import to_hash_key
 from kensu.utils.injection import Injection
 from kensu.pandas import DataFrame,Series
+from kensu.utils.reporters import *
+
 
 
 class Kensu(object):
@@ -71,7 +73,8 @@ class Kensu(object):
         from configparser import ConfigParser, ExtendedInterpolation
 
         config = ConfigParser(interpolation=ExtendedInterpolation())
-        # TODO... path to conf there are so many args in the function here, so adding it will require a good migration plan (it doesn't land in kwargs...)
+        # TODO... path to conf there are so many args in the function here, so adding it will require a good migration plan 
+        # (it doesn't land in kwargs...)
         config.read(self.get_conf_path("conf.ini"))
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
@@ -125,6 +128,7 @@ class Kensu(object):
         user_name = default_if_arg_none(user_name, kensu_conf.get("user_name"))
         code_location = default_if_arg_none(code_location, kensu_conf.get("code_location"))
 
+        reporter = default_if_arg_none(reporter, kensu_conf.get("reporter", None))
         do_report = default_if_arg_none(do_report, kensu_conf.getboolean("do_report", True))
         report_to_file = default_if_arg_none(report_to_file, kensu_conf.getboolean("report_to_file", False))
         offline_file_name = default_if_arg_none(offline_file_name, kensu_conf.get("offline_file_name", None))
@@ -135,6 +139,15 @@ class Kensu(object):
 
         # add function to Kensu entities
         injection = Injection()
+
+        # reporter could be either an instance of Reporter already, or None, or a String (the class name of the reporter)
+        reporter_config = None
+
+        if isinstance(reporter, str) or config.has_section('kensu.reporter'):
+            reporter = Reporter.create(config['kensu.reporter'], reporter)
+        elif reporter is not None and hasattr(reporter, '__call__'):
+            reporter = GenericReporter(reporter)
+
         injection.set_reporter(reporter)
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
         injection.set_kensu_api(self.kensu_api)
