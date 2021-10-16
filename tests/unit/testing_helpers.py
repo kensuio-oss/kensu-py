@@ -45,7 +45,7 @@ def setup_kensu_tracker(
        **kwargs)
 
 
-def assert_log_msg_exists(msg, msg2=None, msg3=None, full_str_match=False):
+def assert_log_msg_exists(msg, msg2=None, msg3=None, full_str_match=False, test_case = None):
     def contains(m, line):
         if isinstance(m, re.Pattern):
             return bool(re.search(m, line))
@@ -55,5 +55,9 @@ def assert_log_msg_exists(msg, msg2=None, msg3=None, full_str_match=False):
             else:
                 return m is None or m in line
     with open(KensuProvider().instance().offline_file_name, "r") as f:
-        assert bool([True for l in f.readlines()
+        b = bool([True for l in f.readlines()
                      if msg in l and contains(msg2, l) and contains(msg3, l)])
+        if test_case is not None:
+            test_case.assertTrue(b, "Missing a line with all of '{}' '{}' '{}'".format(msg, msg2, msg3))
+        else:
+            assert b

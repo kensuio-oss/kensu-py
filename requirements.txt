@@ -14,3 +14,5 @@ sqlparse >= 0.4.2
 #pandas>=1.2.4
 #numpy>=1.19.5
 pglast==v3.4
+[kafka-reporter]
+confluent-kafka

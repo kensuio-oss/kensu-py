@@ -16,7 +16,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
 
 class TestPandas(unittest.TestCase):
     token = ""
-    kensu = KensuProvider().initKensu(api_url="", auth_token=token, init_context=True)
+    kensu = KensuProvider().initKensu(api_url="", auth_token=token, init_context=True, reporter="DoNothingReporter")
 
     # FIXME... dunno ... that sounds rather nasty
     # def _constructor(self):
@@ -26,7 +26,17 @@ class TestPandas(unittest.TestCase):
 
     def setUp(self):
         self.ac = ApiClient()
-        self.dataset = 'tests/unit/fixtures/Macroeconomical.csv'
+        self.dataset = 'tests/unit/data/Macroeconomical.csv'
+        import os
+        os.mkdir("output")
+
+    def tearDown(slef):
+        import shutil
+        try:
+            shutil.rmtree("output")
+        except OSError as e:
+            print("Error: %s - %s." % (e.filename, e.strerror))
+
 
     def test_one(self):
         dataframe = pd.read_csv(self.dataset, sep=';')

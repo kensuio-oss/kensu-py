@@ -42,17 +42,15 @@ class TestBigQuery(unittest.TestCase):
             }
             out_ds = {
                 # only suffix checked now...
-                re.compile(r'"([^"]+)kensu-py/tests/unit/test_res_from_bigquery"'): 'unit/test_res_from_bigquery'
+                re.compile(r'"([^"]+)kensu-py/test_res_from_bigquery"'): 'kensu-py/test_res_from_bigquery'
             }
-            lineage_name = 'Lineage to unit/test_res_from_bigquery from tables/ARG-stores,tables/ARG-tickets'
+            lineage_name = 'Lineage to kensu-py/test_res_from_bigquery from tables/ARG-stores,tables/ARG-tickets'
             # p.s. these can be extracted as helpers, we'll see
-            assert_log_msg_exists(lineage_name)
+            assert_log_msg_exists(lineage_name, test_case = self)
             for ds_uri, ds_name in ({**out_ds, **in_ds}).items():
-                assert_log_msg_exists('DATA_SOURCE', ds_name, ds_uri, full_str_match=True)
-                assert_log_msg_exists('SCHEMA', 'schema:' + ds_name, full_str_match=True)
+                assert_log_msg_exists('DATA_SOURCE', ds_name, ds_uri, full_str_match=True, test_case = self)
+                assert_log_msg_exists('SCHEMA', 'schema:' + ds_name, full_str_match=True, test_case = self)
             # FIXME: check that 'TestBigQuery.jsonl' contains  DATA_STATS (stats disabled now, harder to mock bigquery)
-
-
 
 if __name__ == '__main__':
     unittest.main()
