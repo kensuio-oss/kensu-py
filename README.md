@@ -33,9 +33,8 @@ Adds Data Observability capabilities such as `lineage` tracking, `data profiling
 ### Run tests
 
 ```
-pip install -r requirements-test.txt .`
-CONF_FILE=tests/unit/conf.ini pytest tests/unit/test_sftp.py
-python3 -m unittest  -s tests/unit/ test_external_to_pandas.TestExternalToPandas
+pip install ".[all]"`
+CONF_FILE=tests/unit/conf.ini pytest
 ```
 
 ## Usage
