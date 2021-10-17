@@ -1,0 +1,29 @@
+# Taken from: https://hanxiao.io/2019/11/07/A-Better-Practice-for-Managing-extras-require-Dependencies-in-Python/
+# FORMAT
+# Put your extra requirements here in the following format
+#
+# package[version_required]: tag1, tag2, ...
+
+# optional dependencies of external libs that we integrate with
+pysftp>=0.2.9:                      pysftp
+pandas>=1.2.4:                      pandas
+numpy>=1.19.5:                      pandas, sklearn
+scikit-learn>=0.24.2:               sklearn
+gluonts==0.6.5:                     gluon
+boto3:                              boto
+psycopg2-binary==2.8.4:             pg
+pglast==v3.4:                       pg
+google-cloud-bigquery>=2.26.0:      gbq
+sqlparse >= 0.4.2:                  pg, gbq
+
+# optional for reporters
+confluent-kafka:                    kafka
+
+# optional dependencies used in kensu-py collectors
+GitPython:                          git
+
+# for tests only
+pytest-sftpserver:                  test
+pytest>=6.2.4:                      test
+pytest-mock:                        test
+pytest-vcr:                         test
