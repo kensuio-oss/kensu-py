@@ -82,6 +82,9 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
             stats_dict = {**stats_dict,**date_dict}
 
+            #Add missing value computation
+            for col in df:
+                stats_dict[col + '.nullrows'] =  float(df[col].isna().sum())
 
             return stats_dict
         elif isinstance(df, pd.Series):
