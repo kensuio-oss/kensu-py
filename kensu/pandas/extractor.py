@@ -1,3 +1,4 @@
+import logging
 from hashlib import sha256
 
 import pandas as pd
@@ -82,6 +83,14 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
             stats_dict = {**stats_dict,**date_dict}
 
+            #Add missing value computation
+            count = len(df)
+            stats_dict['nrows'] = count
+            for col in df:
+                try:
+                    stats_dict[col + '.nullrows'] =  count - stats_dict[col + '.count']
+                except:
+                    logging.debug('Unable to get NA count for ' + str(col))
 
             return stats_dict
         elif isinstance(df, pd.Series):
