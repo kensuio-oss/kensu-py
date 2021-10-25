@@ -287,6 +287,7 @@ class Kensu(object):
         unique_ids = list(df['GUID'].unique())
 
         if self.report_in_mem:
+            #TODO Deprecate
             for element in unique_ids:
                 dataflow = []
                 dependencies = df[df['GUID'] == element]
