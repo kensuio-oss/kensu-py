@@ -110,6 +110,8 @@ class Kensu(object):
         logical_naming = kwargs_or_conf_or_default("logical_naming", None)
         mapping = kwargs_or_conf_or_default("mapping", None)
         report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
+        PAT = kwargs_or_conf_or_default("PAT",None)
+        self.PAT = PAT
 
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
@@ -132,6 +134,7 @@ class Kensu(object):
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
+        self.api_url = api_url
 
         # add function to Kensu entities
         injection = Injection()
@@ -192,6 +195,7 @@ class Kensu(object):
         self.set_timestamp(timestamp)
         self.inputs_ds = []
         self.write_reinit = False
+        self.rules = []
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -352,12 +356,43 @@ class Kensu(object):
 
 
 
+
                 if lineage.to_guid() not in self.sent_runs:
                     lineage_run = LineageRun(
                         pk=LineageRunPK(lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                         process_run_ref=ProcessRunRef(by_guid=self.process_run.to_guid()),
                                         timestamp=round(self.timestamp)))._report()
                     self.sent_runs.append(lineage.to_guid())
+
+                    if self.rules and self.api_url:
+                        from kensu.sdk import create_rule, get_cookie, get_lineages_in_project, get_rules, get_rules_for_ds, update_rule
+                        sdk_url = self.api_url.replace('-api', '')
+                        PAT = self.PAT
+
+                        process_id = self.process.to_guid()
+                        project_id = self.process_run.projects_refs[0].by_guid
+                        env_name = self.process_run.environment
+                        cv = self.process_run.executed_code_version_ref.by_guid
+
+                        for map in self.rules:
+                            for lds_id in map:
+                                field_name = map[lds_id]['field']
+                                fun = map[lds_id]['fun']
+
+                                data = get_lineages_in_project(sdk_url, get_cookie(sdk_url, PAT), project_id, process_id,
+                                                        env_name, cv)
+
+                                lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource'] ['name'] == lds_id][0]['id']
+                                lineage_ids = set([data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
+                                for lineage_id in lineage_ids:
+                                    current_rules = get_rules_for_ds(sdk_url,get_cookie(sdk_url,PAT),lds_guid, lineage_id, project_id,env_name)
+                                    current_range_rules = {i['fieldName']: i['uuid'] for i in current_rules['data']['predicates'] if i['functionName'] == 'Range' and (i['environment'] == env_name)}
+                                    if fun['name'] == 'Range' and (field_name in current_range_rules):
+                                        update_rule(sdk_url,get_cookie(sdk_url,PAT),current_range_rules[field_name],fun )
+
+                                    else:
+                                        create_rule(sdk_url,get_cookie(sdk_url,PAT), lds_guid, lineage_id, project_id, process_id, env_name, field_name, fun)
+
 
                     for schema in schemas_pk:
                         stats_df = self.real_schema_df[schema]
