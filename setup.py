@@ -49,10 +49,10 @@ def get_extra_requires(path, add_all=True, add_all_but_test=True, add_no_extra_d
         # add tag `all-but-test` at the end
         if add_all_but_test:
             extra_deps['all-but-test'] = set(vv for v in extra_deps.values() for vv in v if vv != "test")
-        
+
         if add_no_extra_deps:
             extra_deps['no-extra-deps'] = set()
-            
+
 
     print("Collected the following dependencies from " + path + ":")
     print(extra_deps)
