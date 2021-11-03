@@ -26,4 +26,4 @@ jobs:
         pip install -e ".[all]"
     - name: Test with pytest
       run: |
-        CONF_FILE=tests/unit/conf.ini pytest
+        CONF_FILE=tests/unit/conf.ini pytest --log-cli-level=INFO
