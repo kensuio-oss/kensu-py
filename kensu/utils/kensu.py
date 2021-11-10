@@ -418,8 +418,11 @@ class Kensu(object):
                                 for lineage_id in lineage_ids:
                                     current_rules = get_rules_for_ds(sdk_url,get_cookie(sdk_url,PAT),lds_guid, lineage_id, project_id,env_name)
                                     current_range_rules = {i['fieldName']: i['uuid'] for i in current_rules['data']['predicates'] if i['functionName'] == 'Range' and (i['environment'] == env_name)}
+                                    current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if i['functionName'] == 'Frequency' and (i['environment'] == env_name)]
                                     if fun['name'] == 'Range' and (field_name in current_range_rules):
                                         update_rule(sdk_url,get_cookie(sdk_url,PAT),current_range_rules[field_name],fun )
+                                    elif fun['name'] == 'Frequency' and current_frequency_rule:
+                                        update_rule(sdk_url,get_cookie(sdk_url,PAT),current_frequency_rule[0],fun )
 
                                     else:
                                         create_rule(sdk_url,get_cookie(sdk_url,PAT), lds_guid, lineage_id, project_id, process_id, env_name, field_name, fun)
