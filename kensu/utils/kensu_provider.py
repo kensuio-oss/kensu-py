@@ -28,6 +28,7 @@ class KensuProvider(object):
             sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
             bigquery_support = kwargs["bigquery_support"] if "bigquery_support" in kwargs else None
             tensorflow_support = kwargs["tensorflow_support"] if "tensorflow_support" in kwargs else None
+            bigquery_headers = kwargs["bigquery_headers"] if "bigquery_headers" in kwargs else None
 
             project_names = kwargs["project_names"] if "project_names" in kwargs else None
             environment = kwargs["environment"] if "environment" in kwargs else None
@@ -44,7 +45,7 @@ class KensuProvider(object):
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
                       report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
                       get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn,
-                      compute_stats=stats)
+                      compute_stats=stats, bigquery_headers = bigquery_headers)
 
             KensuProvider().setKensu(_kensu)
             return _kensu
