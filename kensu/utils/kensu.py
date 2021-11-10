@@ -104,6 +104,10 @@ class Kensu(object):
         tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", False)
         self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
 
+        bigquery_headers = kwargs_or_conf_or_default("bigquery_headers", None)
+        if bigquery_headers:
+            self.bigquery_headers = bigquery_headers
+
         project_names = kwargs_or_conf_or_default("project_names", [])
         environment = kwargs_or_conf_or_default("environment", None)
         timestamp = kwargs_or_conf_or_default("timestamp", None)

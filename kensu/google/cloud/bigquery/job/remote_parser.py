@@ -11,9 +11,18 @@ from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stat
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, GenericComputedInMemDs, \
     ExtDependencyEntry
 import google.cloud.bigquery as bq
+from kensu.utils.kensu_provider import KensuProvider
 
 
 class BqRemoteParser:
+
+    @staticmethod
+    def get_headers(self):
+        k = KensuProvider().instance()
+        headers = None
+        if k.bigquery_headers:
+            headers = k.bigquery_headers
+        return headers
 
     @staticmethod
     def parse(kensu, client: bq.Client, query: str, db_metadata, table_id_to_bqtable) -> GenericComputedInMemDs:
@@ -22,7 +31,7 @@ class BqRemoteParser:
         url = kensu.conf.get("sql.util.url")
         logging.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
-        lineage_resp = requests.post(url + "/lineage-and-stats-criterions", json=req)
+        lineage_resp = requests.post(url + "/lineage-and-stats-criterions", json=req, headers = BqRemoteParser.get_headers())
         logging.debug("lineage_resp:" + str(lineage_resp))
         logging.debug("lineage_resp_body:" + str(lineage_resp.text))
         parsed_resp = lineage_resp.json()
