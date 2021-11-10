@@ -19,3 +19,46 @@ def add_missing_value_rules(data_source, data_frame):
     for col in data_frame.columns:
         field = col+'.nullrows'
         add_rule(data_source, field, type='Range', parameters={'maxVal':0})
+
+def add_frequency_rule(data_source, hours = None, days = None, weeks = None, months = None):
+
+    if hours:
+        timeLapseUnit = 'Hours'
+        timeLapse = hours
+    elif days:
+        timeLapseUnit = 'Days'
+        timeLapse = days
+    elif weeks:
+        timeLapseUnit = 'Weeks'
+        timeLapse = weeks
+    elif months:
+        timeLapseUnit = 'Months'
+        timeLapse = months
+
+    add_rule(data_source,field=None,
+             type='Frequency',
+             parameters={'timeLapse': timeLapse,'timeLapseUnit':timeLapseUnit})
+
+def add_variability_rule(data_source, variation, hours = None, days = None, weeks = None, months = None):
+
+    parameters = {}
+    parameters['variation'] = variation
+
+    if hours:
+        timeLapseUnit = 'Hours'
+        timeLapse = hours
+    elif days:
+        timeLapseUnit = 'Days'
+        timeLapse = days
+    elif weeks:
+        timeLapseUnit = 'Weeks'
+        timeLapse = weeks
+    elif months:
+        timeLapseUnit = 'Months'
+        timeLapse = months
+
+    add_rule(data_source,field=None,
+             type='Variability',
+             parameters=parameters)
+
+
