@@ -82,21 +82,21 @@ class LoggingReporter(Reporter):
     def __init__(self, config, level=None):
         super().__init__(config)
         self.level = level
-        if self.level is None and config is not None:
+        if self.level is None and config is not None and config["level"] is not None:
             self.level = config["level"]
+        self.level = self.level.lower()
+        if self.level == "info":
+            self.log = logging.info
+        elif self.level == "warn":
+            self.log = logging.warn
+        elif self.level == "error":
+            self.log = logging.error
+        elif self.level == "debug":
+            self.log = logging.debug
 
     def apply(self, obj, kensu_api, method):
         json = self.entity_to_json_event(obj, kensu_api)
-        # TODO check variable and fun names :-D
-        if self.level.lower() == "info":
-            logging.info(json)
-        elif self.level.lower() == "warn":
-            logging.warn(json)
-        elif self.level.lower() == "error":
-            logging.error(json)
-        elif self.level.lower() == "debug":
-            logging.debug(json)
-        return obj
+        return self.log(obj)
 
 
 class FileReporter(Reporter):
@@ -149,7 +149,7 @@ class KafkaReporter(Reporter):
             "token": kensu_api.api_client.default_headers["X-Auth-Token"],
             "entity": self.entity_to_json_event(obj, kensu_api)
         }
-        s = json.dumps(token_and_entity)#.encode('utf-8')
+        s = json.dumps(token_and_entity)
         self.producer.produce(self.topic, key=guid, value=s)
         return obj
 

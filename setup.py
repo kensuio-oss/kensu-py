@@ -50,6 +50,7 @@ def get_extra_requires(path, add_all=True, add_all_but_test=True):
         if add_all_but_test:
             extra_deps['all-but-test'] = set(vv for v in extra_deps.values() for vv in v if vv != "test")
 
+    print("Collected the following dependencies from " + path + ":")
     print(extra_deps)
 
     return extra_deps

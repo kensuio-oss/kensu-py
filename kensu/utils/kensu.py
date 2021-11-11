@@ -62,20 +62,34 @@ class Kensu(object):
                 code_version = code_version + " (dirty)"
         return code_version
 
+    @staticmethod
     def get_conf_path(self, default = "conf.ini"):
         return os.environ["CONF_FILE"] if "CONF_FILE" in os.environ else default
 
-    def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, init_context=True, 
-                 do_report=None, report_to_file=None, offline_file_name=None, reporter=None, compute_stats=True, **kwargs):
+    @staticmethod
+    def build_conf():
         """
+        Returns configparser.ConfigParser
         """
         from configparser import ConfigParser, ExtendedInterpolation
-
         config = ConfigParser(interpolation=ExtendedInterpolation())
-        # TODO... path to conf there are so many args in the function here, so adding it will require a good migration plan 
-        # (it doesn't land in kwargs...)
-        config.read(self.get_conf_path("conf.ini"))
+        conf_path = Kensu.get_conf_path("conf.ini")
+        try:
+            config.read(conf_path)
+        except:
+            logging.warn(f"Cannot load config from file `%s`" % (conf_path))
+        return config
+
+    def __init__(self, api_url=None, auth_token=None, process_name=None,
+                 user_name=None, code_location=None, init_context=True, 
+                 do_report=None, report_to_file=None, offline_file_name=None, 
+                 reporter=None, compute_stats=True, 
+                 config=None, **kwargs):
+        """
+        config: : configparser.ConfigParser if None `build_conf` will be tried
+        """
+        if config is None:
+            config = Kensu.build_conf()
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
         self.conf = kensu_conf
