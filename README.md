@@ -28,12 +28,12 @@ Adds Data Observability capabilities such as `lineage` tracking, `data profiling
 
 ### Build
 
-`pip install -r requirements.txt .`
+`pip install ".[all]"`
 
 ### Run tests
 
 ```
-pip install ".[all]"`
+pip install ".[all]"
 CONF_FILE=tests/unit/conf.ini pytest
 ```
 
@@ -72,7 +72,7 @@ Extra libraries support (TODO: to be extracted in different modules)
 
 #### Reporters
 
-- name: Name of the reporter (class but conventional: KafkaReporter, PrintReporter, LoggingReporter, FileReporter, MultiReporter)
+- name: Name of the reporter (currently we use the class name as a convention, such as `KafkaReporter`, `PrintReporter`, `LoggingReporter`, `FileReporter`, `MultiReporter`)
 
 Each reporter has its own conf keys.
 
