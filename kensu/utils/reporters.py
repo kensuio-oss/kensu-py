@@ -96,7 +96,9 @@ class LoggingReporter(Reporter):
 
     def apply(self, obj, kensu_api, method):
         json = self.entity_to_json_event(obj, kensu_api)
-        return self.log(obj)
+        if self.log:
+            res = self.log(obj)
+        return obj
 
 
 class FileReporter(Reporter):
