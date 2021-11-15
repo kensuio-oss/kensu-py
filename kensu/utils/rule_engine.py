@@ -44,19 +44,6 @@ def add_variability_rule(data_source, variation, hours = None, days = None, week
     parameters = {}
     parameters['variation'] = variation
 
-    if hours:
-        timeLapseUnit = 'Hours'
-        timeLapse = hours
-    elif days:
-        timeLapseUnit = 'Days'
-        timeLapse = days
-    elif weeks:
-        timeLapseUnit = 'Weeks'
-        timeLapse = weeks
-    elif months:
-        timeLapseUnit = 'Months'
-        timeLapse = months
-
     add_rule(data_source,field=None,
              type='Variability',
              parameters=parameters)
