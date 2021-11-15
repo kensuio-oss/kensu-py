@@ -93,6 +93,9 @@ class LoggingReporter(Reporter):
             self.log = logging.error
         elif self.level == "debug":
             self.log = logging.debug
+        else:
+            print('No logging level was specified for LoggingReporter, using ERROR log level')
+            self.log = logging.error
 
     def apply(self, obj, kensu_api, method):
         json = self.entity_to_json_event(obj, kensu_api)
