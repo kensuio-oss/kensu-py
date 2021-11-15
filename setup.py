@@ -16,7 +16,7 @@ from setuptools import setup, find_packages
 NAME = "kensu"
 
 
-VERSION = "1.5.1.1"
+VERSION = "1.6.0"
 
 
 # To install the library, run the following
@@ -26,7 +26,38 @@ VERSION = "1.5.1.1"
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 
-#REQUIRES = ["urllib3 >= 1.15", "six >= 1.10", "certifi", "python-dateutil"]
+def get_extra_requires(path, add_all=True, add_all_but_test=True, add_no_extra_deps=True):
+    import re
+    from collections import defaultdict
+
+    with open(path) as fp:
+        extra_deps = defaultdict(set)
+        for k in fp:
+            if k.strip() and not k.startswith('#'):
+                tags = set()
+                if ':' in k:
+                    k, v = k.split(':')
+                    tags.update(vv.strip() for vv in v.split(','))
+                tags.add(re.split('[<=>]', k)[0])
+                for t in tags:
+                    extra_deps[t].add(k)
+
+        # add tag `all` at the end
+        if add_all:
+            extra_deps['all'] = set(vv for v in extra_deps.values() for vv in v)
+
+        # add tag `all-but-test` at the end
+        if add_all_but_test:
+            extra_deps['all-but-test'] = set(vv for v in extra_deps.values() for vv in v if vv != "test")
+        
+        if add_no_extra_deps:
+            extra_deps['no-extra-deps'] = set()
+            
+
+    print("Collected the following dependencies from " + path + ":")
+    print(extra_deps)
+
+    return extra_deps
 
 setup(
     name=NAME,
@@ -34,16 +65,33 @@ setup(
     description="",
     author_email="",
     url="",
-    keywords=["Ingestion", "Kensu", "Data Intelligence Manager","Analytics Observability","Data Observability"],
-#    install_requires=REQUIRES,
+    keywords=["DODD", "Data Observability Driven Development", "Data Observability", "Analytics Observability"],
     packages=[
         package
         for package in setuptools.PEP420PackageFinder.find()
         if package.startswith("kensu")
     ],
+    required=[
+        # build
+        "setuptools >= 21.0.0"
+        , "twine >= 3.4.1"
+        , "wheel"
+
+        # api
+        ,"urllib3 >= 1.15.1"
+        ,"requests"
+        ,"certifi >= 14.05.14"
+        ,"datetime"
+        ,"python_dateutil >= 2.5.3"
+        ,"six >= 1.10"
+
+        # config
+        ,"configparser"
+    ],
+    extras_require=get_extra_requires('extra-requirements.txt'),
     platforms="Posix; MacOS X; Windows",
     include_package_data=True,
     long_description="""\
-    Python Client to Report Entities to Kensu Data Activity Manager\
+    DODD Python Agent: enable Data Observability Driven Development in your Python script\
     """
 )
