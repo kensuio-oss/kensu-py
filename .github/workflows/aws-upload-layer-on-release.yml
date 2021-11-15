@@ -67,7 +67,7 @@ jobs:
           release_layer: 'kensu-py--dev'
         run: |
           mkdir python
-          pip install -e ".[all-but-test]"
+          pip install -e ".[no-extra-deps]"
           pip install .
           echo building release $release_id
           # zip it up
