@@ -67,6 +67,7 @@ jobs:
           release_layer: 'kensu-py--dev'
         run: |
           mkdir python
+          python -m pip install --upgrade pip
           pip install -e ".[no-extra-deps]"
           pip install .
           echo building release $release_id
