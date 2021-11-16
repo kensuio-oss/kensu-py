@@ -61,3 +61,40 @@ def get_rules_for_ds(url, cookie, ds_id, lineage_id, project_id, env):
     url_pref = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s"%(ds_id,lineage_id,project_id,env)
     v = requests.get(url + url_pref, cookies=cookie, verify=False)
     return v.json()
+
+def get_datasources_in_logical(url, cookie, logical):
+    v = requests.get(url + "/api/services/v1/experimental/datasources/in-logical/%s" % logical, cookies=cookie,  verify=False)
+    return v.json()
+
+def get_datasource(url, cookie, dsId):
+    v = requests.get(url + "/api/services/v1/resources/datasource/%s" % dsId, cookies=cookie,verify=False)
+    return v.json()
+
+def get_latest_datasource_in_logical(url, cookie, logical, n=-1):
+    js = get_datasources_in_logical(url, cookie, logical)
+    sorted_js = (sorted((i for i in js), key=lambda k: k['timestamp']))
+
+    if len(sorted_js)>=abs(n):
+        uuid = sorted_js[n]["uuid"]
+        ds = get_datasource(url,cookie,uuid)
+        return ds
+    else:
+        return None
+
+def get_schema(url, cookie, schemaId):
+    v = requests.get(url+"/api/services/v1/resources/schema/%s" %schemaId,cookies=cookie, verify=False)
+    return v.json()
+
+def get_latest_schema_in_datasource(url, cookie, ds):
+    if ds:
+        schemas = ds['schemas']
+        schema_uuid = (max((i for i in schemas), key=lambda k: k['timestamp']))['schemaId']
+        schema = get_schema(url, cookie, schema_uuid)
+        return {x["columnName"]:x["columnType"] for x in schema['schema']}
+    else:
+        return None
+
+def get_latest_schema_in_logical(url,cookie,logical,n=-1):
+    ds = get_latest_datasource_in_logical(url,cookie,logical,n)
+    schema = get_latest_schema_in_datasource(url,cookie,ds)
+    return schema

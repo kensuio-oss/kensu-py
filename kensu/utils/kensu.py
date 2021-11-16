@@ -610,3 +610,9 @@ class Kensu(object):
                         metrics=metrics,
                         hyper_params_as_json=json.dumps(hp)
                     )._report()
+
+    def get_cookie(self):
+        PAT = self.PAT
+        url = self.api_url.replace('-api', '')
+        from kensu.sdk import get_cookie
+        return get_cookie(url,PAT)
