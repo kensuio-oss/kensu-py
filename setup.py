@@ -71,7 +71,7 @@ setup(
         for package in setuptools.PEP420PackageFinder.find()
         if package.startswith("kensu")
     ],
-    required=[
+    install_requires=[
         # build
         "setuptools >= 21.0.0"
         , "twine >= 3.4.1"
