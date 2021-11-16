@@ -16,6 +16,8 @@ from kensu.utils.kensu_provider import KensuProvider
 import google.cloud.bigquery as bq
 import google.cloud.bigquery.job as bqj
 
+logger = logging.getLogger(__name__)
+
 
 class QueryJob(bqj.QueryJob):
     # - client.query(sql) returns QueryJob which we patch here for tracking

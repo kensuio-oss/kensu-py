@@ -13,6 +13,8 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 import google.cloud.bigquery as bq
 from kensu.utils.kensu_provider import KensuProvider
 
+logger = logging.getLogger(__name__)
+
 
 class BqRemoteParser:
 

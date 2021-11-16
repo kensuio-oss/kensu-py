@@ -12,6 +12,7 @@ from kensu.utils.kensu import Kensu
 import google.cloud.bigquery as bq
 import sqlparse
 
+logger = logging.getLogger(__name__)
 
 class BqOfflineParser:
 
