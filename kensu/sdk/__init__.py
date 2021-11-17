@@ -98,3 +98,15 @@ def get_latest_schema_in_logical(url,cookie,logical,n=-1):
     ds = get_latest_datasource_in_logical(url,cookie,logical,n)
     schema = get_latest_schema_in_datasource(url,cookie,ds)
     return schema
+
+def get_latest_stats_for_ds(url, cookie, projectId, env, linId, dsId):
+    uri = url + "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=false&environment=%s"%(dsId,linId,projectId,env)
+    v = requests.get(uri, cookies=cookie, verify=False)
+    stats_json = sorted(v.json()['data']['stats'],key=lambda k: k['timestamp'])[-1]
+    return stats_json['stats']
+
+def get_logical_ds_name_from_ds(url, cookie, dsId):
+    uri = url + "/business/api/v1/datasources/%s"%dsId
+    v = requests.get(uri, cookies=cookie, verify=False)
+    ds = v.json()
+    return ds["data"]["logicalDatasource"]["name"]

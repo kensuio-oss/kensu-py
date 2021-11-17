@@ -55,14 +55,16 @@ def check_format_consistency(data_source):
     from kensu.sdk import get_latest_datasource_in_logical
     cookie = k.get_cookie()
     checked_format = get_latest_datasource_in_logical(k.api_url.replace("-api",""),cookie,data_source)['format']
-    previous_format = get_latest_datasource_in_logical(k.api_url.replace("-api",""),cookie,data_source,n=-2)['format']
+    previous_ds = get_latest_datasource_in_logical(k.api_url.replace("-api",""),cookie,data_source,n=-2)
 
-    bool = checked_format == previous_format
+    if checked_format and previous_ds:
+        previous_format = previous_ds['format']
+        bool = checked_format == previous_format
 
-    if bool:
-        None
-    else:
-        print("The format of the datasource {} is not consistent, expected {}, got {}".format(data_source,previous_format, checked_format))
+        if bool:
+            None
+        else:
+            print("The format of the datasource {} is not consistent, expected {}, got {}".format(data_source,previous_format, checked_format))
 
 def check_schema_consistency(data_source):
     from kensu.sdk import get_latest_schema_in_logical
@@ -89,4 +91,77 @@ def check_schema_consistency(data_source):
                 del type_diff[x]
         if type_diff:
             for y in type_diff.keys():
-                print("The following field in {} has a wrong type: Expected {}, got {}".format(data_source,previous_schema[y],checked_schema[y]))
+                print("The following field in {} has a wrong type: {} Expected {}, got {}".format(data_source,y,previous_schema[y],checked_schema[y]))
+
+
+def check_nrows_consistency(how = "minimum"):
+    from kensu.sdk import get_latest_stats_for_ds,get_schema, get_logical_ds_name_from_ds
+
+    k = KensuProvider().instance()
+    lineages = k.lineage_and_ds
+    project = k.project_refs[0].by_guid
+    env = k.process_run.environment
+    for lineageId in lineages:
+        cookie = k.get_cookie()
+        inputs_nrows = []
+        lineage = lineages[lineageId]
+        to_schema = list(lineage['to_schema_ref'])[0]
+        output_schema = get_schema(k.api_url.replace("-api", ""), cookie,
+                           to_schema)
+
+        ds_id = output_schema['datasourceId']
+
+        output_name = get_logical_ds_name_from_ds(k.api_url.replace("-api", ""), cookie,ds_id)
+
+        output_nrows = get_latest_stats_for_ds(k.api_url.replace("-api", ""), k.get_cookie(), project,
+                                env, lineageId, ds_id)['nrows']
+
+
+        for input_schema_id in lineage['from_schema_ref']:
+            cookie = k.get_cookie()
+            input_schema = get_schema(k.api_url.replace("-api", ""), cookie,input_schema_id)
+
+            dsId = input_schema['datasourceId']
+            input_name = get_logical_ds_name_from_ds(k.api_url.replace("-api", ""), cookie, dsId)
+
+            inputs_nrows.append({ input_name: get_latest_stats_for_ds(k.api_url.replace("-api", ""), k.get_cookie(), project,
+                                                   env, lineageId, dsId)['nrows']})
+
+        values = []
+        for dic in inputs_nrows:
+            for key in dic:
+                values.append(dic[key])
+
+        if how == "minimum":
+            min_value = min(values)
+            if output_nrows == min_value:
+                None
+            elif output_nrows < min_value:
+                percent = (output_nrows / min_value) * 100
+                percent = round(percent,2)
+                print("{} has less rows than expected: {} out of a maximum of {} - {}%".format(output_name,output_nrows,min_value,percent))
+        elif how == "maximum":
+            max_value = max(values)
+            if output_nrows == max_value:
+                None
+            elif output_nrows < max_value:
+                percent = (output_nrows / max_value) * 100
+                percent = round(percent, 2)
+                print(
+                    "{} has less rows than expected: {} out of a maximum of {} - {}%".format(output_name, output_nrows,
+                                                                                             max_value, percent))
+        else:
+            limiting_ds = how
+            if limiting_ds in inputs_nrows:
+                limiting_value = inputs_nrows[limiting_ds]
+                if output_nrows == limiting_value:
+                    None
+                elif output_nrows < limiting_value:
+                    percent = (output_nrows / limiting_value) * 100
+                    percent = round(percent, 2)
+                    print(
+                        "{} has less rows than expected: {} out of a maximum of {} - {}%".format(output_name,
+                                                                                                 output_nrows,
+                                                                                                 limiting_value, percent))
+
+

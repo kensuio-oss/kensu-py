@@ -225,6 +225,7 @@ class Kensu(object):
         self.model={}
         self.set_timestamp(timestamp)
         self.inputs_ds = []
+        self.lineage_and_ds = {}
         self.write_reinit = False
         self.rules = []
 
@@ -384,11 +385,13 @@ class Kensu(object):
                                          pk=ProcessLineagePK(
                                              process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                              data_flow=dataflow))._report()
-
-
-
-
                 if lineage.to_guid() not in self.sent_runs:
+                    from_schema_ref = set(x.from_schema_ref.by_guid for x in lineage.pk.data_flow)
+                    to_schema_ref =  set(x.to_schema_ref.by_guid for x in lineage.pk.data_flow)
+                    self.lineage_and_ds[lineage.to_guid()] = {'from_schema_ref':list(from_schema_ref),
+                                                              'to_schema_ref':to_schema_ref}
+
+
                     lineage_run = LineageRun(
                         pk=LineageRunPK(lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                         process_run_ref=ProcessRunRef(by_guid=self.process_run.to_guid()),
