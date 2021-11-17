@@ -12,6 +12,8 @@ from kensu.utils.kensu import Kensu
 import google.cloud.bigquery as bq
 import sqlparse
 
+logger = logging.getLogger(__name__)
+
 
 class BqOfflineParser:
 
@@ -48,7 +50,7 @@ class BqOfflineParser:
             ds, sc = BqKensuHelpers.table_to_kensu(table)  # FIXME?
             return table, ds, sc
         except Exception as e:
-            logging.debug("get_table_info_for_id failed for table={}, maybe not BQ table: {}".format(id, str(e)))
+            logger.debug("get_table_info_for_id failed for table={}, maybe not BQ table: {}".format(id, str(e)))
             # FIXME this is because the current find_sql_identifiers also returns the column names...
             #  (see aboveREF_GET_TABLE)
             #  Therefore get_table of a column name should fail
