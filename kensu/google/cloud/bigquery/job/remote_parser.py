@@ -13,6 +13,8 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 import google.cloud.bigquery as bq
 from kensu.utils.kensu_provider import KensuProvider
 
+logger = logging.getLogger(__name__)
+
 
 class BqRemoteParser:
 
@@ -29,11 +31,11 @@ class BqRemoteParser:
         ## POST REQUEST to /lineage-and-stats-criterions
         req = {"sql": query, "metadata": db_metadata}
         url = kensu.conf.get("sql.util.url")
-        logging.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
+        logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
         lineage_resp = requests.post(url + "/lineage-and-stats-criterions", json=req, headers = BqRemoteParser.get_headers())
-        logging.debug("lineage_resp:" + str(lineage_resp))
-        logging.debug("lineage_resp_body:" + str(lineage_resp.text))
+        logger.debug("lineage_resp:" + str(lineage_resp))
+        logger.debug("lineage_resp_body:" + str(lineage_resp.text))
         parsed_resp = lineage_resp.json()
         lineage_info = parsed_resp['lineage']
         stats_info = parsed_resp['stats']
@@ -45,13 +47,13 @@ class BqRemoteParser:
                 stats_info=stats_info
             ) for lineage_entry in lineage_info])
         converted_lineage = GenericComputedInMemDs(lineage=lineage)
-        logging.debug('converted_lineage:' + str(converted_lineage))
+        logger.debug('converted_lineage:' + str(converted_lineage))
         return converted_lineage
 
     @staticmethod
     def convert_lineage_entry(lineage_entry, kensu, client: bq.Client, table_id_to_bqtable, stats_info):
         table_id = lineage_entry['table']
-        logging.debug('table_id = {}, table_id_to_bqtable.keys={}'.format(table_id, str(table_id_to_bqtable)))
+        logger.debug('table_id = {}, table_id_to_bqtable.keys={}'.format(table_id, str(table_id_to_bqtable)))
         bq_table = table_id_to_bqtable.get(table_id)
         stats_values = {}
         ds_name = None
@@ -73,10 +75,10 @@ class BqRemoteParser:
                     client=client,
                     stats_aggs=stats_aggs,
                     input_filters=stats_filters)
-            logging.debug(
+            logger.debug(
                 f'table_id {table_id} (table.ref={bg_table_ref}, ds_path: {ds_path}) got input_filters: {stats_filters} & stat_aggs:{str(stats_aggs)}')
         else:
-            logging.warning('table_id={} as reported by remote service was not found in table_id cache: {}'.format(
+            logger.warning('table_id={} as reported by remote service was not found in table_id cache: {}'.format(
                 table_id, str(table_id_to_bqtable.keys())))
             sc = None
             ds_path = 'bigquery:/' + table_id  # FIXME: add proper BQ prefix, and extract a shared helper
