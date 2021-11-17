@@ -68,8 +68,8 @@ jobs:
         run: |
           mkdir python
           python -m pip install --upgrade pip
-          pip install -e ".[no-extra-deps]"
-          pip install .
+          pip install -e ".[no-extra-deps]" -t python
+          pip install . -t python
           echo building release $release_id
           # zip it up
           zip --quiet -r $release_id python
