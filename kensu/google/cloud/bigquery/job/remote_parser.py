@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BqRemoteParser:
 
     @staticmethod
-    def get_headers(self):
+    def get_headers():
         k = KensuProvider().instance()
         headers = None
         if k.bigquery_headers:
