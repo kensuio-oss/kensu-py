@@ -21,9 +21,11 @@ class BqRemoteParser:
     @staticmethod
     def get_headers():
         k = KensuProvider().instance()
-        headers = None
-        if k.bigquery_headers:
-            headers = k.bigquery_headers
+        try:
+            if k.bigquery_headers:
+                headers = k.bigquery_headers
+        except:
+            headers = None
         return headers
 
     @staticmethod
