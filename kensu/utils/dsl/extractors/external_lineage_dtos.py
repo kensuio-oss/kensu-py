@@ -89,7 +89,7 @@ class GenericComputedInMemDs:
             extract_ksu_ds_schema(ksu, input_ds, report=True, register_orig_data=True)
         # report output (if needed)
         if isinstance(df_result,Schema):
-            result_schema = df_result
+            result_schema = df_result._report()
             ksu.real_schema_df[result_schema.to_guid()] = df_result
         else:
             result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=report_output, register_orig_data=register_output_orig_data)

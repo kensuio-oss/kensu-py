@@ -35,7 +35,7 @@ class Client(client.Client):
         kensu = KensuProvider().instance()
         kensu.data_collectors['BigQuery'] = gclient
 
-        if query.lower().startswith("insert into"):
+        if query.lower().replace(" ","").startswith("insertinto"):
             kensu = KensuProvider().instance()
             client = kensu.data_collectors['BigQuery']
             q = sqlparse.parse(query)
@@ -53,7 +53,7 @@ class Client(client.Client):
                     client=client,
                     query=query)
                 try:
-                    query_without_insert = query.lower().split(d.value)
+                    query_without_insert = query.split(d.value)
                     query_without_insert.remove(query_without_insert[0])
                     query_without_insert= "".join(query_without_insert)
 
@@ -66,8 +66,7 @@ class Client(client.Client):
                 except:
                     bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
 
-                from google.cloud.bigquery.table import Table
-                #f = Table(table,schema=table_infos[0])
+                table_infos[0][1]._report()
                 bq_lineage.report(
                     ksu=kensu,
                     df_result=table_infos[0][2],
