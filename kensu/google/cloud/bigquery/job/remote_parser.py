@@ -35,6 +35,15 @@ class BqRemoteParser:
         url = kensu.conf.get("sql.util.url")
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
+        def convert(fieldtype):
+            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC"]:
+                return "INTEGER"
+            else:
+                return fieldtype
+        for table in db_metadata['tables']:
+            for field in table['schema']['fields'] :
+                field['type'] = convert(field['type'])
+
         lineage_resp = requests.post(url + "/lineage-and-stats-criterions", json=req, headers = BqRemoteParser.get_headers())
         logger.debug("lineage_resp:" + str(lineage_resp))
         logger.debug("lineage_resp_body:" + str(lineage_resp.text))
