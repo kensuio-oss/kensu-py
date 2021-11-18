@@ -1,5 +1,7 @@
 import sqlparse
 from google.cloud.bigquery import client, Dataset
+import logging
+logger = logging.getLogger(__name__)
 
 from .job.offline_parser import BqOfflineParser
 from .job.query import QueryJob
@@ -53,9 +55,10 @@ class Client(client.Client):
                     client=client,
                     query=query)
                 try:
-                    query_without_insert = query.split(d.value)
-                    query_without_insert.remove(query_without_insert[0])
-                    query_without_insert= "".join(query_without_insert)
+                    #TODO: Use sqlparse
+                    index_select = query.lower().index("select")
+                    query_without_insert = query[index_select:]
+                    logger.debug(f"Query without INSERT TO:{query_without_insert}")
 
                     bq_lineage = BqRemoteParser.parse(
                         kensu=kensu,
