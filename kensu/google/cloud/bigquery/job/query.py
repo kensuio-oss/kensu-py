@@ -63,6 +63,8 @@ class QueryJob(bqj.QueryJob):
             dest = job.destination
             if isinstance(dest, bq.TableReference):
                 dest = client.get_table(dest)
+
+            #TODO What if several SELECT queries linked with ; ?
             db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
                 kensu=kensu,
                 client=client,
