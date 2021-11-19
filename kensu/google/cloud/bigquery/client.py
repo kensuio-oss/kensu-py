@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from .job.offline_parser import BqOfflineParser
 from .job.query import QueryJob
-from google.cloud.bigquery.retry import DEFAULT_RETRY, DEFAULT_TIMEOUT
+from google.cloud.bigquery.retry import DEFAULT_RETRY
 from kensu.utils.kensu_provider import KensuProvider
 from .job.remote_parser import BqRemoteParser
 import google.cloud.bigquery as bq
@@ -89,6 +89,7 @@ class Client(client.Client):
 
         return QueryJob.patch(j)
 
+
     def load_table_from_uri(
         self,
         source_uris,
@@ -99,7 +100,7 @@ class Client(client.Client):
         project = None,
         job_config = None,
         retry = DEFAULT_RETRY,
-        timeout = DEFAULT_TIMEOUT,
+        timeout = None
     ):
         gclient = super(Client, self)
         j = gclient.load_table_from_uri(source_uris,
