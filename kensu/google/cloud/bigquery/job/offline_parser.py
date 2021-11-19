@@ -5,6 +5,8 @@
 #
 import logging
 
+from google.cloud.bigquery import Table
+
 from kensu.google.cloud.bigquery.job.bq_helpers import BqKensuHelpers
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, GenericComputedInMemDs, \
     ExtDependencyEntry
@@ -22,8 +24,15 @@ class BqOfflineParser:
     def get_referenced_tables_metadata(
             kensu: Kensu,
             client: bq.Client,
-            query: str):
-        table_infos = BqOfflineParser.get_table_info_from_sql(client, query)
+            query: str = None,
+            table: Table = None):
+        if query:
+            table_infos = BqOfflineParser.get_table_info_from_sql(client, query)
+        elif table:
+            tb = client.get_table(table)
+            ds,sc = BqKensuHelpers.table_to_kensu(tb)
+            table_infos = [(tb,ds,sc)]
+
         # for table, ds, sc in table_infos:
         #     # FIXME: this possibly don't fit here well...
         #     kensu.real_schema_df[sc.to_guid()] = table
