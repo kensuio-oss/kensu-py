@@ -113,6 +113,8 @@ class Client(client.Client):
         retry,
         timeout)
 
+        block = j.result()
+
         kensu = KensuProvider().instance()
         kensu.data_collectors['BigQuery'] = gclient
 
