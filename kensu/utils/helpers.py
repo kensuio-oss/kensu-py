@@ -117,6 +117,10 @@ def to_datasource(ds_pk, format, location, logical_naming, name):
             ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
         return ds
 
+def save_stats_json(schemaID,stats):
+    from kensu.utils.kensu_provider import KensuProvider
+    kensu = KensuProvider().instance()
+    kensu.schema_stats[schemaID]=stats
 
 def extract_short_json_schema(result, result_ds):
     fields_set = set()

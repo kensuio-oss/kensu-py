@@ -86,7 +86,8 @@ class Extractors(object):
 
     def register_schema(self, ds, schema):
         from kensu.utils.kensu_provider import KensuProvider
-        KensuProvider().instance().register_schema_name(ds=ds, schema=schema)
+        k=KensuProvider().instance()
+        k.register_schema_name(ds=ds, schema=schema)
         return schema
 
     def extract_schema(self, data_source, value):

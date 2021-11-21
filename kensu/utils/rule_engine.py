@@ -40,6 +40,8 @@ def add_frequency_rule(data_source, hours = None, days = None, weeks = None, mon
              type='Frequency',
              parameters={'timeLapse': timeLapse,'timeLapseUnit':timeLapseUnit})
 
+
+#TODO Variabilty over time
 def add_variability_rule(data_source, variation, hours = None, days = None, weeks = None, months = None):
 
     parameters = {}
@@ -94,38 +96,13 @@ def check_schema_consistency(data_source):
                 print("The following field in {} has a wrong type: {} Expected {}, got {}".format(data_source,y,previous_schema[y],checked_schema[y]))
 
 
+#TODO WIP check nrows
 def check_nrows_consistency(how = "minimum"):
-    from kensu.sdk import get_latest_stats_for_ds,get_schema, get_logical_ds_name_from_ds
-
     k = KensuProvider().instance()
-    lineages = k.lineage_and_ds
-    project = k.project_refs[0].by_guid
-    env = k.process_run.environment
-    for lineageId in lineages:
-        cookie = k.get_cookie()
-        inputs_nrows = []
-        lineage = lineages[lineageId]
-        to_schema = list(lineage['to_schema_ref'])[0]
-        output_schema = get_schema(k.api_url.replace("-api", ""), cookie,
-                           to_schema)
 
-        ds_id = output_schema['datasourceId']
-
-        output_name = get_logical_ds_name_from_ds(k.api_url.replace("-api", ""), cookie,ds_id)
-
-        output_nrows = get_latest_stats_for_ds(k.api_url.replace("-api", ""), k.get_cookie(), project,
-                                env, lineageId, ds_id)['nrows']
+    for lineage in k.lineage_and_ds:
 
 
-        for input_schema_id in lineage['from_schema_ref']:
-            cookie = k.get_cookie()
-            input_schema = get_schema(k.api_url.replace("-api", ""), cookie,input_schema_id)
-
-            dsId = input_schema['datasourceId']
-            input_name = get_logical_ds_name_from_ds(k.api_url.replace("-api", ""), cookie, dsId)
-
-            inputs_nrows.append({ input_name: get_latest_stats_for_ds(k.api_url.replace("-api", ""), k.get_cookie(), project,
-                                                   env, lineageId, dsId)['nrows']})
 
         values = []
         for dic in inputs_nrows:

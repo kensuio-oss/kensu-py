@@ -7,7 +7,8 @@ import numpy as np
 import kensu
 from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
-from kensu.utils.helpers import singleton
+from kensu.utils.helpers import singleton, save_stats_json
+
 
 @singleton
 class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport class

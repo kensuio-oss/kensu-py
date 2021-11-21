@@ -177,6 +177,7 @@ class Kensu(object):
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats
+        self.compute_delta = kwargs_or_conf_or_default("compute_delta",None)
         self.offline_file_name = offline_file_name
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
@@ -201,6 +202,10 @@ class Kensu(object):
         if "in-mem" in name and ds.format is not None:
             name = name + " of format=" + str(ds.format or '?')
         self.schema_name_by_guid[schema.to_guid()] = name
+        try:
+            self.logical_name_by_guid[schema.to_guid()] = ds.categories[0].split("::")[1]
+        except:
+            None
         return schema
 
     def to_schema_name(self, s_guid):
@@ -220,6 +225,7 @@ class Kensu(object):
         # so must be not set for in memory DSes
         self.real_schema_df = {}
         self.schema_name_by_guid = {}
+        self.logical_name_by_guid = {}
         self.sent_runs = []
         self.data_collectors = {}
         self.model={}
@@ -228,6 +234,7 @@ class Kensu(object):
         self.lineage_and_ds = {}
         self.write_reinit = False
         self.rules = []
+        self.schema_stats = {}
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -380,6 +387,7 @@ class Kensu(object):
                     from_pks.add(from_guid)
                     schemas_pk.add(to_guid)
 
+
                 lineage = ProcessLineage(name=self.get_lineage_name(dataflow),
                                          operation_logic='APPEND',
                                          pk=ProcessLineagePK(
@@ -431,7 +439,7 @@ class Kensu(object):
                                         create_rule(sdk_url,get_cookie(sdk_url,PAT), lds_guid, lineage_id, project_id, process_id, env_name, field_name, fun)
 
 
-                    for schema in schemas_pk:
+                    def send_stats(schema):
                         stats_df = self.real_schema_df[schema]
 
                         try:
@@ -448,6 +456,23 @@ class Kensu(object):
                             else:
                                 #TODO Support ndarray
                                 stats = None
+                        if stats is not None and self.compute_delta:
+                            self.schema_stats[schema] = stats
+                            if schema == to_guid:
+                                if 'nrows' in stats:
+                                    output_nrows = stats['nrows']
+
+                                    #TODO Corner case: if from_pk = to_pk
+                                    for input_schema in from_pks:
+                                        input_stats = self.schema_stats[input_schema]
+                                        input_nrows = input_stats['nrows'] if 'nrows' in input_stats else None
+                                        if input_nrows:
+                                            delta_nrows = input_nrows - output_nrows
+                                            input_name = self.logical_name_by_guid[input_schema] if input_schema in self.logical_name_by_guid else self.schema_name_by_guid[input_schema]
+                                            stats['delta.nrows'+input_name.replace('.','_')+'.abs']=delta_nrows
+                                            stats['delta.nrows' + input_name.replace('.', '_')+'.decrease in %'] = round(100*delta_nrows/input_nrows,2)
+                                    self.schema_stats[schema] = stats
+
                         if stats is not None:
                             DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
                                                      lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
@@ -470,6 +495,9 @@ class Kensu(object):
                                                            lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid()),
                                                            stored_in_schema_ref=SchemaRef(by_guid=to_guid)),
                                          metrics=metrics, hyper_params_as_json=hyperparams)._report()
+                    for schema in from_pks:
+                        send_stats(schema)
+                    send_stats(to_guid)
 
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
