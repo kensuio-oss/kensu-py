@@ -14,7 +14,7 @@ from kensu.utils.helpers import to_hash_key
 from kensu.utils.injection import Injection
 from kensu.pandas import DataFrame,Series
 from kensu.utils.reporters import *
-
+from kensu.utils.rule_engine import create_kensu_nrows_consistency
 
 
 class Kensu(object):
@@ -234,7 +234,9 @@ class Kensu(object):
         self.lineage_and_ds = {}
         self.write_reinit = False
         self.rules = []
+        self.check_rules = []
         self.schema_stats = {}
+        self.stats_to_send={}
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -406,80 +408,51 @@ class Kensu(object):
                                         timestamp=round(self.timestamp)))._report()
                     self.sent_runs.append(lineage.to_guid())
 
-                    if self.rules and self.api_url:
-                        from kensu.sdk import create_rule, get_cookie, get_lineages_in_project, get_rules, get_rules_for_ds, update_rule
-                        sdk_url = self.api_url.replace('-api', '')
-                        PAT = self.PAT
 
-                        process_id = self.process.to_guid()
-                        project_id = self.process_run.projects_refs[0].by_guid
-                        env_name = self.process_run.environment
-                        cv = self.process_run.executed_code_version_ref.by_guid
-
-                        for map in self.rules:
-                            for lds_id in map:
-                                field_name = map[lds_id]['field']
-                                fun = map[lds_id]['fun']
-
-                                data = get_lineages_in_project(sdk_url, get_cookie(sdk_url, PAT), project_id, process_id,
-                                                        env_name, cv)
-
-                                lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource'] ['name'] == lds_id][0]['id']
-                                lineage_ids = set([data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
-                                for lineage_id in lineage_ids:
-                                    current_rules = get_rules_for_ds(sdk_url,get_cookie(sdk_url,PAT),lds_guid, lineage_id, project_id,env_name)
-                                    current_range_rules = {i['fieldName']: i['uuid'] for i in current_rules['data']['predicates'] if i['functionName'] == 'Range' and (i['environment'] == env_name)}
-                                    current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if i['functionName'] == 'Frequency' and (i['environment'] == env_name)]
-                                    if fun['name'] == 'Range' and (field_name in current_range_rules):
-                                        update_rule(sdk_url,get_cookie(sdk_url,PAT),current_range_rules[field_name],fun )
-                                    elif fun['name'] == 'Frequency' and current_frequency_rule:
-                                        update_rule(sdk_url,get_cookie(sdk_url,PAT),current_frequency_rule[0],fun )
-
-                                    else:
-                                        create_rule(sdk_url,get_cookie(sdk_url,PAT), lds_guid, lineage_id, project_id, process_id, env_name, field_name, fun)
-
-
-                    def send_stats(schema):
+                    def create_stats(schema):
                         stats_df = self.real_schema_df[schema]
 
-                        try:
-                            stats = self.extractors.extract_stats(stats_df)
-                        except:
-                            from kensu.requests.models import ksu_str
-                            # FIXME weird... should be fine to delete (and try,except too)
-                            if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
-                                stats = self.extractors.extract_stats(stats_df)
-                            elif isinstance(stats_df, ksu_str):
-                                stats = None
-                            elif isinstance(stats_df, dict):
-                                stats = stats_df
-                            else:
-                                #TODO Support ndarray
-                                stats = None
-                        if stats is not None and self.compute_delta:
-                            self.schema_stats[schema] = stats
-                            if schema == to_guid:
-                                if 'nrows' in stats:
-                                    output_nrows = stats['nrows']
-
-                                    #TODO Corner case: if from_pk = to_pk
-                                    for input_schema in from_pks:
-                                        input_stats = self.schema_stats[input_schema]
-                                        input_nrows = input_stats['nrows'] if 'nrows' in input_stats else None
-                                        if input_nrows:
-                                            delta_nrows = input_nrows - output_nrows
-                                            input_name = self.logical_name_by_guid[input_schema] if input_schema in self.logical_name_by_guid else self.schema_name_by_guid[input_schema]
-                                            stats['delta.nrows'+input_name.replace('.','_')+'.abs']=delta_nrows
-                                            stats['delta.nrows' + input_name.replace('.', '_')+'.decrease in %'] = round(100*delta_nrows/input_nrows,2)
-                                    self.schema_stats[schema] = stats
-
-                        if stats is not None:
-                            DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
-                                                     lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
-                                      stats=stats,
-                                      extra_as_json=None)._report()
-                        elif isinstance(stats_df, KensuDatasourceAndSchema):
+                        if isinstance(stats_df, KensuDatasourceAndSchema):
                             stats_df.f_publish_stats(lineage_run.to_guid())
+
+                        else:
+
+                            try:
+                                stats = self.extractors.extract_stats(stats_df)
+                            except:
+                                from kensu.requests.models import ksu_str
+                                # FIXME weird... should be fine to delete (and try,except too)
+                                if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
+                                    stats = self.extractors.extract_stats(stats_df)
+                                elif isinstance(stats_df, ksu_str):
+                                    stats = None
+                                elif isinstance(stats_df, dict):
+                                    stats = stats_df
+                                else:
+                                    #TODO Support ndarray
+                                    stats = None
+                            if stats is not None and self.compute_delta:
+                                self.schema_stats[schema] = stats
+                                if lineage_run.to_guid() not in self.stats_to_send:
+                                    self.stats_to_send[lineage_run.to_guid()] = {}
+                                self.stats_to_send[lineage_run.to_guid()][schema] = stats
+                                if schema == to_guid:
+                                    if 'nrows' in stats:
+                                        output_nrows = stats['nrows']
+
+                                        #TODO Corner case: if from_pk = to_pk
+                                        for input_schema in from_pks:
+                                            input_stats = self.schema_stats[input_schema]
+                                            input_nrows = input_stats['nrows'] if 'nrows' in input_stats else None
+                                            if input_nrows:
+                                                delta_nrows = input_nrows - output_nrows
+                                                input_name = self.logical_name_by_guid[input_schema] if input_schema in self.logical_name_by_guid else self.schema_name_by_guid[input_schema]
+                                                stats['delta.nrows_'+input_name.replace('.','_')+'.abs']=delta_nrows
+                                                stats['delta.nrows_' + input_name.replace('.', '_')+'.decrease in %'] = round(100*delta_nrows/input_nrows,2)
+                                        self.schema_stats[schema] = stats
+                                        self.stats_to_send[lineage_run.to_guid()][schema] = stats
+
+
                         #FIXME should be using extractors instead
                         if is_ml_model:
                             model_name = self.model[to_guid][1]
@@ -496,8 +469,20 @@ class Kensu(object):
                                                            stored_in_schema_ref=SchemaRef(by_guid=to_guid)),
                                          metrics=metrics, hyper_params_as_json=hyperparams)._report()
                     for schema in from_pks:
-                        send_stats(schema)
-                    send_stats(to_guid)
+                        create_stats(schema)
+                    create_stats(to_guid)
+
+
+                    for check in self.check_rules:
+                        if list(check.keys())[0] == 'nrows_consistency':
+                            create_kensu_nrows_consistency(check[list(check.keys())[0]])
+                    self.send_rules()
+
+                    for lineage_run_id in self.stats_to_send:
+                        for schema_id in self.stats_to_send[lineage_run_id]:
+                            self.send_stats(lineage_run_id,schema_id,self.stats_to_send[lineage_run_id][schema_id])
+                    if lineage_run_id in self.stats_to_send:
+                        del self.stats_to_send[lineage_run_id]
 
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
@@ -647,3 +632,50 @@ class Kensu(object):
         url = self.api_url.replace('-api', '')
         from kensu.sdk import get_cookie
         return get_cookie(url,PAT)
+
+    def send_stats(self,lineage_run_id, schema_id,stats):
+
+        if stats is not None:
+            DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema_id),
+                                     lineage_run_ref=LineageRunRef(by_guid=lineage_run_id)),
+                      stats=stats,
+                      extra_as_json=None)._report()
+
+    def send_rules(self):
+        if self.rules and self.api_url:
+            from kensu.sdk import create_rule, get_cookie, get_lineages_in_project, get_rules, get_rules_for_ds, update_rule
+            sdk_url = self.api_url.replace('-api', '')
+            PAT = self.PAT
+
+            process_id = self.process.to_guid()
+            project_id = self.process_run.projects_refs[0].by_guid
+            env_name = self.process_run.environment
+            cv = self.process_run.executed_code_version_ref.by_guid
+
+            for map in self.rules:
+                for lds_id in map:
+                    field_name = map[lds_id]['field']
+                    fun = map[lds_id]['fun']
+
+                    data = get_lineages_in_project(sdk_url, get_cookie(sdk_url, PAT), project_id, process_id,
+                                                   env_name, cv)
+
+                    lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
+                        'id']
+                    lineage_ids = set(
+                        [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
+                    for lineage_id in lineage_ids:
+                        current_rules = get_rules_for_ds(sdk_url, get_cookie(sdk_url, PAT), lds_guid, lineage_id,
+                                                         project_id, env_name)
+                        current_range_rules = {i['fieldName']: i['uuid'] for i in current_rules['data']['predicates'] if
+                                               i['functionName'] == 'Range' and (i['environment'] == env_name)}
+                        current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if
+                                                  i['functionName'] == 'Frequency' and (i['environment'] == env_name)]
+                        if fun['name'] == 'Range' and (field_name in current_range_rules):
+                            update_rule(sdk_url, get_cookie(sdk_url, PAT), current_range_rules[field_name], fun)
+                        elif fun['name'] == 'Frequency' and current_frequency_rule:
+                            update_rule(sdk_url, get_cookie(sdk_url, PAT), current_frequency_rule[0], fun)
+
+                        else:
+                            create_rule(sdk_url, get_cookie(sdk_url, PAT), lds_guid, lineage_id, project_id, process_id,
+                                        env_name, field_name, fun)
