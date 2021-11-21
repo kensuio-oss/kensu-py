@@ -484,6 +484,10 @@ class Kensu(object):
                     if lineage_run_id in self.stats_to_send:
                         del self.stats_to_send[lineage_run_id]
 
+                    self.check_local_rules()
+
+
+
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
         visited = list()
@@ -679,3 +683,17 @@ class Kensu(object):
                         else:
                             create_rule(sdk_url, get_cookie(sdk_url, PAT), lds_guid, lineage_id, project_id, process_id,
                                         env_name, field_name, fun)
+
+
+    def check_local_rules(self):
+        from kensu.utils.exceptions import NrowsConsistencyError
+        for check in self.check_rules:
+            if 'check_nrows_consistency' in check:
+                for datasource in check['check_nrows_consistency']:
+                    for rule in check['check_nrows_consistency'][datasource]:
+                        for field in rule:
+                            if rule[field]['output_nrows'] == rule[field]['input_nrows'] :
+                                None
+                            else:
+                                raise NrowsConsistencyError(datasource,rule[field]['input_nrows'] ,rule[field]['output_nrows'])
+

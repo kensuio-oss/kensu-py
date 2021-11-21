@@ -115,7 +115,7 @@ def create_kensu_nrows_consistency(how):
                 values.append(dic[key])
 
         output_name = k.logical_name_by_guid[list(k.lineage_and_ds[lineage]['to_schema_ref'])[0]]
-
+        checked_rules = {output_name : []}
         if how == "minimum":
             min_value = min(values)
             ds_in_candidates = []
@@ -124,7 +124,11 @@ def create_kensu_nrows_consistency(how):
                 if val[key] == min_value:
                     ds_in_candidates.append(key)
             for ds in ds_in_candidates:
-                add_min_max(output_name, 'delta.nrows_'+ds.replace('.','_')+'.abs', max = 0)
+                field = 'delta.nrows_'+ds.replace('.','_')+'.abs'
+                add_min_max(output_name, field, max = 0)
+                checked_rules[output_name].append({field:{"output_nrows" : (k.schema_stats[list(k.lineage_and_ds[lineage]['to_schema_ref'])[0]])['nrows'], "input_nrows" : min_value}})
+        k.check_rules.append({'check_nrows_consistency':checked_rules})
+
 
 
 #TODO Support other how types:::
