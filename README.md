@@ -68,7 +68,7 @@ Extra libraries support (TODO: to be extracted in different modules)
 - sklearn_support: Boolean
 - bigquery_support: Boolean
 - tensorflow_support: Boolean
-- sql.util.url: URL to an external server capable of handling SQL parsing into lineage
+- sql_util_url: URL to an external server capable of handling SQL parsing into lineage
 
 #### Reporters
 
