@@ -133,6 +133,8 @@ class Kensu(object):
         report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
         PAT = kwargs_or_conf_or_default("PAT",None)
         self.PAT = PAT
+        self.compute_delta = kwargs_or_conf_or_default("compute_delta",False)
+        self.raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
@@ -152,6 +154,7 @@ class Kensu(object):
         do_report = default_if_arg_none(do_report, kensu_conf.getboolean("do_report", True))
         report_to_file = default_if_arg_none(report_to_file, kensu_conf.getboolean("report_to_file", False))
         offline_file_name = default_if_arg_none(offline_file_name, kensu_conf.get("offline_file_name", None))
+
 
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
@@ -177,9 +180,7 @@ class Kensu(object):
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats
-        self.compute_delta = kwargs_or_conf_or_default("compute_delta",None)
         self.offline_file_name = offline_file_name
-        self.stop_run_if_error = kwargs_or_conf_or_default("stop_run_if_error",None)
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -487,8 +488,6 @@ class Kensu(object):
 
                     self.check_local_rules()
 
-
-
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
         visited = list()
@@ -693,12 +692,10 @@ class Kensu(object):
                 for datasource in check['check_nrows_consistency']:
                     for rule in check['check_nrows_consistency'][datasource]:
                         for field in rule:
-                            try:
-                                if rule[field]['output_nrows'] != rule[field]['input_nrows'] :
-                                    raise NrowsConsistencyError(datasource, rule[field]['input_nrows'],
+                            if rule[field]['output_nrows'] != rule[field]['input_nrows'] :
+                                e = NrowsConsistencyError(datasource, rule[field]['input_nrows'],
                                                                 rule[field]['output_nrows'])
-                            except  Exception as e:
-                                if self.stop_run_if_error:
+                                if self.raise_on_check_failure:
                                     raise e
                                 else:
                                     logging.warn(e)

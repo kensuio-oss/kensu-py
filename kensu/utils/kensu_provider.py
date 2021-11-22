@@ -38,9 +38,6 @@ class KensuProvider(object):
             report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
             get_code_version = kwargs["get_code_version"] if "get_code_version" in kwargs else None
             stats = kwargs["compute_stats"] if "compute_stats" in kwargs else True
-            PAT = kwargs["PAT"] if "PAT" in kwargs else None
-            compute_delta = kwargs["compute_delta"] if "compute_delta" in kwargs else None
-            stop_run_if_error =  kwargs["stop_run_if_error"] if "stop_run_if_error" in kwargs else None
 
             _kensu = Kensu(api_url=api_url, auth_token=auth_token, process_name=process_name, user_name=user_name,
                       code_location=code_location, init_context=init_context, do_report=do_report, pandas_support = pandas_support,
@@ -48,7 +45,7 @@ class KensuProvider(object):
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
                       report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
                       get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn,
-                      compute_stats=stats, bigquery_headers = bigquery_headers, PAT=PAT, compute_delta = compute_delta,stop_run_if_error=stop_run_if_error )
+                      compute_stats=stats, bigquery_headers = bigquery_headers )
 
             KensuProvider().setKensu(_kensu)
             return _kensu
