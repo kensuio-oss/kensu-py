@@ -130,7 +130,10 @@ def to_datasource(ds_pk, format, location, logical_naming, name):
             #TODO create to_datasource for all extractors - limited to pandas DataFrame and BigQuery for now
             try:
                 logical_category = logical_naming(location)
-            except:
+            except Exception as e:
+                logging.warning("data source logical_naming function passed to initKensu or KensuProvider instance"
+                                " returned an exception, "
+                                "using default data source naming convention. \n {}".format(e))
                 logical_category = location.split('/')[-1]
             ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
 
