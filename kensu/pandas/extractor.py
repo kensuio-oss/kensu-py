@@ -7,7 +7,8 @@ import numpy as np
 import kensu
 from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
-from kensu.utils.helpers import singleton
+from kensu.utils.helpers import singleton, to_datasource
+
 
 @singleton
 class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport class
@@ -110,22 +111,8 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-2:])
-        if logical_naming == 'File':
-            logical_category = location.split('/')[-1]
-            cat = ['logical::' + logical_category]
 
-        elif logical_naming == 'Folder':
-            logical_category = location.split('/')[-2]
-            cat = ['logical::' + logical_category]
-
-        elif logical_naming == 'AnteFolder':
-            logical_category = location.split('/')[-3]
-            cat = ['logical::' + logical_category]
-
-        else:
-            cat =[]
-        ds = DataSource(name=name, format=fmt, categories=cat, pk=ds_pk)
-        return ds
+        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
 
     def extract_schema(self, data_source, df):
         df = self.skip_wr(df)
