@@ -179,6 +179,7 @@ class Kensu(object):
         self.compute_stats = compute_stats
         self.compute_delta = kwargs_or_conf_or_default("compute_delta",None)
         self.offline_file_name = offline_file_name
+        self.stop_run_if_error = kwargs_or_conf_or_default("stop_run_if_error",None)
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -692,8 +693,15 @@ class Kensu(object):
                 for datasource in check['check_nrows_consistency']:
                     for rule in check['check_nrows_consistency'][datasource]:
                         for field in rule:
-                            if rule[field]['output_nrows'] == rule[field]['input_nrows'] :
-                                None
-                            else:
-                                raise NrowsConsistencyError(datasource,rule[field]['input_nrows'] ,rule[field]['output_nrows'])
+                            try:
+                                if rule[field]['output_nrows'] != rule[field]['input_nrows'] :
+                                    raise NrowsConsistencyError(datasource, rule[field]['input_nrows'],
+                                                                rule[field]['output_nrows'])
+                            except  Exception as e:
+                                if self.stop_run_if_error:
+                                    raise e
+                                else:
+                                    logging.warn(e)
+
+
 
