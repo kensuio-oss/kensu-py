@@ -1,0 +1,3 @@
+#!/bin/sh
+
+java -jar /antlr-${ANTLR_VERSION}-complete.jar $@
