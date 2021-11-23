@@ -36,7 +36,7 @@ class BqRemoteParser:
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
         def convert(fieldtype):
-            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC"]:
+            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC","NUMERIC"]:
                 return "INTEGER"
             else:
                 return fieldtype

@@ -1,3 +1,4 @@
+import decimal
 import logging
 import datetime
 
@@ -5,7 +6,7 @@ from kensu.google.cloud.bigquery import Client
 from kensu.utils.kensu_provider import KensuProvider
 
 
-def compute_bigquery_stats(table_ref, table, client, stats_aggs, input_filters=None):
+def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=None, input_filters=None, query=None):
     r = {}
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
@@ -19,7 +20,10 @@ def compute_bigquery_stats(table_ref, table, client, stats_aggs, input_filters=N
     filters = ''
     if input_filters is not None and len(input_filters) > 0:
         filters = f"WHERE {' AND '.join(input_filters)}"
-    stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}` {filters}"
+    if query:
+        stats_query = f"select {selector}, sum(1) as nrows from ({query})"
+    elif table_ref:
+        stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}` {filters}"
     logging.debug(f"stats query for table {table_ref}: {stats_query}")
     for row in client.query(stats_query).result():
         # total num rows (independent of column)
@@ -30,6 +34,8 @@ def compute_bigquery_stats(table_ref, table, client, stats_aggs, input_filters=N
                 v = row[col + "_" + stat_name]
                 if v.__class__ in [datetime.date, datetime.datetime, datetime.time]:
                     v = int(v.strftime("%s") + "000")
+                if v.__class__ in [decimal.Decimal]:
+                    v = float(v)
                 r[col + "." + stat_name] = v
         break  # there should be only one row here
     return r
@@ -58,4 +64,8 @@ def generate_fallback_stats_queries(table):
         elif f.field_type in ["BOOLEAN", "BOOL"]:
             stats_aggs[f.name] = {"true": f"sum(case {f.name} when true then 1 else 0 end)",
                                   "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+        elif f.field_type in ["STRING"]:
+            stats_aggs[f.name] = {"levels": f"count(distinct {f.name})",
+                                  "nullrows": f"sum(case {f.name} when null then 1 else 0 end)"}
+
     return stats_aggs

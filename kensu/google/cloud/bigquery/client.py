@@ -61,12 +61,17 @@ class Client(client.Client):
                         kensu=kensu,
                         client=client,
                         query=query)
+
                     try:
-                        #TODO: Use sqlparse
                         index_select = query.lower().index("select")
                         query_without_insert = query[index_select:]
                         logger.debug(f"Query without INSERT TO:{query_without_insert}")
+                    except:
+                        logger.debug(f"No SELECT statement in {query}")
+                        query_without_insert = query
 
+                    try:
+                        #TODO: Use sqlparse
                         bq_lineage = BqRemoteParser.parse(
                             kensu=kensu,
                             client=client,
@@ -85,6 +90,11 @@ class Client(client.Client):
                         # FIXME: how to know when in mem or when bigquery://projects/psyched-freedom-306508/datasets/_b63f45da1cafbd073e5c2770447d963532ac43ec/tables/anonc79d9038a13ab2dbe40064636b0aceedc62b5d69
                         register_output_orig_data=True  # FIXME? when do we need this? INSERT INTO?
                     )
+
+                    from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
+                    output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
+                    kensu.real_schema_df[table_infos[0][2].to_guid()] = output_stats
+
                     kensu.report_with_mapping()
 
         return QueryJob.patch(j)
