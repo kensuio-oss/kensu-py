@@ -27,7 +27,8 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     logging.debug(f"stats query for table {table_ref}: {stats_query}")
     for row in client.query(stats_query).result():
         # total num rows (independent of column)
-        r['nrows'] = row['nrows']
+        if row.get('nrows'):
+            r['nrows'] = row['nrows']
         # extract column specific stats
         for col, stat_names in stats_aggs.items():
             for stat_name in stat_names.keys():

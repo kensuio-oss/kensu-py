@@ -44,14 +44,20 @@ class Client(client.Client):
 
         #For succession of SELECT queries, only the last one return a result
         for query in queries.split(";"):
-            if query.lower().replace(" ","").startswith("insertinto"):
+            if query.lower().replace(" ","").replace("\n","").startswith("insertinto") \
+                    or query.lower().replace(" ","").replace("\n","").startswith("merge") :
                 kensu = KensuProvider().instance()
                 client = kensu.data_collectors['BigQuery']
                 q = sqlparse.parse(query)
                 d = BqOfflineParser.find_sql_identifiers(q[0].tokens).__next__()
                 table = d.value.replace('`','')
                 ds_data = table.split('.')
+                query = query.replace("\n","")
                 if len(ds_data) == 3:
+                    ds_data_corr = ds_data
+                    ds_data = []
+                    for element in ds_data_corr:
+                        ds_data.append(element.split(' ')[0])
                     ds = ".".join(ds_data[0:2])
                     destination = client.create_dataset(Dataset(ds), timeout=30, exists_ok=True).table(
                         ds_data[2])
@@ -63,11 +69,22 @@ class Client(client.Client):
                         query=query)
 
                     try:
-                        index_select = query.lower().index("select")
-                        query_without_insert = query[index_select:]
-                        logger.debug(f"Query without INSERT TO:{query_without_insert}")
+                        if query.lower().replace(" ","").replace("\n","").startswith("insertinto") :
+                            index_select = query.lower().index("select")
+                            query_without_insert = query[index_select:]
+                            logger.debug(f"Query without INSERT TO:{query_without_insert}")
+                        elif query.lower().replace(" ","").replace("\n","").startswith("merge"):
+                            import re
+                            query_without_insert = re.findall('\(.*\)', query)[0]
+                            db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
+                                kensu=kensu,
+                                client=client,
+                                query=query_without_insert)
+
+                        else:
+                            query_without_insert = query
                     except:
-                        logger.debug(f"No SELECT statement in {query}")
+                        logger.debug(f"{query}")
                         query_without_insert = query
 
                     try:
@@ -81,10 +98,15 @@ class Client(client.Client):
                     except:
                         bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
 
-                    table_infos[0][1]._report()
+                    db_metadata_out, table_id_to_bqtable_out, table_infos_out = BqOfflineParser.get_referenced_tables_metadata(
+                        kensu=kensu,
+                        client=client,
+                        table=dest)
+
+                    table_infos_out[0][1]._report()
                     bq_lineage.report(
                         ksu=kensu,
-                        df_result=table_infos[0][2],
+                        df_result=table_infos_out[0][2],
                         operation_type='BigQuery SQL result',
                         report_output=True,
                         # FIXME: how to know when in mem or when bigquery://projects/psyched-freedom-306508/datasets/_b63f45da1cafbd073e5c2770447d963532ac43ec/tables/anonc79d9038a13ab2dbe40064636b0aceedc62b5d69
@@ -93,7 +115,7 @@ class Client(client.Client):
 
                     from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
                     output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
-                    kensu.real_schema_df[table_infos[0][2].to_guid()] = output_stats
+                    kensu.real_schema_df[table_infos_out[0][2].to_guid()] = output_stats
 
                     kensu.report_with_mapping()
 
