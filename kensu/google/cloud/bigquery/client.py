@@ -114,7 +114,11 @@ class Client(client.Client):
                     )
 
                     from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
-                    output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
+                    try:
+                        output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
+                    except:
+                        logger.debug(f"Unable to compute stats for table {str(table)}")
+                        output_stats=None
                     kensu.real_schema_df[table_infos_out[0][2].to_guid()] = output_stats
 
                     kensu.report_with_mapping()

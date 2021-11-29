@@ -31,6 +31,7 @@ class BqRemoteParser:
     @staticmethod
     def parse(kensu, client: bq.Client, query: str, db_metadata, table_id_to_bqtable) -> GenericComputedInMemDs:
         ## POST REQUEST to /lineage-and-stats-criterions
+        query = query.replace("PARSE_DATETIME", "to_timestamp")
         req = {"sql": query, "metadata": db_metadata}
         url = kensu.conf.get("sql.util.url")
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
