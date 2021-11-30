@@ -8,6 +8,8 @@ from kensu.utils.kensu_provider import KensuProvider
 
 
 def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=None, input_filters=None, query=None):
+    if None == query == table_ref:
+        raise Exception("compute_bigquery_stats requires either a table_ref or a query")
     r = {}
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
