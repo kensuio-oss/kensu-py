@@ -53,6 +53,8 @@ class Client(client.Client):
                 table = d.value.replace('`','')
                 ds_data = table.split('.')
                 query = query.replace("\n","")
+                if project is not None and len(ds_data) == 2:
+                    ds_data = [project] + ds_data
                 if len(ds_data) == 3:
                     ds_data_corr = ds_data
                     ds_data = []
