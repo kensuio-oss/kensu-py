@@ -1,6 +1,8 @@
 import decimal
 import logging
 import datetime
+import re
+
 logger = logging.getLogger(__name__)
 
 from kensu.google.cloud.bigquery import Client
@@ -17,16 +19,26 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
         logger.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
         stats_aggs = generate_fallback_stats_queries(table)
 
-    selector = ",".join([sql_aggregation + " " + col + "_" + stat_name
+    list_of_unnested = [k.name for k in table.schema if k.fields!=() and k.is_nullable==False]
+
+    selector = ",".join([sql_aggregation + " " + col.replace(".","__ksu__") + "_" + stat_name
                          for col, stats_for_col in stats_aggs.items()
                          for stat_name, sql_aggregation in stats_for_col.items()])
     filters = ''
+    unnest = ''
     if input_filters is not None and len(input_filters) > 0:
         filters = f"WHERE {' AND '.join(input_filters)}"
+    if list_of_unnested != []:
+        unnest =[]
+        for el in list_of_unnested:
+            unnest.append(f",UNNEST({el}) AS {el}")
+        unnest = "".join(unnest)
     if query:
-        stats_query = f"select {selector}, sum(1) as nrows from ({query})"
+        stats_query = f"select {selector}, sum(1) as nrows from ({query}{unnest})"
     elif table_ref:
-        stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}` {filters}"
+        stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}`{unnest} {filters}"
+    #TODO extract this and add to dim-sql and fallback stats
+    stats_query = stats_query.replace("sum(case","COUNTIF(").replace("when null then 1 else 0 end)","IS NULL)")
     logger.debug(f"stats query for table {table_ref}: {stats_query}")
     for row in client.query(stats_query).result():
         # total num rows (independent of column)
@@ -35,12 +47,14 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
         # extract column specific stats
         for col, stat_names in stats_aggs.items():
             for stat_name in stat_names.keys():
-                v = row[col + "_" + stat_name]
+                v = row[col.replace(".","__ksu__") + "_" + stat_name]
                 if v.__class__ in [datetime.date, datetime.datetime, datetime.time]:
                     v = int(v.strftime("%s") + "000")
                 if v.__class__ in [decimal.Decimal]:
                     v = float(v)
-                r[col + "." + stat_name] = v
+                if v is None:
+                    v = 0
+                r[(col + "." + stat_name).replace("__ksu__",".")] = v
         break  # there should be only one row here
     return r
 
