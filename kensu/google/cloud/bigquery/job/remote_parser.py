@@ -33,7 +33,7 @@ class BqRemoteParser:
         ## POST REQUEST to /lineage-and-stats-criterions
         query = query.replace("PARSE_DATETIME", "to_timestamp")
         req = {"sql": query, "metadata": db_metadata}
-        url = kensu.conf.get("sql.util.url")
+        url = kensu.sql_util_url
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
         def convert(fieldtype):
