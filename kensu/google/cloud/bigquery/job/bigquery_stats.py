@@ -1,6 +1,7 @@
 import decimal
 import logging
 import datetime
+logger = logging.getLogger(__name__)
 
 from kensu.google.cloud.bigquery import Client
 from kensu.utils.kensu_provider import KensuProvider
@@ -11,7 +12,7 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
     if stats_aggs is None:
-        logging.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
+        logger.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
         stats_aggs = generate_fallback_stats_queries(table)
 
     selector = ",".join([sql_aggregation + " " + col + "_" + stat_name
@@ -24,7 +25,7 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
         stats_query = f"select {selector}, sum(1) as nrows from ({query})"
     elif table_ref:
         stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}` {filters}"
-    logging.debug(f"stats query for table {table_ref}: {stats_query}")
+    logger.debug(f"stats query for table {table_ref}: {stats_query}")
     for row in client.query(stats_query).result():
         # total num rows (independent of column)
         if row.get('nrows'):
