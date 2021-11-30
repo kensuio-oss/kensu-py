@@ -31,12 +31,13 @@ class BqRemoteParser:
     @staticmethod
     def parse(kensu, client: bq.Client, query: str, db_metadata, table_id_to_bqtable) -> GenericComputedInMemDs:
         ## POST REQUEST to /lineage-and-stats-criterions
+        query = query.replace("PARSE_DATETIME", "to_timestamp")
         req = {"sql": query, "metadata": db_metadata}
         url = kensu.sql_util_url
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
         def convert(fieldtype):
-            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC"]:
+            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC","NUMERIC"]:
                 return "INTEGER"
             else:
                 return fieldtype
