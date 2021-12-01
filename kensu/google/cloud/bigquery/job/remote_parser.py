@@ -82,12 +82,17 @@ class BqRemoteParser:
             # note: making stats computation lazy in a f_get_stats lambda seem to behave very weirdly...
             # so stats are computed eagerly now
             if kensu.compute_stats:
-                stats_values = compute_bigquery_stats(
-                    table_ref=bg_table_ref,
-                    table=bq_table,
-                    client=client,
-                    stats_aggs=stats_aggs,
-                    input_filters=stats_filters)
+                try:
+                    stats_values = compute_bigquery_stats(
+                        table_ref=bg_table_ref,
+                        table=bq_table,
+                        client=client,
+                        stats_aggs=stats_aggs,
+                        input_filters=stats_filters)
+                except Exception as e:
+                    stats_values = None
+                    logger.debug(f"Unable to compute the stats: {e}")
+
             logger.debug(
                 f'table_id {table_id} (table.ref={bg_table_ref}, ds_path: {ds_path}) got input_filters: {stats_filters} & stat_aggs:{str(stats_aggs)}')
         else:
