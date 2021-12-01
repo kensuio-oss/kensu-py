@@ -20,15 +20,15 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
         stats_aggs = generate_fallback_stats_queries(table)
 
     from kensu.google.cloud.bigquery.extractor import KensuBigQuerySupport
+
+    unnest = KensuBigQuerySupport().extract_unnest(client.get_table(table_ref))
+
+    # TODO Add nullvalue computation for REPEATED
     schema = KensuBigQuerySupport().extract_schema_fields(client.get_table(table_ref))
-
     non_nullable = [k.name for k in schema if k.nullable == False]
-
-    #TODO Add nullvalue computation for REPEATED
     for key in non_nullable:
         stats_aggs.pop(key)
 
-    list_of_unnested = [k.name for k in table.schema if k.fields!=() and k.is_nullable==False]
 
     # "dots in schemas are not supported in BigQuery,
     # as a workaround we flatten the schema and replace the infix dots with a "ksu" string.
@@ -37,24 +37,25 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     selector = ",".join([sql_aggregation + " " + col.replace(".","__ksu__") + "_" + stat_name
                          for col, stats_for_col in stats_aggs.items()
                          for stat_name, sql_aggregation in stats_for_col.items()])
+
+    for nested in sorted(unnest,key=len,reverse=True):
+        if "." in nested:
+            selector=selector.replace(nested,nested.replace(".","__ksu__"))
+
     filters = ''
-    unnest = ''
     if input_filters is not None and len(input_filters) > 0:
         filters = f"WHERE {' AND '.join(input_filters)}"
-    if list_of_unnested != []:
-        unnest =[]
-        for el in list_of_unnested:
-            unnest.append(f",UNNEST({el}) AS {el}")
-        unnest = "".join(unnest)
+    if unnest != []:
+        list_unnest =[]
+        for el in unnest:
+            list_unnest.append(f",UNNEST({el}) AS {el.replace('.','__ksu__')}")
+    unnest = "".join(list_unnest) if unnest != [] else ''
     if query:
         stats_query = f"select {selector}, sum(1) as nrows from ({query}){unnest}"
     elif table_ref:
         stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}`{unnest} {filters}"
     #TODO extract this and add to dim-sql and fallback stats
     stats_query = stats_query.replace("sum(case","COUNTIF(").replace("when null then 1 else 0 end)","IS NULL)").replace("when true then 1 else 0 end)","IS TRUE)")
-
-
-
 
     logger.debug(f"stats query for table {table_ref}: {stats_query}")
     for row in client.query(stats_query).result():

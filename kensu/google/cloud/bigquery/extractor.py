@@ -49,6 +49,26 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
             convert_fields(df.schema)
             return schema_field
 
+    def extract_unnest(self, df):
+        if isinstance(df, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator):
+            unnest = []
+            heritage = []
+
+            def convert_fields(fields, heritage=[]):
+                for k in fields:
+                    if k.fields != () and k.is_nullable == False:
+                        heritage.append(k.name)
+                        unnest.append(".".join(heritage))
+                        convert_fields(k.fields, heritage)
+                        heritage = []
+                    elif k.fields != ():
+                        heritage.append(k.name)
+                        convert_fields(k.fields, heritage)
+                        heritage = []
+                    else:
+                        heritage = []
+            convert_fields(df.schema)
+            return unnest
 
     def extract_location(self, df, location):
         # FIXME => what to do for RowIterator?
