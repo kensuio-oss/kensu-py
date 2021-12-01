@@ -45,6 +45,7 @@ class BqRemoteParser:
             for field in table['schema']['fields'] :
                 field['type'] = convert(field['type'])
 
+        #TODO Support UNNEST in queries  'SELECT e.key FROM `psyched-freedom-306508.my_dataset.sample`, UNNEST(user_properties) as e '
         lineage_resp = requests.post(url + "/lineage-and-stats-criterions", json=req, headers = BqRemoteParser.get_headers())
         logger.debug("lineage_resp:" + str(lineage_resp))
         logger.debug("lineage_resp_body:" + str(lineage_resp.text))

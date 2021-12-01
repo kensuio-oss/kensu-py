@@ -410,7 +410,7 @@ class Kensu(object):
                                 #TODO Support ndarray
                                 stats = None
                         if stats is not None:
-                            DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
+                            r=DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
                                                      lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
                                       stats=stats,
                                       extra_as_json=None)._report()
