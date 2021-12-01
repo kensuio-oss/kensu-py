@@ -21,6 +21,10 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
 
     list_of_unnested = [k.name for k in table.schema if k.fields!=() and k.is_nullable==False]
 
+    # "dots in schemas are not supported in BigQuery,
+    # as a workaround we flatten the schema and replace the infix dots with a "ksu" string.
+    # once the stats computation has done is job we convert back to the dotted notation for displaying stats"
+
     selector = ",".join([sql_aggregation + " " + col.replace(".","__ksu__") + "_" + stat_name
                          for col, stats_for_col in stats_aggs.items()
                          for stat_name, sql_aggregation in stats_for_col.items()])
