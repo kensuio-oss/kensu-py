@@ -19,6 +19,15 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
         logger.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
         stats_aggs = generate_fallback_stats_queries(table)
 
+    from kensu.google.cloud.bigquery.extractor import KensuBigQuerySupport
+    schema = KensuBigQuerySupport().extract_schema_fields(client.get_table(table_ref))
+
+    non_nullable = [k.name for k in schema if k.nullable == False]
+
+    #TODO Add nullvalue computation for REPEATED
+    for key in non_nullable:
+        stats_aggs.pop(key)
+
     list_of_unnested = [k.name for k in table.schema if k.fields!=() and k.is_nullable==False]
 
     # "dots in schemas are not supported in BigQuery,
@@ -38,11 +47,15 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
             unnest.append(f",UNNEST({el}) AS {el}")
         unnest = "".join(unnest)
     if query:
-        stats_query = f"select {selector}, sum(1) as nrows from ({query}{unnest})"
+        stats_query = f"select {selector}, sum(1) as nrows from ({query}){unnest}"
     elif table_ref:
         stats_query = f"select {selector}, sum(1) as nrows from `{str(table_ref)}`{unnest} {filters}"
     #TODO extract this and add to dim-sql and fallback stats
-    stats_query = stats_query.replace("sum(case","COUNTIF(").replace("when null then 1 else 0 end)","IS NULL)")
+    stats_query = stats_query.replace("sum(case","COUNTIF(").replace("when null then 1 else 0 end)","IS NULL)").replace("when true then 1 else 0 end)","IS TRUE)")
+
+
+
+
     logger.debug(f"stats query for table {table_ref}: {stats_query}")
     for row in client.query(stats_query).result():
         # total num rows (independent of column)
@@ -65,7 +78,11 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
 
 def generate_fallback_stats_queries(table):
     stats_aggs = {}
-    for f in table.schema:
+
+    from kensu.google.cloud.bigquery.extractor import KensuBigQuerySupport
+    schema = KensuBigQuerySupport().extract_schema_fields(table)
+
+    for f in schema:
         # f.field_type is
         # ["STRING", "BYTES",
         # "INTEGER", "INT64",
