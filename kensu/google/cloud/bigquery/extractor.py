@@ -37,9 +37,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
             def convert_fields(fields,heritage=[]):
                 for k in fields:
                     if k.fields != ():
-                        heritage.append(k.name)
-                        convert_fields(k.fields,heritage)
-                        heritage=[]
+                        convert_fields(k.fields,heritage + [k.name])
                     else:
                         if heritage !=[]:
                             prefix = ".".join(heritage)+'.'
@@ -52,21 +50,21 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     def extract_unnest(self, df):
         if isinstance(df, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator):
             unnest = []
-            heritage = []
+            unnest_candidate =[]
 
             def convert_fields(fields, heritage=[]):
                 for k in fields:
-                    if k.fields != () and k.is_nullable == False:
-                        heritage.append(k.name)
-                        unnest.append(".".join(heritage))
-                        convert_fields(k.fields, heritage)
-                        heritage = []
-                    elif k.fields != ():
-                        heritage.append(k.name)
-                        convert_fields(k.fields, heritage)
-                        heritage = []
+                    if k.field_type == 'RECORD' and k.is_nullable == False:
+                        #if ".".join(heritage) not in unnest_candidate:
+                        if len(heritage)<1:
+                            unnest.append(".".join(heritage+[k.name]))
+                        #unnest_candidate.append(".".join(heritage+[k.name]))
+                        convert_fields(k.fields,  heritage + [k.name])
+                    elif  k.field_type == 'RECORD':
+                        convert_fields(k.fields, heritage + [k.name])
                     else:
-                        heritage = []
+                        None
+
             convert_fields(df.schema)
             return unnest
 

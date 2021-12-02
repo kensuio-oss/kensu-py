@@ -26,8 +26,11 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     # TODO Add nullvalue computation for REPEATED
     schema = KensuBigQuerySupport().extract_schema_fields(client.get_table(table_ref))
     non_nullable = [k.name for k in schema if k.nullable == False]
-    for key in non_nullable:
-        stats_aggs.pop(key)
+    unsopported_stats = [k.name for k in schema if k.name.count(".")>1]
+
+    for key in non_nullable + unsopported_stats:
+        if key in stats_aggs:
+            stats_aggs.pop(key)
 
 
     # "dots in schemas are not supported in BigQuery,
@@ -58,8 +61,10 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     stats_query = stats_query.replace("sum(case","COUNTIF(").replace("when null then 1 else 0 end)","IS NULL)").replace("when true then 1 else 0 end)","IS TRUE)")
 
     logger.debug(f"stats query for table {table_ref}: {stats_query}")
-    for row in client.query(stats_query).result():
+    for t in client.query(stats_query).result():
         # total num rows (independent of column)
+        row = t._xxx_field_to_index
+        #FIXME : What about this?
         if row.get('nrows'):
             r['nrows'] = row['nrows']
         # extract column specific stats
