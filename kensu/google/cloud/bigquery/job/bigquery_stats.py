@@ -61,9 +61,10 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     stats_query = stats_query.replace("sum(case","COUNTIF(").replace("when null then 1 else 0 end)","IS NULL)").replace("when true then 1 else 0 end)","IS TRUE)")
 
     logger.debug(f"stats query for table {table_ref}: {stats_query}")
-    for t in client.query(stats_query).result():
+    from google.cloud.bigquery.job import QueryJobConfig
+    job_conf = QueryJobConfig(labels = {'kensu':'kensu_stats_computation'})
+    for row in client.query(stats_query, job_config = job_conf ).result():
         # total num rows (independent of column)
-        row = t._xxx_field_to_index
         #FIXME : What about this?
         if row.get('nrows'):
             r['nrows'] = row['nrows']
