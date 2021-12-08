@@ -50,7 +50,6 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     def extract_unnest(self, df):
         if isinstance(df, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator):
             unnest = []
-            unnest_candidate =[]
 
             def convert_fields(fields, heritage=[]):
                 for k in fields:
