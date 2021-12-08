@@ -26,9 +26,9 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     # TODO Add nullvalue computation for REPEATED
     schema = KensuBigQuerySupport().extract_schema_fields(client.get_table(table_ref))
     non_nullable = [k.name for k in schema if k.nullable == False]
-    unsopported_stats = [k.name for k in schema if k.name.count(".")>1]
+    unsupported_stats = [k.name for k in schema if k.name.count(".")>0]
 
-    for key in non_nullable + unsopported_stats:
+    for key in non_nullable + unsupported_stats:
         if key in stats_aggs:
             stats_aggs.pop(key)
 
@@ -52,7 +52,11 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
         list_unnest =[]
         for el in unnest:
             list_unnest.append(f",UNNEST({el}) AS {el.replace('.','__ksu__')}")
+
+    #This needs to be adapted i we need RECORD stats
     unnest = "".join(list_unnest) if unnest != [] else ''
+
+    unnest =''
     if query:
         stats_query = f"select {selector}, sum(1) as nrows from ({query}){unnest}"
     elif table_ref:
