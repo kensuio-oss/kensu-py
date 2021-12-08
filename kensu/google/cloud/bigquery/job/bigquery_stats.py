@@ -54,7 +54,7 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
             list_unnest.append(f",UNNEST({el}) AS {el.replace('.','__ksu__')}")
 
     #This needs to be adapted i we need RECORD stats
-    unnest = "".join(list_unnest) if unnest != [] else ''
+    #i.e. with unnest = "".join(list_unnest) if unnest != [] else ''
 
     unnest =''
     if query:
