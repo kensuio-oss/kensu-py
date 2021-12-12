@@ -84,6 +84,8 @@ class BqOfflineParser:
                     if str(t.tokens[0].ttype) == "Token.Name":
                         # FIXME .. this is also returning the column names... (REF_GET_TABLE)
                         yield t
+                    else:
+                        yield from BqOfflineParser.find_sql_identifiers(t)
             elif t.is_group:
                 yield from BqOfflineParser.find_sql_identifiers(t)
 
