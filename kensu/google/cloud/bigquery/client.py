@@ -52,7 +52,7 @@ class Client(client.Client):
                 d = BqOfflineParser.find_sql_identifiers(q[0].tokens).__next__()
                 table = d.value.replace('`','')
                 ds_data = table.split('.')
-                query = query.replace("\n","")
+                query = query.replace("\n"," ")
                 if project is not None and len(ds_data) == 2:
                     ds_data = [project] + ds_data
                 if len(ds_data) == 3:
@@ -77,7 +77,8 @@ class Client(client.Client):
                             logger.debug(f"Query without INSERT TO:{query_without_insert}")
                         elif query.lower().replace(" ","").replace("\n","").startswith("merge"):
                             import re
-                            query_without_insert = re.findall('\(.*\)', query)[0]
+                            query_without_insert = list(sqlparse.parse(query)[0].get_sublists())[1].value
+                            query_without_insert= re.findall('\(.*\)', query_without_insert)[0]
                             db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
                                 kensu=kensu,
                                 client=client,

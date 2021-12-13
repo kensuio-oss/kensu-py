@@ -31,7 +31,30 @@ class BqRemoteParser:
     @staticmethod
     def parse(kensu, client: bq.Client, query: str, db_metadata, table_id_to_bqtable) -> GenericComputedInMemDs:
         ## POST REQUEST to /lineage-and-stats-criterions
-        query = query.replace("PARSE_DATETIME", "to_timestamp")
+
+        import re
+        query = re.sub('EXCEPT\([^)]+\)', '', query)
+        query= re.sub('PARSE_DATETIME\([^,]+,', '(', query)
+
+        query = query \
+            .replace("DATETIME", "to_timestamp") \
+            .replace("TIMESTAMP_ADD","date_part")\
+            .replace("UNNEST", "") \
+            .replace("unnest", "") \
+            .lstrip('(') \
+            .rstrip(')')
+
+        # for table in db_metadata['tables']:
+        #     for field in table['schema']['fields']:
+        #         if "." in field['name']:
+        #             old_field = field['name']
+        #             field['old_name'] = old_field
+        #             new_name = old_field.replace('.','__ksu__').lower()
+        #             field['name'] = new_name
+        #             query = query.lower().replace(old_field.lower(), new_name)
+        # query = query.lower().replace("a0001.a0850.a0851", "a0001.a0850__ksu__a0851")
+
+
         req = {"sql": query, "metadata": db_metadata}
         url = kensu.sql_util_url
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))

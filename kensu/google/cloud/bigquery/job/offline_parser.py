@@ -52,9 +52,12 @@ class BqOfflineParser:
         return metadata,  table_id_to_bqtable, table_infos
 
     @staticmethod
-    def get_table_info_for_id(client: bq.Client, id: sqlparse.sql.Identifier):
+    def get_table_info_for_id(client: bq.Client, id: sqlparse.sql.Identifier or sqlparse.sql.Token):
         try:
-            name = (id.get_real_name()).strip('`')
+            if isinstance(id,sqlparse.sql.Identifier):
+                name = (id.get_real_name()).strip('`')
+            elif isinstance(id,sqlparse.sql.Token):
+                name = id.value.strip('`')
             table = client.get_table(name)
             ds, sc = BqKensuHelpers.table_to_kensu(table)  # FIXME?
             return table, ds, sc
@@ -75,19 +78,10 @@ class BqOfflineParser:
 
     @staticmethod
     def find_sql_identifiers(tokens):
-        for t in tokens:
-            if isinstance(t, sqlparse.sql.Identifier):
-                if t.is_group and len(t.tokens) > 0:
-                    # String values like "World" in `N == "World"` are also Identifier
-                    # but their first child is of ttype `Token.Literal.String.Symbol`
-                    # although table seems to have a first child of ttype `Token.Name`
-                    if str(t.tokens[0].ttype) == "Token.Name":
-                        # FIXME .. this is also returning the column names... (REF_GET_TABLE)
-                        yield t
-                    else:
-                        yield from BqOfflineParser.find_sql_identifiers(t)
-            elif t.is_group:
-                yield from BqOfflineParser.find_sql_identifiers(t)
+        for e in tokens:
+            for t in e.flatten():
+                if str(t.ttype) == "Token.Name":
+                    yield t
 
     @staticmethod
     def fallback_lineage(kensu, table_infos, dest):
