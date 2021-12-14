@@ -37,6 +37,14 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
             def convert_fields(fields,heritage=[]):
                 for k in fields:
                     if k.fields != ():
+                        if k.field_type == 'RECORD':
+                            if heritage != []:
+                                prefix = ".".join(heritage) + '.'
+                            else:
+                                prefix = ''
+                            schema_field.append(
+                                FieldDef(name=prefix + str(k.name), field_type=k.field_type+":"+k.mode, nullable=k.is_nullable))
+
                         convert_fields(k.fields,heritage + [k.name])
                     else:
                         if heritage !=[]:
