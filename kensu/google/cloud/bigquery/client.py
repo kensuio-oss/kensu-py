@@ -44,15 +44,15 @@ class Client(client.Client):
 
         #For succession of SELECT queries, only the last one return a result
         for query in queries.split(";"):
-            if query.lower().replace(" ","").replace("\n","").startswith("insertinto") \
-                    or query.lower().replace(" ","").replace("\n","").startswith("merge") :
+            normalized_query = query.lower().replace(" ", "").replace("\n", "")
+            if normalized_query.startswith("insertinto") or normalized_query.startswith("merge") :
                 kensu = KensuProvider().instance()
                 client = kensu.data_collectors['BigQuery']
+                import sqlparse
                 q = sqlparse.parse(query)
                 d = BqOfflineParser.find_sql_identifiers(q[0].tokens).__next__()
-                table = d.value.replace('`','')
+                table = d.value.replace('`', '')
                 ds_data = table.split('.')
-                query = query.replace("\n","")
                 if project is not None and len(ds_data) == 2:
                     ds_data = [project] + ds_data
                 if len(ds_data) == 3:
@@ -68,33 +68,15 @@ class Client(client.Client):
                     db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
                         kensu=kensu,
                         client=client,
-                        query=query)
-
-                    try:
-                        if query.lower().replace(" ","").replace("\n","").startswith("insertinto") :
-                            index_select = query.lower().index("select")
-                            query_without_insert = query[index_select:]
-                            logger.debug(f"Query without INSERT TO:{query_without_insert}")
-                        elif query.lower().replace(" ","").replace("\n","").startswith("merge"):
-                            import re
-                            query_without_insert = re.findall('\(.*\)', query)[0]
-                            db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
-                                kensu=kensu,
-                                client=client,
-                                query=query_without_insert)
-
-                        else:
-                            query_without_insert = query
-                    except:
-                        logger.debug(f"{query}")
-                        query_without_insert = query
+                        query=query.replace("\n", " ")
+                    )
 
                     try:
                         #TODO: Use sqlparse
                         bq_lineage = BqRemoteParser.parse(
                             kensu=kensu,
                             client=client,
-                            query=query_without_insert,
+                            query=query,
                             db_metadata=db_metadata,
                             table_id_to_bqtable=table_id_to_bqtable)
                     except:
@@ -117,6 +99,19 @@ class Client(client.Client):
 
                     from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
                     try:
+                        import re
+                        if query.lower().replace(" ", "").replace("\n", "").startswith("insertinto"):
+                            index_select = query.lower().index("select")
+                            query_without_insert = query[index_select:]
+
+                        elif query.lower().replace(" ", "").replace("\n", "").startswith("merge"):
+                            # query_without_insert = re.findall('\(.*\)', query)[0]
+                            import sqlparse
+                            query_without_insert = list(sqlparse.parse(query.replace("\n", " "))[0].get_sublists())[1].value
+                            query_without_insert = re.findall('\(.*\)', query_without_insert)[0]
+
+                        else:
+                            query_without_insert = query
                         output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
                     except:
                         logger.debug(f"Unable to compute stats for table {str(table)}")
