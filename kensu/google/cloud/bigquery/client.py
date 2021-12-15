@@ -44,7 +44,7 @@ class Client(client.Client):
 
         #For succession of SELECT queries, only the last one return a result
         for query in queries.split(";"):
-            normalized_query = query.lower().replace("\n", "")
+            normalized_query = query.lower().replace(" ", "").replace("\n", "")
             if normalized_query.startswith("insertinto") or normalized_query.startswith("merge") :
                 kensu = KensuProvider().instance()
                 client = kensu.data_collectors['BigQuery']
