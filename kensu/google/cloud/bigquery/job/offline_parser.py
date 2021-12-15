@@ -10,6 +10,7 @@ from google.cloud.bigquery import Table
 from kensu.google.cloud.bigquery.job.bq_helpers import BqKensuHelpers
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, GenericComputedInMemDs, \
     ExtDependencyEntry
+from kensu.utils.helpers import extract_ksu_ds_schema
 from kensu.utils.kensu import Kensu
 import google.cloud.bigquery as bq
 import sqlparse
@@ -85,22 +86,18 @@ class BqOfflineParser:
 
     @staticmethod
     def fallback_lineage(kensu, table_infos, dest):
-        global_lineage = []
-        for table, ds, sc in table_infos:
-            ds_path = ds.pk.location
-            schema_fields = [(f.name, f.field_type) for f in sc.pk.fields]
+        res_ds, res_schema = extract_ksu_ds_schema(kensu, orig_variable=dest, report=False, register_orig_data=False)
+        res_field_names = [f.name for f in res_schema.pk.fields]
+        all_inputs = []
+        for input_table, input_ds, input_sc in table_infos:
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
-                ds_path=ds_path,
-                ds_name=ds.name,
+                ds_path=input_ds.pk.location,
+                ds_name=input_ds.name,
                 format='BigQuery table',
                 categories=None,
-                maybe_schema=schema_fields,
+                maybe_schema=[(f.name, f.field_type) for f in input_sc.pk.fields],
                 f_get_stats=None  # FIXME
             )
-            lin_entry = ExtDependencyEntry(
-                input_ds=input,
-                lineage=dict([(v.name, v.name) for v in sc.pk.fields])  # FIXME: check if output field exists
-            )
-            global_lineage.append(lin_entry)
-        return GenericComputedInMemDs(lineage=global_lineage)
+            all_inputs.append(input)
+        return GenericComputedInMemDs.for_direct_or_full_mapping(all_inputs=all_inputs, out_field_names=res_field_names)
