@@ -44,10 +44,11 @@ class Client(client.Client):
 
         #For succession of SELECT queries, only the last one return a result
         for query in queries.split(";"):
-            normalized_query = query.lower().replace(" ", "").replace("\n", "")
+            normalized_query = query.lower().replace("\n", "")
             if normalized_query.startswith("insertinto") or normalized_query.startswith("merge") :
                 kensu = KensuProvider().instance()
                 client = kensu.data_collectors['BigQuery']
+                import sqlparse
                 q = sqlparse.parse(query)
                 d = BqOfflineParser.find_sql_identifiers(q[0].tokens).__next__()
                 table = d.value.replace('`', '')
@@ -98,6 +99,19 @@ class Client(client.Client):
 
                     from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
                     try:
+                        import re
+                        if query.lower().replace(" ", "").replace("\n", "").startswith("insertinto"):
+                            index_select = query.lower().index("select")
+                            query_without_insert = query[index_select:]
+
+                        elif query.lower().replace(" ", "").replace("\n", "").startswith("merge"):
+                            # query_without_insert = re.findall('\(.*\)', query)[0]
+                            import sqlparse
+                            query_without_insert = list(sqlparse.parse(query.replace("\n", " "))[0].get_sublists())[1].value
+                            query_without_insert = re.findall('\(.*\)', query_without_insert)[0]
+
+                        else:
+                            query_without_insert = query
                         output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
                     except:
                         logger.debug(f"Unable to compute stats for table {str(table)}")
