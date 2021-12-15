@@ -90,6 +90,8 @@ class BqOfflineParser:
         res_field_names = [f.name for f in res_schema.pk.fields]
         all_inputs = []
         for input_table, input_ds, input_sc in table_infos:
+            if res_ds.pk.location == input_ds.pk.location:
+                continue
             input = KensuDatasourceAndSchema.for_path_with_opt_schema(
                 kensu,
                 ds_path=input_ds.pk.location,
@@ -97,7 +99,7 @@ class BqOfflineParser:
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=[(f.name, f.field_type) for f in input_sc.pk.fields],
-                f_get_stats=None  # FIXME
+                f_get_stats= None # FIXME: needs input filters
             )
             all_inputs.append(input)
         return GenericComputedInMemDs.for_direct_or_full_mapping(all_inputs=all_inputs, out_field_names=res_field_names)
