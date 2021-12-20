@@ -1,5 +1,25 @@
 """ Diagnostics tool for integration
 
+A tool to assess the packages and function usages for rapid customer's usage of libraries and related functions.
+During pre-sales, integration or the inital contact with a customer we want to quickly assess
+the libraries and functions used by that customer as to have an idea (a scan, a diagnostic) of their
+usages, to direct the initial and subsequent implementations strategically.
+
+It helps having a quantified ideas on their python codebase.
+
+v1.0
+
+local lingo:
+- DF: short for DataFrame (pandas)
+- FWB: Feature, Workaround or Bug (can be later split into FEAT, WKRND, BUG)
+- AST: abstract syntax tree (compiler theory)
+- node: an AST node, in this script as returned by Python's own parser in the "ast" library
+- scope: in compilers, a context. Inside a scope we can talk fo the visibility of a variable within
+    a function for example, or visibility of a sub-function within a class. As scope is that context where
+    local symbols are visible and shadowing superscope syms with the same qualifier. A super defined sym can still
+    eventually be accessed through its FQN. Blocs in Java have their own scopes.
+
+
 This script attempts to list all functions called by Python files in a directory
 
 # TODO
@@ -16,6 +36,73 @@ This script attempts to list all functions called by Python files in a directory
 # [ ] explain process, ... doc
 
 # https://stackoverflow.com/questions/54325116/can-i-handle-imports-in-an-abstract-syntax-tree
+
+
+--------------------------------------------------------------------------------
+
+"ideal" approach:
+Make a full Python parser/grammar with a full semantic layer for symbolic resolution (symres) with
+type resolution (typeres) and code flow for linking function uses to the imports.
+Or use Python's internal mecahnism if such exists
+
+ex:
+```from pandas import *
+df = DataFrame()
+df.describe()
+from kensu.pandas import *
+df = DataFrame()
+df.describe()
+```
+in this example we should track the fact DF is from imported pandas, assigned to df, then describe called in that df
+as to log that describe() is from pandas.
+Then notice in the same way that the subsequent describe belongs to the kensu lib.
+
+--------------------------------------------------------------------------------
+
+20211220 current approach:
+    We can't *quickly* make a full symres and code flow, so we go for approximations.
+    A full symres (type resolution) and flow would require lots of work in this complex loosely typed language
+    that is Python.
+    There might be several overlaps in function names, "add" can be found in pandas DF, in python arrays, ...
+    So for flattened recursive (full) imports matched against the list of all locally called functions we could
+    have ambiguity. A simple disambiguation alert can be raised by warning the potential dual use we could detect.
+    We don't import python's builtins, so an array "add" could be wrongly attributed to a pandas add if pandas is
+    flatly imported in that python file context.
+    Ambiguity is shown as the potential match (belonging) of a function to two or more packages.
+
+    To simplify the approach we state that
+    - FWB001:  All imports are considered equal:
+        - we just import recursively the imports and flatten them into the packages:
+            "import pandas.*; from pandas import DataFrame" will put DF "describe" and "add" into "pandas" package.
+        - The "from x import y" becomes from x. This can easily be made right later by proper handling of
+            the ImportFrom nodes.
+            Until then "from padas.DataFrame import add; from kensu.pandas.Dataframe import describe"
+            will fuzzily match "add" and "describe" to both kensu and pands packages.
+    - FWB002: Locally defined functions are skipped for now, we match them with FuncDef calls
+        [ ] TODO: report them in the ambiguous package attribution if need be:
+        ```def add(a, b):
+         return a ++ b
+        from pandas import DataFrame
+        df1 = DataFrame()
+        df2 = DataFrame()
+        df1.add(df2)```
+        For now in V1.0 we don't report ambiguity. WE just skip, so add is is the locally defined functions,
+        shadowing DF.add
+    - FWB003 no handling of scopes
+        if an import is performed in a sub scope (indented part of code, inside a function, ... then it is not reachable
+        to the superscope normally.
+        So in this case:
+        ``` from a import a
+        def b:
+            from c import d
+            d
+        b()
+        d()
+        ```
+        we wrongly consider d is reachable outside of b.
+
+
+--------------------------------------------------------------------------------
 
 """
 
@@ -157,7 +244,7 @@ def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
                         except ImportError:
                             print(f"couldn't import {name.name}")
 
-            elif isinstance(node, ast.ImportFrom):
+            elif isinstance(node, ast.ImportFrom):  # FWB001
                 if node.level > 0:
                     # TODO check for relative imports
                     # node.module.split('.')
@@ -211,8 +298,8 @@ def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
         for cal in func_calls:
             if cal in func_defs:
                 if args.debug:
-                    print(f"    - not counting locally defined func call: {cal}")
-                pass
+                    print(f"    - V1.0 FWB002 not counting locally defined func call: {cal}")
+                pass  # FWB002
             # find call in imports
             for i in imports:
                 if i not in lib_imports.keys():
