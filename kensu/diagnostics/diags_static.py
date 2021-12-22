@@ -149,74 +149,6 @@ def get_files_from_regex_string(rex: str) -> List[str]:
     return glob(rex, recursive=True)
 
 
-def get_imports(py_file_content: str) -> (Set[str], Set[str]):
-    """
-    Collect imports from a given python file content.
-    Does not yet support partial imports such as `from a import b` where b is a callable
-    """
-    parsed = ast.parse(py_file_content)
-    imports = set()
-    funcs = set()
-    funcdefs = set()
-    for node in ast.walk(parsed):
-        if isinstance(node, ast.Import):
-            for name in node.names:
-                if args.debug:
-                    print(f" -- ast.Import name: {name.name} as: {name.asname}")
-                imports.add(name.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.level > 0:
-                # TODO check for relative imports
-                # node.module.split('.')
-                if args.debug:
-                    print("     -- relative import first name: {}".format(node.names[0].name))
-            if args.debug:
-                print(f" -- ast.ImportFrom module: {node.module} names: {node.names} level: {node.level}")
-            imports.add(node.module)
-        elif isinstance(node, ast.Call):
-            fname = None
-            if isinstance(node.func, ast.Attribute):
-                fname = node.func.value
-                if isinstance(fname, ast.Name):
-                    fname = fname.id
-            elif isinstance(node.func, ast.Name):
-                fname = node.func.id
-            if args.debug:
-                print(f" -- CALL: {fname} ARGS: {node.args} KWS: {node.keywords}")
-            funcs.add(fname)
-        elif isinstance(node, ast.FunctionDef):
-            #   handle scopes in the visitor
-            #   multi pass to resolve inherited methods
-            print(f"node is FUNCDEF {node.name}")
-            funcdefs.add(node.name)
-        else:
-            if args.debug:
-                print(f"    --- node is {node}")
-            pass
-    return imports, funcs, funcdefs
-
-
-def analyze_multi(filenames: List[str]) -> (Set, Dict, Set):
-    all_imports = set()
-    all_funcs = set()
-    imports_per_file = dict()
-    for fname in filenames:
-        if args.debug:
-            print(f"file: {fname}")
-        with open(os.path.join(fname), "rb") as f:
-            content = f.read()
-            s, funcs, _ = get_imports(content)
-            imports_per_file[fname] = s
-            all_imports.update(s)
-            all_funcs.update(funcs)
-        if args.verbose:
-            print(f"    imports: {s}")
-            print(f"    funcs: {funcs}")
-            print(" ---°-°-°-° °-°°---------\n")
-    return all_imports, imports_per_file, all_funcs
-
-
-# TODO
 def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
     file2imp2func2count = dict()
     flat = []
@@ -245,8 +177,7 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
     for node in ast.walk(parsed):
         if isinstance(node, ast.Import):
             for name in node.names:
-                if conf.debug:
-                    print(f" -- ast.Import name: {name.name} as: {name.asname}")
+                conf.debug and print(f" -- ast.Import name: {name.name} as: {name.asname}")
                 imports.add(name.name)
                 lib_imports = imports_flat(name.name, lib_imports)  # FBW003
 
@@ -254,10 +185,8 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
             if node.level > 0:
                 # TODO check for relative imports
                 # node.module.split('.')
-                if conf.debug:
-                    print("     -- relative import first name: {}".format(node.names[0].name))
-            if conf.debug:
-                print(f" -- ast.ImportFrom module: {node.module} names: {node.names} level: {node.level}")
+                conf.debug and print("     -- relative import first name: {}".format(node.names[0].name))
+            conf.debug and print(f" -- ast.ImportFrom module: {node.module} names: {node.names} level: {node.level}")
             imports.add(node.module)
             lib_imports = imports_flat(node.module, lib_imports)  # FBW003
 
@@ -269,24 +198,18 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
                     func_name = func_name.id
             elif isinstance(node.func, ast.Name):
                 func_name = node.func.id
-            if conf.debug:
-                print(f" -- CALL: {func_name} ARGS: {node.args} KWS: {node.keywords}")
+            conf.debug and print(f" -- CALL: {func_name} ARGS: {node.args} KWS: {node.keywords}")
             func_calls.append(func_name)
 
         elif isinstance(node, ast.FunctionDef):
             #   handle scopes in the visitor
             #   multi pass to resolve inherited methods
-            print(f"node is FUNCDEF {node.name}")
+            conf.debug and print(f"node is FUNCDEF {node.name}")
             func_defs.add(node.name)
         else:
-            if conf.debug:
-                print(f"    --- node is {node}")
+            conf.debug and print(f"    --- node is {node}")
             pass
-        # return imports, funcs, funcdefs
 
-        # imports_per_file[filename] = imps
-        #all_imports.update(imps)
-        # all_funcs.update(funcs)
     if conf.verbose:
         print(f"    imports: {imports}")
         print(f"    calls: {func_calls}")
@@ -300,7 +223,7 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
             pass  # FBW002
         # find call in imports
         for i in imports:
-            if i not in lib_imports.keys():
+            if conf.debug and i not in lib_imports.keys():
                 print(f" ^$ù`=+/:^$ù`=+/: haven't found lib {i} in lib_imports {lib_imports.keys()}")
             if cal in lib_imports[i]:
                 conf.debug and print(f"COUNTING A CALL {cal} for {lib_imports[i]} in {filename}")
@@ -309,7 +232,7 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
                     cal = file2imp2func2count[filename][i]
                     count = file2imp2func2count[filename][i][cal]
                     if count is None or not isinstance(count, int):
-                        print(f"yikes count is {count}")
+                        conf.debug and print(f"yikes count is {count}")
                         file2imp2func2count[filename][i][cal] = 1
                     else:
                         file2imp2func2count[filename][i][cal] = count + 1
@@ -320,18 +243,6 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
     return file2imp2func2count
 
 
-def real_imports_per_file_with_inspect(module_name: str):
-    # check if not loaded already?
-    try:
-        mo = importlib.import_module(module_name)
-        g = getmembers(mo, isfunction)
-        if conf.debug:
-            print(f"real_imports_per_file_with_inspect {module_name}: {g}")
-        return [v[0] for v in g], None
-    except ImportError:
-        return None, module_name
-
-
 def imports_flat(module_name: str, lib_imports: Dict):  # FBW003
 
     def import_recursive(g):
@@ -339,17 +250,15 @@ def imports_flat(module_name: str, lib_imports: Dict):  # FBW003
         ms = getmembers(g)
         for member in ms:
             if not member[0].startswith('__'):
-                print(f"processing {member}")
                 if isclass(member[1]):
                     print(member[1])
                     if member not in members:
                         rec = import_recursive(member[1])
-
                         members.update(rec)
                         # TODO FBW004 ensure we don't save members inherited from other packages, such as base types
                         # 'object' and 'type'
                         for superclass in member[1].__mro__:
-                            print(f"class {member[1]} has __mro__ {superclass}")
+                            conf.debug and print(f"class {member[1]} has __mro__ {superclass}")
                 members[member[0]] = member[1]
         return members
 
@@ -360,25 +269,18 @@ def imports_flat(module_name: str, lib_imports: Dict):  # FBW003
         try:
             mo = importlib.import_module(module_name)
             mems = import_recursive(mo)  # FBW003 FWB001
-            #ms = [m for m in mems if is_function_or_method(m[1]) and not m[0].startswith('__')]
             ms = {k: v for k, v in mems.items() if isinstance(v, BuiltinFunctionType) or
                  isinstance(v, BuiltinMethodType) and not k.startswith('__')}
-            if conf.debug:
-                print(f"real_imports_per_file_with_inspect {module_name}: {ms}")
-            lib_imports[module_name] = [k for k, v in ms.items()]
+            conf.debug and print(f"imports_flat {module_name}: {ms}")
+
+            if module_name in lib_imports:
+                lib_imports[module_name] = lib_imports[module_name] + [k for k, v in ms.items()]
+            else:
+                lib_imports[module_name] = [k for k, v in ms.items()]
             print()
         except ImportError:
             print(f"couldn't import {module_name}")
     return lib_imports
-
-
-def all_imports_flattened(imports:dict):
-    #importz2 = dict()
-    allz = set()
-    for k, v in imports.items():
-        #importz2[k] = dir(v)
-        allz.update(dir(v))
-    return allz
 
 
 class DiagsConf:
@@ -432,7 +334,7 @@ def main(cli_args=None):
     desc = ("""Attempts to report all functions used per imported modules in python files
         sdfsdf
         """)
-    global args
+    global args, conf
 
     parser = ArgumentParser(usage=usage, description=desc)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, dest="verbose", help="verbose debugging")
@@ -468,21 +370,3 @@ def main(cli_args=None):
 if __name__ == '__main__':
     main()
 
-
-
-"""
-def real_imports_per_file_with_importlib(all_imports):
-    importz = dict()
-    for i in all_imports:
-        if i not in importz.keys():  # load only once
-            try:
-                b = importlib.import_module(i)
-                importz[i] = b
-            except ImportError as err:
-                print('Error loading import: ', err)
-                print(f"could load so far: {importz.keys()}")
-                print(f"couldn't load: {i}. Exiting")
-                sys.exit(-1)
-    return importz, all_imports_flattened(importz)
-
-"""
