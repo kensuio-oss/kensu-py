@@ -1,5 +1,5 @@
 import pandas
 
-df = pandas.DataFrame()
+df = pandas.DataFrame()  # class DataFrame(NDFrame, OpsMixin)
 df.describe()
-# df.count()
+

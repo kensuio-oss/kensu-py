@@ -11,7 +11,7 @@ v1.0
 
 local lingo:
 - DF: short for DataFrame (pandas)
-- FWB: Feature, Workaround or Bug (can be later split into FEAT, WKRND, BUG)
+- FBW: Feature, Bug or Workaround (can be later split into FEAT, BUG, WKRND)
 - AST: abstract syntax tree (compiler theory)
 - node: an AST node, in this script as returned by Python's own parser in the "ast" library
 - scope: in compilers, a context. Inside a scope we can talk fo the visibility of a variable within
@@ -71,14 +71,14 @@ Then notice in the same way that the subsequent describe belongs to the kensu li
     Ambiguity is shown as the potential match (belonging) of a function to two or more packages.
 
     To simplify the approach we state that
-    - FWB001:  All imports are considered equal:
+    - FBW001:  All imports are considered equal:
         - we just import recursively the imports and flatten them into the packages:
             "import pandas.*; from pandas import DataFrame" will put DF "describe" and "add" into "pandas" package.
         - The "from x import y" becomes from x. This can easily be made right later by proper handling of
             the ImportFrom nodes.
             Until then "from padas.DataFrame import add; from kensu.pandas.Dataframe import describe"
             will fuzzily match "add" and "describe" to both kensu and pands packages.
-    - FWB002: Locally defined functions are skipped for now, we match them with FuncDef calls
+    - FBW002: Locally defined functions are skipped for now, we match them with FuncDef calls
         [ ] TODO: report them in the ambiguous package attribution if need be:
         ```def add(a, b):
          return a ++ b
@@ -88,7 +88,7 @@ Then notice in the same way that the subsequent describe belongs to the kensu li
         df1.add(df2)```
         For now in V1.0 we don't report ambiguity. WE just skip, so add is is the locally defined functions,
         shadowing DF.add
-    - FWB003 no handling of scopes
+    - FBW003 no handling of scopes
         if an import is performed in a sub scope (indented part of code, inside a function, ... then it is not reachable
         to the superscope normally.
         So in this case:
@@ -101,25 +101,29 @@ Then notice in the same way that the subsequent describe belongs to the kensu li
         ```
         we wrongly consider d is reachable outside of b.
 
+    note:
+    - FBW004: TODO: ensure we don't save members inherited from other packages, such as base types 'object' and 'type'
+        by integrating superclass symbols we shouldn't import classes outside the package at hand for inheritance?
+        everyone extend 'object' or 'type' in Python
 
 --------------------------------------------------------------------------------
 
 """
 
 from glob import glob
-import logging
 import os
 import sys
 import ast
 from typing import Set, List, Dict
+from types import BuiltinFunctionType, BuiltinMethodType
 import importlib
 import logging
-import pandas
 from argparse import ArgumentParser
-from inspect import getmembers, isfunction
+from inspect import getmembers, isfunction, isclass, ismethod
 
 logger = logging.getLogger(__name__)
 args = None
+conf = None
 
 
 def get_dir_file_regex(dir_name: str):
@@ -212,8 +216,8 @@ def analyze_multi(filenames: List[str]) -> (Set, Dict, Set):
     return all_imports, imports_per_file, all_funcs
 
 
+# TODO
 def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
-    lib_imports = dict()
     file2imp2func2count = dict()
     flat = []
     for filename in filenames:
@@ -221,104 +225,98 @@ def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
             print(f"file: {filename}")
         with open(os.path.join(filename), "rb") as f:
             content = f.read()
+        file2imp2func2count = parse_single_file_content(filename, content, file2imp2func2count)
+    return file2imp2func2count
 
-        parsed = ast.parse(content)
 
-        imports = set()
-        func_calls = []
-        func_defs = set()
+def parse_single_file_content(filename: str, content: str, file2imp2func2count: Dict = None):
 
-        for node in ast.walk(parsed):
-            if isinstance(node, ast.Import):
-                for name in node.names:
-                    if args.debug:
-                        print(f" -- ast.Import name: {name.name} as: {name.asname}")
-                    imports.add(name.name)
-                    if name.name not in lib_imports.keys():
-                        try:
-                            mo = importlib.import_module(name.name)
-                            g = getmembers(mo, isfunction)
-                            if args.debug:
-                                print(f"real_imports_per_file_with_inspect {name.name}: {g}")
-                            lib_imports[name.name] = [v[0] for v in g]
-                        except ImportError:
-                            print(f"couldn't import {name.name}")
+    # when testing single files
+    if file2imp2func2count is None:
+        file2imp2func2count = dict()
 
-            elif isinstance(node, ast.ImportFrom):  # FWB001
-                if node.level > 0:
-                    # TODO check for relative imports
-                    # node.module.split('.')
-                    if args.debug:
-                        print("     -- relative import first name: {}".format(node.names[0].name))
-                if args.debug:
-                    print(f" -- ast.ImportFrom module: {node.module} names: {node.names} level: {node.level}")
-                imports.add(node.module)
-                if node.module not in lib_imports.keys():
-                    try:
-                        mo = importlib.import_module(node.module)
-                        g = getmembers(mo, isfunction)
-                        if args.debug:
-                            print(f"real_imports_per_file_with_inspect {node.module}: {g}")
-                        lib_imports[node.module] = [v[0] for v in g]
-                    except ImportError:
-                        print(f"couldn't import {name.name}")
+    parsed = ast.parse(content)
 
-            elif isinstance(node, ast.Call):
-                func_name = None
-                if isinstance(node.func, ast.Attribute):
-                    func_name = node.func.attr
-                    if isinstance(func_name, ast.Name):
-                        func_name = func_name.id
-                elif isinstance(node.func, ast.Name):
-                    func_name = node.func.id
-                if args.debug:
-                    print(f" -- CALL: {func_name} ARGS: {node.args} KWS: {node.keywords}")
-                func_calls.append(func_name)
+    imports = set()
+    func_calls = []
+    func_defs = set()
+    lib_imports = dict()
 
-            elif isinstance(node, ast.FunctionDef):
-                #   handle scopes in the visitor
-                #   multi pass to resolve inherited methods
-                print(f"node is FUNCDEF {node.name}")
-                func_defs.add(node.name)
+    for node in ast.walk(parsed):
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                if conf.debug:
+                    print(f" -- ast.Import name: {name.name} as: {name.asname}")
+                imports.add(name.name)
+                lib_imports = imports_flat(name.name, lib_imports)  # FBW003
+
+        elif isinstance(node, ast.ImportFrom):  # FBW001
+            if node.level > 0:
+                # TODO check for relative imports
+                # node.module.split('.')
+                if conf.debug:
+                    print("     -- relative import first name: {}".format(node.names[0].name))
+            if conf.debug:
+                print(f" -- ast.ImportFrom module: {node.module} names: {node.names} level: {node.level}")
+            imports.add(node.module)
+            lib_imports = imports_flat(node.module, lib_imports)  # FBW003
+
+        elif isinstance(node, ast.Call):
+            func_name = None
+            if isinstance(node.func, ast.Attribute):
+                func_name = node.func.attr
+                if isinstance(func_name, ast.Name):
+                    func_name = func_name.id
+            elif isinstance(node.func, ast.Name):
+                func_name = node.func.id
+            if conf.debug:
+                print(f" -- CALL: {func_name} ARGS: {node.args} KWS: {node.keywords}")
+            func_calls.append(func_name)
+
+        elif isinstance(node, ast.FunctionDef):
+            #   handle scopes in the visitor
+            #   multi pass to resolve inherited methods
+            print(f"node is FUNCDEF {node.name}")
+            func_defs.add(node.name)
+        else:
+            if conf.debug:
+                print(f"    --- node is {node}")
+            pass
+        # return imports, funcs, funcdefs
+
+        # imports_per_file[filename] = imps
+        #all_imports.update(imps)
+        # all_funcs.update(funcs)
+    if conf.verbose:
+        print(f"    imports: {imports}")
+        print(f"    calls: {func_calls}")
+        print(f"    defs: {func_defs}")
+        print(f"    lib_imports: {lib_imports}")
+        print(" ---°-°-°-° °-°°---------\n")
+
+    for cal in func_calls:
+        if cal in func_defs:
+            conf.debug and print(f"    - V1.0 FBW002 not counting locally defined func call: {cal}")
+            pass  # FBW002
+        # find call in imports
+        for i in imports:
+            if i not in lib_imports.keys():
+                print(f" ^$ù`=+/:^$ù`=+/: haven't found lib {i} in lib_imports {lib_imports.keys()}")
+            if cal in lib_imports[i]:
+                conf.debug and print(f"COUNTING A CALL {cal} for {lib_imports[i]} in {filename}")
+                if filename in file2imp2func2count\
+                    and i in file2imp2func2count[filename]:
+                    cal = file2imp2func2count[filename][i]
+                    count = file2imp2func2count[filename][i][cal]
+                    if count is None or not isinstance(count, int):
+                        print(f"yikes count is {count}")
+                        file2imp2func2count[filename][i][cal] = 1
+                    else:
+                        file2imp2func2count[filename][i][cal] = count + 1
             else:
-                if args.debug:
-                    print(f"    --- node is {node}")
-                pass
-            # return imports, funcs, funcdefs
+                conf.debug and print(f"NOT cal in lib_imports[i]: NOT {cal} in {lib_imports[i]}")
 
-            # imports_per_file[filename] = imps
-            #all_imports.update(imps)
-            # all_funcs.update(funcs)
-        if args.verbose:
-            print(f"    imports: {imports}")
-            print(f"    calls: {func_calls}")
-            print(f"    defs: {func_defs}")
-            print(" ---°-°-°-° °-°°---------\n")
-
-        for cal in func_calls:
-            if cal in func_defs:
-                if args.debug:
-                    print(f"    - V1.0 FWB002 not counting locally defined func call: {cal}")
-                pass  # FWB002
-            # find call in imports
-            for i in imports:
-                if i not in lib_imports.keys():
-                    print(f" ^$ù`=+/:^$ù`=+/: haven't found lib {i} in lib_imports {lib_imports.keys()}")
-                if cal in lib_imports[i]:
-                    print(f"COUNTING A CALL {cal} for {lib_imports[i]} in {filename}")
-                    # if defined ? file2imp2func2count[filename]
-                    if filename in file2imp2func2count\
-                        and i in file2imp2func2count[filename]:
-                        cal = file2imp2func2count[filename][i]
-                        count = file2imp2func2count[filename][i][cal]
-                        if count is None or not isinstance(count, int):
-                            print(f"yikes count is {count}")
-                            file2imp2func2count[filename][i][cal] = 1
-                        else:
-                            file2imp2func2count[filename][i][cal] = count + 1
-
-        # file2imp2func2count[fname]
-        print("analyze_multi2 end")
+    conf.debug and print("parse_single_file_content end")
     return file2imp2func2count
 
 
@@ -327,11 +325,51 @@ def real_imports_per_file_with_inspect(module_name: str):
     try:
         mo = importlib.import_module(module_name)
         g = getmembers(mo, isfunction)
-        if args.debug:
+        if conf.debug:
             print(f"real_imports_per_file_with_inspect {module_name}: {g}")
         return [v[0] for v in g], None
     except ImportError:
         return None, module_name
+
+
+def imports_flat(module_name: str, lib_imports: Dict):  # FBW003
+
+    def import_recursive(g):
+        members = dict()
+        ms = getmembers(g)
+        for member in ms:
+            if not member[0].startswith('__'):
+                print(f"processing {member}")
+                if isclass(member[1]):
+                    print(member[1])
+                    if member not in members:
+                        rec = import_recursive(member[1])
+
+                        members.update(rec)
+                        # TODO FBW004 ensure we don't save members inherited from other packages, such as base types
+                        # 'object' and 'type'
+                        for superclass in member[1].__mro__:
+                            print(f"class {member[1]} has __mro__ {superclass}")
+                members[member[0]] = member[1]
+        return members
+
+    def is_function_or_method(form):
+        return True if isfunction(form) or ismethod(form) else False
+
+    if module_name not in lib_imports.keys():
+        try:
+            mo = importlib.import_module(module_name)
+            mems = import_recursive(mo)  # FBW003 FWB001
+            #ms = [m for m in mems if is_function_or_method(m[1]) and not m[0].startswith('__')]
+            ms = {k: v for k, v in mems.items() if isinstance(v, BuiltinFunctionType) or
+                 isinstance(v, BuiltinMethodType) and not k.startswith('__')}
+            if conf.debug:
+                print(f"real_imports_per_file_with_inspect {module_name}: {ms}")
+            lib_imports[module_name] = [k for k, v in ms.items()]
+            print()
+        except ImportError:
+            print(f"couldn't import {module_name}")
+    return lib_imports
 
 
 def all_imports_flattened(imports:dict):
@@ -341,6 +379,52 @@ def all_imports_flattened(imports:dict):
         #importz2[k] = dir(v)
         allz.update(dir(v))
     return allz
+
+
+class DiagsConf:
+
+    def __init__(self, verbose=False, debug=False, pythonpath=None,
+                 csv=False, json=False, files_dir="."):  # , files_regex = None
+
+        self.verbose = verbose
+        self.debug = debug
+        self.pythonpath = pythonpath
+        self.csv = csv
+        self.json = json
+        self.files_dir = files_dir
+        self.files_regex = None
+
+        if pythonpath is not None:
+            # TODO check that Python version is compatible with imports from pythonpath!
+            print("PYTHONPATH argument --pythonpath is not implemented yet")
+            sys.exit(-1)
+            # TODO set PYTHONPATH
+            # if os.path.isdir(args.ppath):
+            #   env['PYTHONPATH'] = os.path.dirname(args.ppath)
+            # else raise exeception and exit
+
+        if self.csv and self.debug:
+            print("outputting to csv: out.csv")
+
+        if self.verbose:
+            logger.setLevel(logging.INFO)
+        elif self.debug:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.WARN)
+
+        if files_dir is not None:
+            self.files_regex = get_dir_file_regex(files_dir)
+            if self.verbose:
+                print(f"DiagsConf: files_regex: {self.files_regex}")
+
+
+    @property
+    def name(self):
+        return "Diagnostics configuration class "
+
+    def __repr__(self):
+        return '<%s values: %s>' % (self.__class__.__name__, self.__dict__)
 
 
 def main(cli_args=None):
@@ -359,70 +443,25 @@ def main(cli_args=None):
     parser.add_argument("--csv", action="store_true", default=False, help="write report as .csv file")
     parser.add_argument("--json", action="store_true", default=False, help="write report as .csv file")
 
-    args, unspecified = parser.parse_known_args(cli_args)
+    args, varargs = parser.parse_known_args(cli_args)
 
-    if args.ppath is not None:
-        # TODO check that Python version is compatible with imports from pythonpath!
-        print("PYTHONPATH argument --pythonpath is not implemented yet")
-        sys.exit(-1)
-        # TODO set PYTHONPATH
-        # if os.path.isdir(args.ppath):
-        #   env['PYTHONPATH'] = os.path.dirname(args.ppath)
-        # else raise exeception and exit
+    files_dir = None
+    if len(varargs) == 1:
+        files_dir = varargs[0]
+    conf = DiagsConf(verbose=args.verbose, debug=args.debug, pythonpath=args.ppath,
+                     # csv=args.csv, json=args.json, files_dir=files_dir or ".")
+                     csv=args.csv, json=args.json, files_dir=files_dir if files_dir is not None else ".")
 
-    if args.csv and args.debug:
-        print("outputting to csv: out.csv")
-
-    if args.verbose:
-        logger.setLevel(logging.INFO)
-    elif args.debug:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.WARN)
-
-    # TODO resolve from path passed
-    if len(unspecified) == 1:
-        thefilesrex = get_dir_file_regex(unspecified[0])
-    else:
-        # thefilesrex = get_dir_file_regex(os.getcwd() + "/tests/diags_test_code")
-        # thefilesrex = get_dir_file_regex("/Users/stan/src/pyan/tests/test_code_diags_simple")
-        thefilesrex = get_dir_file_regex("../../tests/unit/data/diags_test_code")
-
-    if args.verbose:
-        print(f"thefilesrex: {thefilesrex}")
-
-    filenames = get_files_from_regex_string(thefilesrex)
+    filenames = get_files_from_regex_string(conf.files_regex)
     if args.verbose:
         print(f"filenames: {filenames}")
 
-    r = analyze_multi2(filenames)
-    print(f"analyze_multi2: {r}")
-    print("TODO remove above")
-    if 1 == 1:
-        sys.exit(0)
+    # TODO for UNIT TESTS extract files from analyze so can pass string in unit test
+    # TODO unit test all cases from documentation
+    file2imp2func2count = analyze_multi2(filenames)
+    print(f"analyze_multi2: {file2imp2func2count}")
+    print("TODO remove above ----------------------------------------------------------------------------------------")
 
-    all_imports, imports_per_file, all_funcs = analyze_multi(filenames)
-    if args.verbose:
-        print(f"\n\nAll imports flat: {all_imports}")
-        print("\n\n")
-
-    allz = set()
-    errz = set()
-    for imp in all_imports:
-        ok, ko = real_imports_per_file_with_inspect(imp)
-        if ok is not None:
-            allz.update(ok)
-        if ko is not None:
-            errz.update(ko)
-
-    #flats = all_imports_flattened(allz)
-    #if 'execle' in funcz:
-    #    print("VIIIIIKTOREYYYY execle is in funcz")
-
-    if 'execle' in allz:
-        print("VIIIIIKTOREYYYY execle is in allz")
-
-    print("done")
     # TODO Json plutôt que csv
 
 
