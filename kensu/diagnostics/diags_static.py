@@ -23,20 +23,22 @@ local lingo:
 This script attempts to list all functions called by Python files in a directory
 
 # TODO
-# [ ] document use cases
-# [ ]   when to run dynamic diags (trace) or static diags (this)
-# [ ]   csv file or Kensu API to send json (In Databricks it's difficult to retrieve info)
-# [ ] dyn: access to env/venv for resolution: execute within context
+[ ] document use cases
+[ ]   when to run dynamic diags (trace) or static diags (this)
+[ ]   csv file or Kensu API to send json (In Databricks it's difficult to retrieve info)
+[ ] dyn: access to env/venv for resolution: execute within context
+[ ] rename functions with unclear names
+[ ] json output for api
+[ ] ?¿ csv output for local (easy to manipulate in excel)
+[ ] make it run on kensu-py as example
 
-# [ ] json output for api
-# [ ] ?¿ csv output for local (easy to manipulate in excel)
-# [ ] make it run on kensu-py as example
+# extra bugs, features or workarounds:
+[ ] FBW005 keep a list of already imported superclasses (we loop several times over __mro__, in pandas several
+    datatypes inherit from Numerical NumericDtype
+[ ] FBW006 make sure when checking for superclasses we don't check for obvious ones like builtins 'object' and 'type'
 
-# [ ] rename functions with unclear names
-# [ ] explain process, ... doc
 
 # https://stackoverflow.com/questions/54325116/can-i-handle-imports-in-an-abstract-syntax-tree
-
 
 --------------------------------------------------------------------------------
 
