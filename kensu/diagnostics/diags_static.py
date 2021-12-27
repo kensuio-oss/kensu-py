@@ -14,7 +14,7 @@ local lingo:
 - FBW: Feature, Bug or Workaround (can be later split into FEAT, BUG, WKRND)
 - AST: abstract syntax tree (compiler theory)
 - node: an AST node, in this script as returned by Python's own parser in the "ast" library
-- scope: in compilers, a context. Inside a scope we can talk fo the visibility of a variable within
+- scope: in compilers, a context. Inside a scope we can talk of the visibility of a variable within
     a function for example, or visibility of a sub-function within a class. As scope is that context where
     local symbols are visible and shadowing superscope syms with the same qualifier. A super defined sym can still
     eventually be accessed through its FQN. Blocs in Java have their own scopes.
@@ -78,7 +78,7 @@ Then notice in the same way that the subsequent describe belongs to the kensu li
             "import pandas.*; from pandas import DataFrame" will put DF "describe" and "add" into "pandas" package.
         - The "from x import y" becomes from x. This can easily be made right later by proper handling of
             the ImportFrom nodes.
-            Until then "from padas.DataFrame import add; from kensu.pandas.Dataframe import describe"
+            Until then "from pandas.DataFrame import add; from kensu.pandas.Dataframe import describe"
             will fuzzily match "add" and "describe" to both kensu and pands packages.
     - FBW002: Locally defined functions are skipped for now, we match them with FuncDef calls
         [ ] TODO: report them in the ambiguous package attribution if need be:
@@ -107,6 +107,15 @@ Then notice in the same way that the subsequent describe belongs to the kensu li
     - FBW004: TODO: ensure we don't save members inherited from other packages, such as base types 'object' and 'type'
         by integrating superclass symbols we shouldn't import classes outside the package at hand for inheritance?
         everyone extend 'object' or 'type' in Python
+
+TODO USAGE:
+pip install kensu-py
+# the absolute or relative path to the source file you want to analyze
+python -m kensu.diagnostics.diags_static ../src/anyproject
+
+or download script and
+python diags_static.py -v -d  # by default "." path is assumed
+python diags_static.py -ppath /path_to_pythonpath sourcedir/
 
 --------------------------------------------------------------------------------
 
@@ -219,27 +228,31 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
         print(f"    lib_imports: {lib_imports}")
         print(" ---°-°-°-° °-°°---------\n")
 
-    for cal in func_calls:
-        if cal in func_defs:
-            conf.debug and print(f"    - V1.0 FBW002 not counting locally defined func call: {cal}")
+    for func_called in func_calls:
+        if func_called in func_defs:
+            conf.debug and print(f"    - V1.0 FBW002 not counting locally defined func call: {func_called}")
             pass  # FBW002
         # find call in imports
         for i in imports:
             if conf.debug and i not in lib_imports.keys():
                 print(f" ^$ù`=+/:^$ù`=+/: haven't found lib {i} in lib_imports {lib_imports.keys()}")
-            if cal in lib_imports[i]:
-                conf.debug and print(f"COUNTING A CALL {cal} for {lib_imports[i]} in {filename}")
-                if filename in file2imp2func2count\
-                    and i in file2imp2func2count[filename]:
-                    cal = file2imp2func2count[filename][i]
-                    count = file2imp2func2count[filename][i][cal]
-                    if count is None or not isinstance(count, int):
-                        conf.debug and print(f"yikes count is {count}")
-                        file2imp2func2count[filename][i][cal] = 1
-                    else:
-                        file2imp2func2count[filename][i][cal] = count + 1
+            if func_called in lib_imports[i]:
+                conf.debug and print(f"COUNTING A CALL {func_called} for {lib_imports[i]} in {filename}")
+
+                if filename not in file2imp2func2count:
+                    file2imp2func2count[filename] = dict()
+                if i not in file2imp2func2count[filename]:
+                    file2imp2func2count[filename][i] = dict()
+                count = None
+                if func_called in file2imp2func2count[filename][i]:
+                    count = file2imp2func2count[filename][i][func_called]
+                if count is None or not isinstance(count, int):
+                    conf.debug and print(f"yikes count is {count}")
+                    file2imp2func2count[filename][i][func_called] = 1
+                else:
+                    file2imp2func2count[filename][i][func_called] = count + 1
             else:
-                conf.debug and print(f"NOT cal in lib_imports[i]: NOT {cal} in {lib_imports[i]}")
+                conf.debug and print(f"NOT cal in lib_imports[i]: NOT {func_called} in {lib_imports[i]}")
 
     conf.debug and print("parse_single_file_content end")
     return file2imp2func2count
@@ -337,7 +350,7 @@ def main(cli_args=None):
         sdfsdf
         """)
     global args, conf
-
+    # TODO document arguments and usage
     parser = ArgumentParser(usage=usage, description=desc)
     parser.add_argument("-v", "--verbose", action="store_true", default=False, dest="verbose", help="verbose debugging")
     parser.add_argument("-d", "--debug", action="store_true", default=False, dest="debug", help="debug prints")
