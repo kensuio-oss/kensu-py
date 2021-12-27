@@ -133,6 +133,7 @@ class Kensu(object):
         report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
         PAT = kwargs_or_conf_or_default("PAT",None)
         self.PAT = PAT
+
         self.compute_delta = kwargs_or_conf_or_default("compute_delta",False)
         self.raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
@@ -159,7 +160,7 @@ class Kensu(object):
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
-        self.api_url = api_url
+        self.api_url = kwargs_or_conf_or_default("api_url",None)
 
         # add function to Kensu entities
         injection = Injection()
@@ -433,15 +434,14 @@ class Kensu(object):
                                 else:
                                     #TODO Support ndarray
                                     stats = None
-                            if stats is not None and self.compute_delta:
+                            if stats is not None:
                                 self.schema_stats[schema] = stats
                                 if lineage_run.to_guid() not in self.stats_to_send:
                                     self.stats_to_send[lineage_run.to_guid()] = {}
                                 self.stats_to_send[lineage_run.to_guid()][schema] = stats
                                 if schema == to_guid:
-                                    if 'nrows' in stats:
+                                    if 'nrows' in stats and self.compute_delta:
                                         output_nrows = stats['nrows']
-
                                         #TODO Corner case: if from_pk = to_pk
                                         for input_schema in from_pks:
                                             input_stats = self.schema_stats[input_schema]
