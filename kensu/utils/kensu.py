@@ -15,6 +15,7 @@ from kensu.utils.injection import Injection
 from kensu.pandas import DataFrame,Series
 from kensu.utils.reporters import *
 from kensu.utils.rule_engine import create_kensu_nrows_consistency
+from kensu import sdk
 
 
 class Kensu(object):
@@ -52,7 +53,6 @@ class Kensu(object):
 
     @staticmethod
     def discover_code_version():
-
         code_version = datetime.datetime.now().isoformat()
 
         git_repo = Kensu.get_git_repo()
@@ -102,15 +102,24 @@ class Kensu(object):
         else:
             kensu_auth_token = auth_token
 
-        def kwargs_or_conf_or_default(key, default, kw=kwargs, conf=kensu_conf):
-            if key in kw and kw[key] is not None:
+        # returns a value following this precedence:
+        #   kwargs = arg > conf > default
+        # default is used to determine the type of the conf value (it can be overriden by tpe)
+        def kwargs_or_conf_or_default(key, default, arg=None, kw=kwargs, conf=kensu_conf, tpe=None):
+            if arg is not None:
+                return arg
+            elif key in kw and kw[key] is not None:
                 return kw[key]
             elif key in conf and conf.get(key) is not None:
+                if default is not None and tpe is None:
+                    tpe = type(default)
                 r = conf.get(key)
-                if isinstance(default, list):
+                if tpe is list:
                     r = r.replace(" ","").split(",")
-                elif isinstance(default, bool):
+                elif tpe is bool:
                     r = conf.getboolean(key)
+                elif tpe is not None:
+                    r = tpe(r)
                 return r
             else:
                 return default
@@ -127,47 +136,46 @@ class Kensu(object):
 
         project_names = kwargs_or_conf_or_default("project_names", [])
         environment = kwargs_or_conf_or_default("environment", None)
-        timestamp = kwargs_or_conf_or_default("timestamp", None)
+        timestamp = kwargs_or_conf_or_default("timestamp", None, tpe=int)
         logical_naming = kwargs_or_conf_or_default("logical_naming", None)
         mapping = kwargs_or_conf_or_default("mapping", None)
         report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
-        PAT = kwargs_or_conf_or_default("PAT",None)
-        self.PAT = PAT
-
-        self.compute_delta = kwargs_or_conf_or_default("compute_delta",False)
-        self.raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
         else:
             get_code_version = Kensu.discover_code_version
 
-        def default_if_arg_none(arg, default):
-            if arg is None:
-                return default
-            else:
-                return arg
-        process_name = default_if_arg_none(process_name, kensu_conf.get("process_name"))
-        user_name = default_if_arg_none(user_name, kensu_conf.get("user_name"))
-        code_location = default_if_arg_none(code_location, kensu_conf.get("code_location"))
+        process_name = kwargs_or_conf_or_default("process_name", "Missing Application Name", process_name)
+        user_name = kwargs_or_conf_or_default("user_name", "Missing User Name", user_name)
+        code_location = kwargs_or_conf_or_default("code_location", "Missing Code Location", code_location)
 
-        reporter = default_if_arg_none(reporter, kensu_conf.get("reporter", None))
-        do_report = default_if_arg_none(do_report, kensu_conf.getboolean("do_report", True))
-        report_to_file = default_if_arg_none(report_to_file, kensu_conf.getboolean("report_to_file", False))
-        offline_file_name = default_if_arg_none(offline_file_name, kensu_conf.get("offline_file_name", None))
-
+        do_report = kwargs_or_conf_or_default("do_report", True, do_report)
+        report_to_file = kwargs_or_conf_or_default("report_to_file", False, report_to_file)
+        offline_file_name = kwargs_or_conf_or_default("offline_file_name", None, offline_file_name)
+        compute_stats = kwargs_or_conf_or_default("compute_stats", True, compute_stats)
+        compute_delta = kwargs_or_conf_or_default("compute_delta",False)
+        raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
-        self.api_url = kwargs_or_conf_or_default("api_url",None)
+        self.api_url = kwargs_or_conf_or_default("api_url", None)
+
+        sdk_pat = kwargs_or_conf_or_default("PAT", None)
+        sdk_url = kwargs_or_conf_or_default("sdk_url", None)
+        if sdk_pat is None:
+            self.sdk = sdk.DoNothingSDK()
+        else:
+            if sdk_url is None:
+                sdk_url = self.api_url.replace('-api', '')                
+            self.sdk = sdk.SDK(sdk_url, sdk_pat)
+
 
         # add function to Kensu entities
         injection = Injection()
 
         # reporter could be either an instance of Reporter already, or None, or a String (the class name of the reporter)
-        reporter_config = None
-
         if isinstance(reporter, str) or config.has_section('kensu.reporter'):
             reporter = Reporter.create(config['kensu.reporter'], reporter)
         elif reporter is not None and hasattr(reporter, '__call__'):
@@ -181,6 +189,8 @@ class Kensu(object):
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats
+        self.compute_delta = compute_delta
+        self.raise_on_check_failure = raise_on_check_failure
         self.offline_file_name = offline_file_name
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
@@ -216,7 +226,6 @@ class Kensu(object):
 
     def to_schema_names(self, s_guids):
         return list(set([self.to_schema_name(s_guid) for s_guid in s_guids]))
-
 
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
         # list of triples i, o, mapping strategy
@@ -631,12 +640,6 @@ class Kensu(object):
                         hyper_params_as_json=json.dumps(hp)
                     )._report()
 
-    def get_cookie(self):
-        PAT = self.PAT
-        url = self.api_url.replace('-api', '')
-        from kensu.sdk import get_cookie
-        return get_cookie(url,PAT)
-
     def send_stats(self,lineage_run_id, schema_id,stats):
 
         if stats is not None:
@@ -647,10 +650,6 @@ class Kensu(object):
 
     def send_rules(self):
         if self.rules and self.api_url:
-            from kensu.sdk import create_rule, get_cookie, get_lineages_in_project, get_rules, get_rules_for_ds, update_rule
-            sdk_url = self.api_url.replace('-api', '')
-            PAT = self.PAT
-
             process_id = self.process.to_guid()
             project_id = self.process_run.projects_refs[0].by_guid
             env_name = self.process_run.environment
@@ -661,28 +660,25 @@ class Kensu(object):
                     field_name = map[lds_id]['field']
                     fun = map[lds_id]['fun']
 
-                    data = get_lineages_in_project(sdk_url, get_cookie(sdk_url, PAT), project_id, process_id,
-                                                   env_name, cv)
+                    data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
 
                     lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
                         'id']
                     lineage_ids = set(
                         [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
                     for lineage_id in lineage_ids:
-                        current_rules = get_rules_for_ds(sdk_url, get_cookie(sdk_url, PAT), lds_guid, lineage_id,
-                                                         project_id, env_name)
+                        current_rules = self.sdk.get_rules_for_ds(lds_guid, lineage_id, project_id, env_name)
                         current_range_rules = {i['fieldName']: i['uuid'] for i in current_rules['data']['predicates'] if
                                                i['functionName'] == 'Range' and (i['environment'] == env_name)}
                         current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if
                                                   i['functionName'] == 'Frequency' and (i['environment'] == env_name)]
                         if fun['name'] == 'Range' and (field_name in current_range_rules):
-                            update_rule(sdk_url, get_cookie(sdk_url, PAT), current_range_rules[field_name], fun)
+                            self.sdk.update_rule(current_range_rules[field_name], fun)
                         elif fun['name'] == 'Frequency' and current_frequency_rule:
-                            update_rule(sdk_url, get_cookie(sdk_url, PAT), current_frequency_rule[0], fun)
+                            self.sdk.update_rule(current_frequency_rule[0], fun)
 
                         else:
-                            create_rule(sdk_url, get_cookie(sdk_url, PAT), lds_guid, lineage_id, project_id, process_id,
-                                        env_name, field_name, fun)
+                            self.sdk.create_rule(lds_guid, lineage_id, project_id, process_id, env_name, field_name, fun)
 
 
     def check_local_rules(self):

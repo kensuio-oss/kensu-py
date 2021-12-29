@@ -9,7 +9,7 @@ class Reporter(object):
 
     def __init__(self, config):
         self.config = config
-    
+
     # function taking three args: the entity, the api client, and the reporting method (e.g. `report_datastats`)
     @abstractmethod
     def apply(self, obj, kensu_api, method):
