@@ -489,6 +489,7 @@ class Kensu(object):
                             create_kensu_nrows_consistency(check[list(check.keys())[0]])
                     self.send_rules()
 
+                    lineage_run_id = lineage_run.to_guid()
                     for lineage_run_id in self.stats_to_send:
                         for schema_id in self.stats_to_send[lineage_run_id]:
                             self.send_stats(lineage_run_id,schema_id,self.stats_to_send[lineage_run_id][schema_id])
