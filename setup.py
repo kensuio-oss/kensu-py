@@ -12,11 +12,13 @@
 
 import setuptools
 from setuptools import setup, find_packages
+import os
 
 NAME = "kensu"
 
-
-VERSION = "1.7.0.0-exp"
+BUILD_FLAVOR = "-"+os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
+BUILD_NUMBER = "-"+os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
+VERSION = "1.7.0.0" + BUILD_FLAVOR + BUILD_NUMBER
 
 
 # To install the library, run the following
