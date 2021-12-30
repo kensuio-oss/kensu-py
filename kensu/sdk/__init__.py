@@ -49,7 +49,7 @@ class AbstractSDK(ABC):
         pass
 
     @abstractmethod
-    def get_latest_schema_in_logical(url,cookie,logical,n=-1):
+    def get_latest_schema_in_logical(self, url, logical,n=-1):
         pass
 
     @abstractmethod
@@ -99,7 +99,7 @@ class DoNothingSDK(ABC):
     def get_latest_schema_in_datasource(self, ds):
         pass
     
-    def get_latest_schema_in_logical(url,cookie,logical,n=-1):
+    def get_latest_schema_in_logical(url, logical, n=-1):
         pass
     
     def get_latest_stats_for_ds(self, projectId, env, linId, dsId):
@@ -117,7 +117,7 @@ class SDK(AbstractSDK):
         self.cookie_header = {'X-External-App-Token': self.PAT}
         self.cookie = self.get_cookie() 
 
-    def get_cookie():
+    def get_cookie(self):
         session = requests.Session()
         response = session.post(url=self.cookieurl, headers=self.cookie_header, verify=False)
         cookie = session.cookies
@@ -178,7 +178,7 @@ class SDK(AbstractSDK):
 
         if len(sorted_js)>=abs(n):
             uuid = sorted_js[n]["uuid"]
-            ds = get_datasource(url,cookie,uuid)
+            ds = get_datasource(url, self.cookie, uuid)
             return ds
         else:
             return None
@@ -196,9 +196,9 @@ class SDK(AbstractSDK):
         else:
             return None
 
-    def get_latest_schema_in_logical(url,cookie,logical,n=-1):
-        ds = get_latest_datasource_in_logical(url,cookie,logical,n)
-        schema = get_latest_schema_in_datasource(url,cookie,ds)
+    def get_latest_schema_in_logical(self, url, logical,n=-1):
+        ds = get_latest_datasource_in_logical(url, logical, n)
+        schema = get_latest_schema_in_datasource(url, ds)
         return schema
 
     def get_latest_stats_for_ds(self, projectId, env, linId, dsId):
