@@ -119,7 +119,7 @@ class SDK(AbstractSDK):
 
     def get_cookie(self):
         session = requests.Session()
-        response = session.post(url=self.cookieurl, headers=self.cookie_header, verify=False)
+        response = session.post(url=self.cookie_url, headers=self.cookie_header, verify=False)
         cookie = session.cookies
         return cookie
 
