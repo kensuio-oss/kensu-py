@@ -63,12 +63,14 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
     def extract_stats(self, df):
         df = self.skip_wr(df)
         if isinstance(df, pd.DataFrame):
-            stats_dict = {self.tk(k, k1): v for k, o in df.describe().to_dict().items() for k1, v in o.items() if type(v) in [int,float,np.int64]}
+            df_desc_numbers = df.describe(include=['number']).to_dict().items()
+            stats_dict = {self.tk(k, k1): v for k, o in df_desc_numbers for k1, v in o.items() if not np.isnan(v)}
             for key,item in stats_dict.copy().items():
                 if type(item) == np.int64:
                     stats_dict[key] = int(item)
                 if np.isnan(item):
                     del stats_dict[key]
+            
             #Extract datetime for timeliness
             date_df = df.select_dtypes(['datetime', 'datetimetz'])
             date_dict = {}
@@ -81,8 +83,31 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                     last = date_describe[col]['last'].timestamp()*1000
                     date_dict[col + '.first'] = first
                     date_dict[col + '.last'] = last
+            
+            #Extract categories and boolean as categorical series
+            cat_names = df.select_dtypes(['category', 'boolean']).columns
+            cat_dict = {}
+            for cat_col in cat_names:
+                vc = df[cat_col].value_counts()
+                vc_dict = vc.to_dict()
+                for k, v in vc_dict.items():
+                    if not np.isnan(v):
+                        cat_dict[self.tk(cat_col, k)] = v
+                count_names = ["nrows", "count", "len", "numrows"]
+                count_name = None
+                for n in count_names:
+                    if n in vc_dict:
+                        pass
+                    else:
+                        count_name = n
+                        break
+                if count_name is None:
+                    logging.warning("Because the categorical value has many categories matches 'count' and alike, the count stat is set to 'kensu.nrows' for " + cat_col)
+                    count_name = "kensu.nrows"
+                cat_dict[self.tk(cat_col, count_name)] = vc.sum()
+                # TODO do we need nulls and such?
 
-            stats_dict = {**stats_dict,**date_dict}
+            stats_dict = {**stats_dict, **date_dict, **cat_dict}
 
             #Add missing value computation
             count = len(df)
