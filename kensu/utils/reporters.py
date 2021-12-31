@@ -88,7 +88,7 @@ class LoggingReporter(Reporter):
         if self.level == "info":
             self.log = logging.info
         elif self.level == "warn":
-            self.log = logging.warn
+            self.log = logging.warning
         elif self.level == "error":
             self.log = logging.error
         elif self.level == "debug":

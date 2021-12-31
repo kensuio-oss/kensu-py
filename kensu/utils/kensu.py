@@ -35,10 +35,10 @@ class Kensu(object):
                 git_repo = git.Repo(cur_dir, search_parent_directories=True)
                 return git_repo
             except git.GitError as e:
-                logging.warn("kensu-py was unable to identify a git repo. The working dir is not a git repo?")
+                logging.warning("kensu-py was unable to identify a git repo. The working dir is not a git repo?")
                 pass
         except ImportError as e:
-            logging.warn("Install GitPython for a maximum context about the GIT code repo if any")
+            logging.warning("Install GitPython for a maximum context about the GIT code repo if any")
             pass
 
     @staticmethod
@@ -77,7 +77,7 @@ class Kensu(object):
         try:
             config.read(conf_path)
         except:
-            logging.warn(f"Cannot load config from file `%s`" % (conf_path))
+            logging.warning(f"Cannot load config from file `%s`" % (conf_path))
         return config
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
@@ -148,7 +148,7 @@ class Kensu(object):
 
         process_name = kwargs_or_conf_or_default("process_name", "Missing Application Name", process_name)
         user_name = kwargs_or_conf_or_default("user_name", "Missing User Name", user_name)
-        code_location = kwargs_or_conf_or_default("code_location", "Missing Code Location", code_location)
+        code_location = kwargs_or_conf_or_default("code_location", None, code_location)
 
         do_report = kwargs_or_conf_or_default("do_report", True, do_report)
         report_to_file = kwargs_or_conf_or_default("report_to_file", False, report_to_file)
@@ -695,7 +695,7 @@ class Kensu(object):
                                 if self.raise_on_check_failure:
                                     raise e
                                 else:
-                                    logging.warn(e)
+                                    logging.warning(e)
 
 
 
