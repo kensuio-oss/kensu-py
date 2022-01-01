@@ -97,9 +97,16 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                         count_name = n
                         break
                 if count_name is None:
-                    logging.warning("Because the categorical value has many categories matches 'count' and alike, the count stat is set to 'kensu.nrows' for " + cat_col)
+                    logging.warning("Because the categorical value has many category names matches 'nrows', 'count', and alike, the count stat is set to 'kensu.nrows' for " + cat_col)
                     count_name = "kensu.nrows"
                 cat_dict[self.tk(cat_col, count_name)] = vc.sum()
+                
+                distinct_count_name = "num_categories"
+                if distinct_count_name in vc_dict:
+                    logging.warning("Because the categorical value has a category names 'num_categories', the number of categories stat is set to 'kensu.num_categories' for " + cat_col)
+                    distinct_count_name = tk("kensu", distinct_count_name)
+                cat_dict[self.tk(cat_col, distinct_count_name)] = len(vc_dict)
+                
                 # TODO do we need nulls and such?
 
             stats_dict = {**stats_dict, **date_dict, **cat_dict}
