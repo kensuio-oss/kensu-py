@@ -36,7 +36,7 @@ class BqRemoteParser:
         logger.debug("sending request to SQL parsing service url={} request={}".format(url, str(req)))
         import requests
         def convert(fieldtype):
-            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC"]:
+            if fieldtype in ["INT64", "INT", "SMALLINT", "INTEGER", "BIGINT", "TINYINT", "BYTEINT", "BIGNUMERIC","NUMERIC"]:
                 return "INTEGER"
             else:
                 return fieldtype
@@ -44,6 +44,7 @@ class BqRemoteParser:
             for field in table['schema']['fields'] :
                 field['type'] = convert(field['type'])
 
+        #TODO Support UNNEST in queries  'SELECT e.key FROM `psyched-freedom-306508.my_dataset.sample`, UNNEST(user_properties) as e '
         lineage_resp = requests.post(url + "/lineage-and-stats-criterions", json=req, headers = BqRemoteParser.get_headers())
         logger.debug("lineage_resp:" + str(lineage_resp))
         logger.debug("lineage_resp_body:" + str(lineage_resp.text))
@@ -80,12 +81,17 @@ class BqRemoteParser:
             # note: making stats computation lazy in a f_get_stats lambda seem to behave very weirdly...
             # so stats are computed eagerly now
             if kensu.compute_stats:
-                stats_values = compute_bigquery_stats(
-                    table_ref=bg_table_ref,
-                    table=bq_table,
-                    client=client,
-                    stats_aggs=stats_aggs,
-                    input_filters=stats_filters)
+                try:
+                    stats_values = compute_bigquery_stats(
+                        table_ref=bg_table_ref,
+                        table=bq_table,
+                        client=client,
+                        stats_aggs=stats_aggs,
+                        input_filters=stats_filters)
+                except Exception as e:
+                    stats_values = None
+                    logger.debug(f"Unable to compute the stats: {e}")
+
             logger.debug(
                 f'table_id {table_id} (table.ref={bg_table_ref}, ds_path: {ds_path}) got input_filters: {stats_filters} & stat_aggs:{str(stats_aggs)}')
         else:

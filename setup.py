@@ -15,8 +15,8 @@ from setuptools import setup, find_packages
 
 NAME = "kensu"
 
+VERSION = "1.6.9.3"
 
-VERSION = "1.6.6"
 
 
 # To install the library, run the following
@@ -59,6 +59,15 @@ def get_extra_requires(path, add_all=True, add_all_but_test=True, add_no_extra_d
 
     return extra_deps
 
+
+def get_install_requires(path):
+    with open(path) as fp:
+        deps = []
+        for l in fp:
+            if l.strip() and not l.startswith('#'):
+                deps.append(l)
+        return deps
+
 setup(
     name=NAME,
     version=VERSION,
@@ -71,24 +80,8 @@ setup(
         for package in setuptools.PEP420PackageFinder.find()
         if package.startswith("kensu")
     ],
-    install_requires=[
-        # build
-        "setuptools >= 21.0.0"
-        , "twine >= 3.4.1"
-        , "wheel"
-
-        # api
-        ,"urllib3 >= 1.15.1"
-        ,"requests"
-        ,"certifi >= 14.05.14"
-        ,"datetime"
-        ,"python_dateutil >= 2.5.3"
-        ,"six >= 1.10"
-
-        # config
-        ,"configparser"
-    ],
-    extras_require=get_extra_requires('extra-requirements.txt'),
+    install_requires=get_install_requires('common-requirements.txt'),
+    extras_require=get_extra_requires('extra.requirements'),
     platforms="Posix; MacOS X; Windows",
     include_package_data=True,
     long_description="""\
