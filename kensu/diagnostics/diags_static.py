@@ -23,20 +23,18 @@ local lingo:
 This script attempts to list all functions called by Python files in a directory
 
 # TODO
-[ ] document use cases
-[ ]   when to run dynamic diags (trace) or static diags (this)
-[ ]   csv file or Kensu API to send json (In Databricks it's difficult to retrieve info)
-[ ] dyn: access to env/venv for resolution: execute within context
-[ ] rename functions with unclear names
-[ ] json output for api
+[ ] json output: option to flatten all files (like merge function)
+[ ] csv file or Kensu API to send json (In Databricks it's difficult to retrieve info)
 [ ] ?¿ csv output for local (easy to manipulate in excel)
 [ ] make it run on kensu-py as example
 
 # extra bugs, features or workarounds:
+[ ] merging the results has side effects, so counts gets added for file if function seen previously:
+    merge_multi2 with 2 identical files different names and one of them will have
 [ ] FBW005 keep a list of already imported superclasses (we loop several times over __mro__, in pandas several
-    datatypes inherit from Numerical NumericDtype
+    datatypes inherit from Numerical NumericDtype.
 [ ] FBW006 make sure when checking for superclasses we don't check for obvious ones like builtins 'object' and 'type'
-
+    [ ] probably related: DataFrame.describe is not found in flattened imports
 
 # https://stackoverflow.com/questions/54325116/can-i-handle-imports-in-an-abstract-syntax-tree
 
@@ -108,6 +106,7 @@ Then notice in the same way that the subsequent describe belongs to the kensu li
         by integrating superclass symbols we shouldn't import classes outside the package at hand for inheritance?
         everyone extend 'object' or 'type' in Python
 
+
 TODO USAGE:
 pip install kensu-py
 # the absolute or relative path to the source file you want to analyze
@@ -117,20 +116,23 @@ or download script and
 python diags_static.py -v -d  # by default "." path is assumed
 python diags_static.py -ppath /path_to_pythonpath sourcedir/
 
+run the unit tests in kenspy/tests/unit/test_diagnostics_static.py
+
 --------------------------------------------------------------------------------
 
 """
 
 from glob import glob
+import json
 import os
 import sys
 import ast
 from typing import Set, List, Dict
-from types import BuiltinFunctionType, BuiltinMethodType
+from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 import importlib
 import logging
 from argparse import ArgumentParser
-from inspect import getmembers, isfunction, isclass, ismethod
+from inspect import getmembers, isfunction, isclass, ismethod, ismodule
 
 logger = logging.getLogger(__name__)
 args = None
@@ -160,6 +162,21 @@ def get_files_from_regex_string(rex: str) -> List[str]:
     return glob(rex, recursive=True)
 
 
+def merge_file2imp2func2count(d1: dict, d2: dict):
+    for f in d2:
+        if f not in d1.keys():
+            d1[f] = dict()
+        for i in d2[f]:
+            if i not in d1[f].keys():
+                d1[f][i] = dict()
+            for fun in d2[f][i]:
+                if fun in d1[f][i].keys():
+                    d1[f][i][fun] = d1[f][i][fun] + d2[f][i][fun]
+                else:
+                    d1[f][i][fun] = d2[f][i][fun]
+    return d1
+
+
 def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
     file2imp2func2count = dict()
     flat = []
@@ -168,7 +185,8 @@ def analyze_multi2(filenames: List[str]) -> (Set, Dict, Set):
             print(f"file: {filename}")
         with open(os.path.join(filename), "rb") as f:
             content = f.read()
-        file2imp2func2count = parse_single_file_content(filename, content, file2imp2func2count)
+        res = parse_single_file_content(filename, content, file2imp2func2count)
+        file2imp2func2count = merge_file2imp2func2count(file2imp2func2count, res)
     return file2imp2func2count
 
 
@@ -190,7 +208,13 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
             for name in node.names:
                 conf.debug and print(f" -- ast.Import name: {name.name} as: {name.asname}")
                 imports.add(name.name)
-                lib_imports = imports_flat(name.name, lib_imports)  # FBW003
+                # TODO bug here, should update not assign
+                li = imports_flat(name.name, lib_imports)  # FBW003
+                for imp in li.keys():
+                    if imp in lib_imports.keys():
+                        lib_imports[imp] = list(set(li[imp] + lib_imports[imp]))
+                    else:
+                        lib_imports[imp] = li[imp]
 
         elif isinstance(node, ast.ImportFrom):  # FBW001
             if node.level > 0:
@@ -199,7 +223,13 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
                 conf.debug and print("     -- relative import first name: {}".format(node.names[0].name))
             conf.debug and print(f" -- ast.ImportFrom module: {node.module} names: {node.names} level: {node.level}")
             imports.add(node.module)
-            lib_imports = imports_flat(node.module, lib_imports)  # FBW003
+            # TODO bug here, should update not assign
+            li = imports_flat(node.module, lib_imports)  # FBW003
+            for imp in li.keys():
+                if imp in lib_imports.keys():
+                    lib_imports[imp] = list(set(li[imp] + lib_imports[imp]))
+                else:
+                    lib_imports[imp] = li[imp]
 
         elif isinstance(node, ast.Call):
             func_name = None
@@ -237,8 +267,7 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
             if conf.debug and i not in lib_imports.keys():
                 print(f" ^$ù`=+/:^$ù`=+/: haven't found lib {i} in lib_imports {lib_imports.keys()}")
             if func_called in lib_imports[i]:
-                conf.debug and print(f"COUNTING A CALL {func_called} for {lib_imports[i]} in {filename}")
-
+                conf.verbose and print(f"Counting a call: {func_called} for {lib_imports[i]} in {filename}")
                 if filename not in file2imp2func2count:
                     file2imp2func2count[filename] = dict()
                 if i not in file2imp2func2count[filename]:
@@ -247,52 +276,86 @@ def parse_single_file_content(filename: str, content: str, file2imp2func2count: 
                 if func_called in file2imp2func2count[filename][i]:
                     count = file2imp2func2count[filename][i][func_called]
                 if count is None or not isinstance(count, int):
-                    conf.debug and print(f"yikes count is {count}")
                     file2imp2func2count[filename][i][func_called] = 1
                 else:
                     file2imp2func2count[filename][i][func_called] = count + 1
             else:
-                conf.debug and print(f"NOT cal in lib_imports[i]: NOT {func_called} in {lib_imports[i]}")
-
+                conf.debug and print(f"NOT func_called {func_called} in lib_imports[{i}]: NOT {func_called} in {lib_imports[i]}")
     conf.debug and print("parse_single_file_content end")
     return file2imp2func2count
 
 
+def import_non_recursive(g):
+
+    def list_of_tuples_to_dict(lt):
+        return {item[0]: item[1] for item in lt}
+
+    processed = dict()
+    to_process = list_of_tuples_to_dict(getmembers(g))
+
+    count_already_in_processed = dict()  # TODO remove: gives some indication of duplication for development phase
+
+    while len(to_process) > 0:
+        to_delete = []
+        to_process_next = dict()
+        for k, v in to_process.items():
+            if k.startswith('_') and k in to_process:
+                to_delete.append(k)
+            elif k in processed.keys():
+                if k not in count_already_in_processed.keys():
+                    count_already_in_processed[k] = 1
+                else:
+                    count_already_in_processed[k] = count_already_in_processed[k] + 1
+                if k in to_process:
+                    to_delete.append(k)
+            else:
+                processed[k] = v
+                if isclass(v) or ismodule(v):
+                    # rec = import_recursive(v)
+                    rec = list_of_tuples_to_dict(getmembers(v))
+                    to_process_next.update(rec)
+                    # TODO FBW004 ensure we don't save members inherited from other packages, such as base types
+                    # 'object' and 'type'
+                    """
+                    # TODO check getmembers takes care of superclasses (mro() or __mro__)
+                    if hasattr(v, '__mro__'):
+                        for superclass in v.__mro__:
+                            if superclass not in processed.keys():
+                                keys = [m[0] for m in to_process]
+                                if superclass not in keys:
+                                    conf.debug and print(f"  class {v} has __mro__: {superclass}")
+                                    # rec = import_recursive(v)
+                                    rec = list_of_tuples_to_dict(getmembers(superclass))
+                                    # to_process.update(rec)
+                                    to_process_next.update(rec)
+                    """
+        for k in to_delete:
+            del to_process[k]
+        to_process.update(to_process_next)
+    conf.verbose and print(f"final count:\n  count_already_in_processed {count_already_in_processed}\n"
+                           f"   processed: {processed}")
+    return processed
+
+
+def is_a_callable_type(f):
+    return isinstance(f, FunctionType) or isinstance(f, MethodType) or \
+           isinstance(f, BuiltinMethodType) or isinstance(f, BuiltinFunctionType)
+
+
 def imports_flat(module_name: str, lib_imports: Dict):  # FBW003
-
-    def import_recursive(g):
-        members = dict()
-        ms = getmembers(g)
-        for member in ms:
-            if not member[0].startswith('__'):
-                if isclass(member[1]):
-                    print(member[1])
-                    if member not in members:
-                        rec = import_recursive(member[1])
-                        members.update(rec)
-                        # TODO FBW004 ensure we don't save members inherited from other packages, such as base types
-                        # 'object' and 'type'
-                        for superclass in member[1].__mro__:
-                            conf.debug and print(f"class {member[1]} has __mro__ {superclass}")
-                members[member[0]] = member[1]
-        return members
-
-    def is_function_or_method(form):
-        return True if isfunction(form) or ismethod(form) else False
 
     if module_name not in lib_imports.keys():
         try:
             mo = importlib.import_module(module_name)
-            mems = import_recursive(mo)  # FBW003 FWB001
-            ms = {k: v for k, v in mems.items() if isinstance(v, BuiltinFunctionType) or
-                 isinstance(v, BuiltinMethodType) and not k.startswith('__')}
+            mems = import_non_recursive(mo)  # FBW003 FWB001
+            ms = {k: v for k, v in mems.items() if is_a_callable_type(v) and not k.startswith('__')}
+
             conf.debug and print(f"imports_flat {module_name}: {ms}")
 
             if module_name in lib_imports:
                 lib_imports[module_name] = lib_imports[module_name] + [k for k, v in ms.items()]
             else:
                 lib_imports[module_name] = [k for k, v in ms.items()]
-            print()
         except ImportError:
             print(f"couldn't import {module_name}")
     return lib_imports
@@ -373,15 +436,41 @@ def main(cli_args=None):
     if args.verbose:
         print(f"filenames: {filenames}")
 
-    # TODO for UNIT TESTS extract files from analyze so can pass string in unit test
-    # TODO unit test all cases from documentation
     file2imp2func2count = analyze_multi2(filenames)
-    print(f"analyze_multi2: {file2imp2func2count}")
-    print("TODO remove above ----------------------------------------------------------------------------------------")
 
-    # TODO Json plutôt que csv
+    print(json.dumps(file2imp2func2count, indent=4))
+
 
 
 if __name__ == '__main__':
     main()
 
+
+
+
+"""
+# import recursive replaced with import_non_recursive 
+# led to call stack issues (bug, loops, circular imports?) 
+def import_recursive(g):
+    members = dict()
+    ms = getmembers(g)
+
+    for member in ms:
+        if not member[0].startswith('__') or member[0] == '__init__':
+            if member[0] not in members.keys():
+                members[member[0]] = member[1]
+                if isclass(member[1]) or ismodule(member[1]):
+                    print(member[1])
+                    rec = import_recursive(member[1])
+                    members.update(rec)
+                    # TODO FBW004 ensure we don't save members inherited from other packages, such as base types
+                    # 'object' and 'type'
+                    if hasattr(member[1], '__mro__'):
+                        for superclass in member[1].__mro__:
+                            if member[0] not in members.keys():
+                                conf.debug and print(f"  class {member[1]} has __mro__: {superclass}")
+                                rec = import_recursive(member[1])
+                                members.update(rec)
+    return members
+
+"""
