@@ -33,7 +33,6 @@ def savefig(*args, **kwargs):
     name = args[0]
     location = get_absolute_path(args[0])
 
-
     fig_ds = kensu.extractors.extract_data_source(fig, kensu.default_physical_location_ref,
                                                   logical_naming=kensu.logical_naming, location=location)._report()
     fig_sc = kensu.extractors.extract_schema(fig_ds,fig)._report()

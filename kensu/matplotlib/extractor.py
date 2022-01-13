@@ -29,9 +29,6 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
                 fields = fields + fields_ax_df
         return fields
 
-    def tk(self, k, k1):
-        return str(k) + '.' + k1
-
     # return dict of doubles (stats)
     def extract_stats(self, fig):
         kensu = KensuProvider().instance()
@@ -40,6 +37,7 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
         for ax in fig.axes:
             source_num = 0
             for df in ax.inheritance:
+                #TODO : extract ax name if any instead of generic number
                 inherited_stats = {'Ax'+str(ax_num)+'.Source'+str(source_num)+'.'+key : value for key,value in kensu.extractors.extract_stats(df).items()}
                 stats = {**stats,**inherited_stats}
                 source_num+=1
@@ -50,11 +48,11 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
 
         logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
         location = kwargs["location"] if "location" in kwargs else None
-        fmt = 'image'
+        fmt = 'matplotlib image'
 
         if location is None or fmt is None:
             raise Exception(
-                "cannot report new pandas dataframe without location ({}) a format provided ({})!".format(location,
+                "cannot report new matplotlib data source without location ({}) a format provided ({})!".format(location,
                                                                                                           fmt))
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
