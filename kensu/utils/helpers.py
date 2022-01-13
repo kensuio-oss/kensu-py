@@ -110,12 +110,36 @@ def logical_naming_batch(string):
 
 
 def to_datasource(ds_pk, format, location, logical_naming, name):
-        if logical_naming == 'File':
+    if logical_naming == 'File':
+        logical_category = location.split('/')[-1]
+        ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+
+    elif logical_naming == 'Folder':
+        logical_category = location.split('/')[-2]
+        ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+
+    elif logical_naming == 'AnteFolder':
+        logical_category = location.split('/')[-3]
+        ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+
+    elif logical_naming == 'ReplaceNumbers':
+        logical_category = logical_naming_batch(name)
+        ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+
+    elif callable(logical_naming):
+        # TODO create to_datasource for all extractors - limited to pandas DataFrame and BigQuery for now
+        try:
+            logical_category = logical_naming(location)
+        except Exception as e:
+            logging.warning("data source logical_naming function passed to initKensu or KensuProvider instance"
+                            " returned an exception, "
+                            "using default data source naming convention. \n {}".format(e))
             logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
-        else:
-            ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
-        return ds
+        ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+
+    else:
+        ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
+    return ds
 
 def save_stats_json(schemaID,stats):
     from kensu.utils.kensu_provider import KensuProvider
