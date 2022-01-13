@@ -588,7 +588,7 @@ class KensuSeriesDelegator(object):
         op_title = op_title or 'Series ' + str(wrapped_fn.__name__)
         input_kensu_series = self
 
-        other_series = other_input.get_s()
+        other_series = other_input.get_s() if isinstance(other_input,Series) else other_input
         result = Series.using(wrapped_fn(other_series))
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
