@@ -72,7 +72,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
             # if not checked, when there's no Datetime types,
             # it would throw `ValueError: Cannot describe a DataFrame without columns`
             if not (date_df.ndim == 2 and date_df.columns.size == 0):
-                date_describe = date_df.describe().to_dict()
+                date_describe = date_df.describe(datetime_is_numeric=False).to_dict()
                 for col in date_describe:
                     first = date_describe[col]['first'].timestamp()*1000
                     last = date_describe[col]['last'].timestamp()*1000

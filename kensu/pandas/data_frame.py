@@ -233,6 +233,7 @@ class KensuPandasDelegator(object):
                         col_orig = [k.name for k in orig_sc.pk.fields]
 
                         try:
+                            item = args[1]
                             orig_series = eventually_report_in_mem(kensu.extractors.extract_data_source(item, kensu.default_physical_location_ref))
                             orig_sc_series = eventually_report_in_mem(kensu.extractors.extract_schema(orig_series, item))
                         except:
@@ -244,8 +245,7 @@ class KensuPandasDelegator(object):
                             if col in col_orig:
                                 kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(),
                                                              str(col), name)
-                            else:
-                                if col_series:
+                            elif col_series:
                                     col_origin = col_series[0]
                                     kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc_series.to_guid(),
                                                                  str(col_origin), name)
@@ -582,6 +582,34 @@ class KensuSeriesDelegator(object):
             return KensuSeriesDelegator.handle_callable(self, name, attr_value)
         else:
             return KensuSeriesDelegator.handle_field(self, name, attr_value)
+
+    def wrapped_series_op(self, other_input, wrapped_fn, op_title=None):
+        kensu = KensuProvider().instance()
+        op_title = op_title or 'Series ' + str(wrapped_fn.__name__)
+        input_kensu_series = self
+
+        other_series = other_input.get_s() if isinstance(other_input,Series) else other_input
+        result = Series.using(wrapped_fn(other_series))
+        result_ds = eventually_report_in_mem(
+            kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
+                                                 logical_naming=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+
+        inputs = [self,other_input]
+        for input in inputs:
+            if isinstance(input,Series):
+                input_ds = eventually_report_in_mem(
+                    kensu.extractors.extract_data_source(input, kensu.default_physical_location_ref,
+                                                         logical_naming=kensu.logical_naming))
+                input_sc = eventually_report_in_mem(kensu.extractors.extract_schema(input_ds, input))
+                result_col = [k.name for k in result_sc.pk.fields][0]
+                orig_col = [k.name for k in input_sc.pk.fields][0]
+                kensu.add_dependencies_mapping(result_sc.to_guid(), str(result_col), input_sc.to_guid(),
+                                               str(orig_col), str(wrapped_fn.__name__))
+        return result
+
+    def __sub__(self, other):
+         return self.wrapped_series_op(other, self.get_s().__sub__)
 
     @staticmethod
     def wrap_returned_df(kensu_s, returned, name, original):

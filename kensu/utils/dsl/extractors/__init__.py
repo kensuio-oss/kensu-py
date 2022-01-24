@@ -26,6 +26,9 @@ class ExtractorSupport(object):
     def extract_schema(self, data_source, value):
         pass
 
+    def extract_schema_fields(self, value):
+        pass
+
     def extract_data_source_and_schema(self, value, physical_location):
         pass
 
@@ -51,7 +54,7 @@ class Extractors(object):
     def __init__(self, ):
         self.supports = []
 
-    def add_default_supports(self, pandas_support=True, sklearn_support=True, numpy_support=True, tensorflow_support=False, bigquery_support=False, generic_datasource_info_support=True):
+    def add_default_supports(self, pandas_support=True, sklearn_support=True, numpy_support=True, tensorflow_support=False, bigquery_support=False, generic_datasource_info_support=True, matplotlib_support=True):
         if pandas_support:
             from kensu.pandas.extractor import KensuPandasSupport
             self.add_support(KensuPandasSupport())
@@ -71,6 +74,10 @@ class Extractors(object):
         if generic_datasource_info_support:
             from kensu.utils.dsl.extractors.generic_datasource_info_support import GenericDatasourceInfoSupport
             self.add_support(GenericDatasourceInfoSupport())
+
+        if matplotlib_support:
+            from kensu.matplotlib.extractor import PlotSupport
+            self.add_support(PlotSupport())
 
 
 
@@ -94,6 +101,13 @@ class Extractors(object):
         for support in self.supports:
             if support.is_supporting(value):
                 return self.register_schema(ds=data_source, schema=support.extract_schema(data_source, value))
+
+        raise Exception("Not supported object: " + value.__class__)
+
+    def extract_schema_fields(self, value):
+        for support in self.supports:
+            if support.is_supporting(value):
+                return support.extract_schema_fields(value)
 
         raise Exception("Not supported object: " + value.__class__)
 
