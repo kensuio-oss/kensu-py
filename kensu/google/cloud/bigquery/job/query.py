@@ -16,6 +16,8 @@ from kensu.utils.kensu_provider import KensuProvider
 import google.cloud.bigquery as bq
 import google.cloud.bigquery.job as bqj
 
+logger = logging.getLogger(__name__)
+
 
 class QueryJob(bqj.QueryJob):
     # - client.query(sql) returns QueryJob which we patch here for tracking
@@ -61,6 +63,8 @@ class QueryJob(bqj.QueryJob):
             dest = job.destination
             if isinstance(dest, bq.TableReference):
                 dest = client.get_table(dest)
+
+            #TODO What if several SELECT queries linked with ; ?
             db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
                 kensu=kensu,
                 client=client,
@@ -73,7 +77,7 @@ class QueryJob(bqj.QueryJob):
                     db_metadata=db_metadata,
                     table_id_to_bqtable=table_id_to_bqtable)
             except:
-                logging.warning("Error in BigQuery collector, using fallback implementation")
+                logger.warning("Error in BigQuery collector, using fallback implementation")
                 traceback.print_exc()
                 bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
 
@@ -101,5 +105,5 @@ class QueryJob(bqj.QueryJob):
             if (dest is not None) and isinstance(dest, google.cloud.bigquery.table.Table):
                 result.ksu_dest = dest
         except:
-            logging.warning('setting _store_bigquery_job_destination failed')
+            logger.warning('setting _store_bigquery_job_destination failed')
             traceback.print_exc()

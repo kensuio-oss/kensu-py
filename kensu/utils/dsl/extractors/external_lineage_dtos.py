@@ -1,5 +1,7 @@
 import logging
 
+from kensu.client.models import Schema
+
 
 class KensuDatasourceAndSchema:
     def __init__(self,
@@ -65,6 +67,12 @@ class ExtDependencyEntry:
         return 'ExtDependencyEntry(input_ds={}, lineage={})'.format(str(self.input_ds), str(self.lineage))
 
 
+def filter_matching_fields(fields, other_fields):
+    """return fields which are same as in other_fields list, ignoring the case"""
+    other_fields_lowercase = set([f.lower() for f in other_fields])
+    return [f for f in fields if f.lower() in other_fields_lowercase]
+
+
 class GenericComputedInMemDs:
     def __init__(
             self,
@@ -79,6 +87,44 @@ class GenericComputedInMemDs:
     def __repr__(self):
         return 'GenericComputedInMemDs(lineage={})'.format(str(self.lineage))
 
+    @staticmethod
+    def for_direct_or_full_mapping(
+            all_inputs,  # type: list[KensuDatasourceAndSchema]
+            out_field_names # type: list[str]
+                                   ):
+        inputs_with_matching_fields = [(i, filter_matching_fields(i.field_names(), out_field_names))
+                                       for i in all_inputs
+                                       if len(filter_matching_fields(i.field_names(), out_field_names)) > 0]
+
+        global_lineage = []
+
+        if len(inputs_with_matching_fields) > 0:
+            # direct lineage only for matching fields/DSes
+            for input, matching_input_fields in inputs_with_matching_fields:
+                matching_output_fields = filter_matching_fields(out_field_names, matching_input_fields)
+                lin_entry = ExtDependencyEntry(
+                    input_ds=input,
+                    # lineage: dict[str-output field, list[str]-input fields]
+                    lineage=dict(
+                        [(out_field_name, filter_matching_fields(input.field_names(), [out_field_name]))
+                         for out_field_name in matching_output_fields])
+                )
+                global_lineage.append(lin_entry)
+        else:
+            # all-to-all lineage between all output fields & all input DSes fields
+            for input in all_inputs:
+                lin_entry = ExtDependencyEntry(
+                    input_ds=input,
+                    # lineage: dict[str-output field, list[str]-input fields]
+                    lineage=dict(
+                        [(out_field_name, [v.name for v in input.field_names()])
+                         for out_field_name in out_field_names])
+                )
+                global_lineage.append(lin_entry)
+        return GenericComputedInMemDs(lineage=global_lineage)
+
+
+
     # FIXME: rename register_output_orig_data -> output_is_not_in_mem ?
     def report(self, ksu, df_result, operation_type, report_output=False, register_output_orig_data=False):
         from kensu.utils.helpers import extract_ksu_ds_schema
@@ -86,7 +132,12 @@ class GenericComputedInMemDs:
         for input_ds in self.inputs:
             extract_ksu_ds_schema(ksu, input_ds, report=True, register_orig_data=True)
         # report output (if needed)
-        result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=report_output, register_orig_data=register_output_orig_data)
+        if isinstance(df_result,Schema):
+            result_ds = None
+            result_schema = df_result._report()
+            ksu.real_schema_df[result_schema.to_guid()] = df_result
+        else:
+            result_ds, result_schema = extract_ksu_ds_schema(ksu, df_result, report=report_output, register_orig_data=register_output_orig_data)
         # register the lineage
         for dep in self.lineage:
             input_ds = dep.input_ds

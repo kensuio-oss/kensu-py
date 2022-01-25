@@ -33,8 +33,47 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     # return list of FieldDef
     def extract_schema_fields(self, df):
         if isinstance(df, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator):
-            return [FieldDef(name=str(k.name), field_type=k.field_type, nullable=k.is_nullable) for k in df.schema]
+            schema_field = []
+            def convert_fields(fields,heritage=[]):
+                for k in fields:
+                    if k.fields != ():
+                        if k.field_type == 'RECORD':
+                            if heritage != []:
+                                prefix = ".".join(heritage) + '.'
+                            else:
+                                prefix = ''
+                            schema_field.append(
+                                FieldDef(name=prefix + str(k.name), field_type=k.field_type+":"+k.mode, nullable=k.is_nullable))
 
+                        convert_fields(k.fields,heritage + [k.name])
+                    else:
+                        if heritage !=[]:
+                            prefix = ".".join(heritage)+'.'
+                        else:
+                            prefix=''
+                        schema_field.append(FieldDef(name=prefix+str(k.name), field_type=k.field_type, nullable=k.is_nullable))
+            convert_fields(df.schema)
+            return schema_field
+
+    def extract_unnest(self, df):
+        if isinstance(df, google.cloud.bigquery.table.Table) or isinstance(df, google.cloud.bigquery.table.RowIterator):
+            unnest = []
+
+            def convert_fields(fields, heritage=[]):
+                for k in fields:
+                    if k.field_type == 'RECORD' and k.is_nullable == False:
+                        #if ".".join(heritage) not in unnest_candidate:
+                        if len(heritage)<1:
+                            unnest.append(".".join(heritage+[k.name]))
+                        #unnest_candidate.append(".".join(heritage+[k.name]))
+                        convert_fields(k.fields,  heritage + [k.name])
+                    elif  k.field_type == 'RECORD':
+                        convert_fields(k.fields, heritage + [k.name])
+                    else:
+                        None
+
+            convert_fields(df.schema)
+            return unnest
 
     def extract_location(self, df, location):
         # FIXME => what to do for RowIterator?

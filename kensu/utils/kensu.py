@@ -141,6 +141,7 @@ class Kensu(object):
         logical_naming = kwargs_or_conf_or_default("logical_naming", None)
         mapping = kwargs_or_conf_or_default("mapping", None)
         report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
+        sql_util_url = kwargs_or_conf_or_default("sql_util_url", None)
 
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
@@ -193,6 +194,7 @@ class Kensu(object):
         self.compute_delta = compute_delta
         self.raise_on_check_failure = raise_on_check_failure
         self.offline_file_name = offline_file_name
+        self.sql_util_url = sql_util_url
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -424,6 +426,7 @@ class Kensu(object):
 
                     def create_stats(schema):
                         stats_df = self.real_schema_df[schema]
+
 
                         if isinstance(stats_df, KensuDatasourceAndSchema):
                             stats_df.f_publish_stats(lineage_run.to_guid())
