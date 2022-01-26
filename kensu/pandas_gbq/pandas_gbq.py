@@ -1,10 +1,16 @@
+from kensu.utils.wrappers import remove_ksu_wrappers, remove_ksu_kwargs_wrappers
+
 from kensu.utils.kensu_provider import KensuProvider
 
 
 def wrap_pandas_gbq_write(method):
     def wrapper(*args, **kwargs):
         kensu = KensuProvider().instance()
-        df_result = method(*args, **kwargs)
+
+        new_args = remove_ksu_wrappers(args)
+        new_kwargs = remove_ksu_kwargs_wrappers(kwargs)
+
+        df_result = method(*new_args, **new_kwargs)
         df = args[0]  # see get_dummies definition (first arg is `data`)
 
         orig_ds = kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
