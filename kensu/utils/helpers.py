@@ -138,7 +138,7 @@ def to_datasource(ds_pk, format, location, logical_naming, name):
                             " returned an exception, "
                             "using default data source naming convention. \n {}".format(e))
             logical_category = location.split('/')[-1]
-            ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
+        ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
 
     else:
         ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)

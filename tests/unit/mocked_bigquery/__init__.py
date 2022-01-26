@@ -80,6 +80,7 @@ def mock(mocker):
                 # define job.result here with type Iterator?
                 spec=google.cloud.bigquery.job.query.QueryJob,
                 query=sample_sql,
+                destination=res_table,
                 result=lambda: job_result
             ),
         },
