@@ -54,7 +54,7 @@ class Extractors(object):
     def __init__(self, ):
         self.supports = []
 
-    def add_default_supports(self, pandas_support=True, sklearn_support=True, numpy_support=True, tensorflow_support=False, bigquery_support=False, generic_datasource_info_support=True, matplotlib_support=True):
+    def add_default_supports(self, pandas_support=True, sklearn_support=False, numpy_support=True, tensorflow_support=False, bigquery_support=False, generic_datasource_info_support=True, matplotlib_support=False):
         if pandas_support:
             from kensu.pandas.extractor import KensuPandasSupport
             self.add_support(KensuPandasSupport())
