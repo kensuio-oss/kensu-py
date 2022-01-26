@@ -16,8 +16,10 @@ def add_min_max(data_source, field, min = None, max = None):
         parameters["maxVal"] = max
     add_rule(data_source,field,type='Range',parameters=parameters)
 
-def add_missing_value_rules(data_source, data_frame):
-    for col in data_frame.columns:
+def add_missing_value_rules(data_source, data_frame=None, cols=None):
+    if cols is None:
+        cols = data_frame.columns
+    for col in cols:
         field = col+'.nullrows'
         add_rule(data_source, field, type='Range', parameters={'maxVal':0})
 
@@ -116,8 +118,11 @@ def create_kensu_nrows_consistency(how):
 
         output_name = k.logical_name_by_guid[list(k.lineage_and_ds[lineage]['to_schema_ref'])[0]]
         checked_rules = {output_name : []}
-        if how == "minimum":
-            min_value = min(values)
+        if how in ['minimum','maximum']:
+            if how == "minimum":
+                min_value = min(values)
+            elif how == "maximum":
+                min_value = max(values)
             ds_in_candidates = []
             for val in inputs_nrows:
                 key = list(val.keys())[0]
@@ -127,7 +132,7 @@ def create_kensu_nrows_consistency(how):
                 field = 'delta.nrows_'+ds.replace('.','_')+'.abs'
                 add_min_max(output_name, field, max = 0)
                 checked_rules[output_name].append({field:{"output_nrows" : (k.schema_stats[list(k.lineage_and_ds[lineage]['to_schema_ref'])[0]])['nrows'], "input_nrows" : min_value}})
-        k.check_rules.append({'check_nrows_consistency':checked_rules})
+            k.check_rules.append({'check_nrows_consistency':checked_rules})
 
 
 

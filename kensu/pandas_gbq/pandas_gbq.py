@@ -1,6 +1,4 @@
-
 from kensu.utils.kensu_provider import KensuProvider
-from kensu.utils.dsl import mapping_strategies
 
 
 def wrap_pandas_gbq_write(method):
@@ -10,19 +8,25 @@ def wrap_pandas_gbq_write(method):
         df = args[0]  # see get_dummies definition (first arg is `data`)
 
         orig_ds = kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming)._report()
-        orig_sc = kensu.extractors.extract_schema(orig_ds, df)._report()
+                                                     logical_naming=kensu.logical_naming)
+        orig_sc = kensu.extractors.extract_schema(orig_ds, df)
 
-        result_ds = kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,
+        from google.cloud import bigquery
+        client = bigquery.Client()
+        df_table = client.get_table(args[1])
+
+        result_ds = kensu.extractors.extract_data_source(df_table, kensu.default_physical_location_ref,
                                                        logical_naming=kensu.logical_naming)._report()
-        result_sc = kensu.extractors.extract_schema(result_ds, df_result)._report()
+        result_sc = kensu.extractors.extract_schema(result_ds, df_table)._report()
 
-        df_result_kensu = DataFrame.using(df_result)
 
-        kensu.add_dependency((df, orig_ds, orig_sc), (df_result, result_ds, result_sc),
-                           mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+        for col in df.columns:
+            kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col), 'Write')
 
-        return df_result_kensu
+        kensu.real_schema_df[result_sc.to_guid()] = df
+        kensu.report_with_mapping()
+
+        return df_result
 
     wrapper.__doc__ = method.__doc__
     return wrapper

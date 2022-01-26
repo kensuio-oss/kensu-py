@@ -14,7 +14,7 @@ class NrowsConsistencyError(Exception):
 
     def __init__(self,name, input_nrows, output_nrows):
         self.name = name
-        self.value = round(output_nrows/input_nrows,2)
+        self.value = 100*round(output_nrows/input_nrows,2)
         self.input_nrows = input_nrows
         self.output_nrows = output_nrows
         super().__init__()

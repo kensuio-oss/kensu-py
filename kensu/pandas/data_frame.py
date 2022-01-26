@@ -280,7 +280,7 @@ class KensuPandasDelegator(object):
                         right_sc = eventually_report_in_mem(kensu.extractors.extract_schema(right_ds, right_df))
 
 
-                        if how == 'inner':
+                        if how in ['inner','outer']:
                             result_cols = result.columns
                             columns_left = left_df.columns
                             columns_right = right_df.columns
@@ -485,22 +485,10 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
         #FIXME
         table = None
-        if fmt == 'gbq':
-            fmt = 'BigQuery Table'
-            if 'BigQuery' not in kensu.data_collectors:
-                from google.cloud import bigquery
-                client = bigquery.Client(credentials=kwargs['credentials'])
-                kensu.data_collectors['BigQuery'] = client
-            else:
-                from google.cloud import bigquery
-                client = kensu.data_collectors['BigQuery']
-
-            table = client.get_table(args[0])
-            path = table.path
-            location = "bigquery:/" + path
+        if fmt == 'gbq' or isinstance(args[0],str) == False:
+             return None
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
-
             location = get_absolute_path(args[0])
 
         if location is not None and fmt is not None:
