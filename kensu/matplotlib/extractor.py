@@ -1,7 +1,7 @@
 import logging
 from hashlib import sha256
 
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 
 import kensu
@@ -14,7 +14,7 @@ from kensu.utils.kensu_provider import KensuProvider
 class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
 
     def is_supporting(self, fig):
-        return isinstance(fig,  plt.figure.Figure)
+        return isinstance(fig,  plt.Figure)
 
     def is_machine_learning(self, df):
         return False
