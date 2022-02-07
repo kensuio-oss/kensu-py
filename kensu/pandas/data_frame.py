@@ -1083,7 +1083,6 @@ def wrap_pandas_get_dummies(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-
 def wrap_merge(method):
     def wrapper(*args, **kwargs):
         kensu = KensuProvider().instance()
@@ -1243,6 +1242,29 @@ def wrap_to_datetime(method):
 
         df_result_kensu = Series.using(df_result)
 
+        return df_result_kensu
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+def wrap_concat(method):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+        df_result = method(*args, **kwargs)
+        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
+
+        col_dest = [k.name for k in result_sc.pk.fields]
+
+        for df in args[0]:
+            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, df))
+            col_orig = [k.name for k in orig_sc.pk.fields]
+            for col in col_dest:
+                if col in col_orig:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
+                                           "concat")
+        df_result_kensu = DataFrame.using(df_result)
         return df_result_kensu
 
     wrapper.__doc__ = method.__doc__
