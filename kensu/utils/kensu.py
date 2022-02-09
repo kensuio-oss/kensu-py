@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import jwt
 
 from kensu.client import *
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
@@ -115,7 +116,7 @@ class Kensu(object):
                     tpe = type(default)
                 r = conf.get(key)
                 if tpe is list:
-                    r = r.replace(" ","").split(",")
+                    r = r.split(",")
                 elif tpe is bool:
                     r = conf.getboolean(key)
                 elif tpe is not None:
@@ -157,6 +158,7 @@ class Kensu(object):
         report_to_file = kwargs_or_conf_or_default("report_to_file", False, report_to_file)
         offline_file_name = kwargs_or_conf_or_default("offline_file_name", None, offline_file_name)
         compute_stats = kwargs_or_conf_or_default("compute_stats", True, compute_stats)
+        input_stats = kwargs_or_conf_or_default("input_stats", True)
         compute_delta = kwargs_or_conf_or_default("compute_delta",False)
         raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
@@ -196,6 +198,7 @@ class Kensu(object):
         self.raise_on_check_failure = raise_on_check_failure
         self.offline_file_name = offline_file_name
         self.sql_util_url = sql_util_url
+        self.input_stats = input_stats
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -428,12 +431,10 @@ class Kensu(object):
                     def create_stats(schema):
                         stats_df = self.real_schema_df[schema]
 
-
                         if isinstance(stats_df, KensuDatasourceAndSchema):
                             stats_df.f_publish_stats(lineage_run.to_guid())
 
                         else:
-
                             try:
                                 stats = self.extractors.extract_stats(stats_df)
                             except:
@@ -485,7 +486,8 @@ class Kensu(object):
                                                            stored_in_schema_ref=SchemaRef(by_guid=to_guid)),
                                          metrics=metrics, hyper_params_as_json=hyperparams)._report()
                     for schema in from_pks:
-                        create_stats(schema)
+                        if self.input_stats == True:
+                            create_stats(schema)
                     create_stats(to_guid)
 
 
@@ -665,26 +667,59 @@ class Kensu(object):
                 for lds_id in map:
                     field_name = map[lds_id]['field']
                     fun = map[lds_id]['fun']
+                    context = map[lds_id]['context']
+
+                    token_content = jwt.decode(self.kensu_api.api_client.default_headers["X-Auth-Token"], options={"verify_signature": False})
+                    if 'SANDBOX_USER_HASH' in token_content:
+                        sandbox_prefix = token_content['SANDBOX_USER_HASH'] + "-"
+                        project_id = sandbox_prefix + project_id
+                        process_id = sandbox_prefix + process_id
+                        cv = sandbox_prefix +cv
 
                     data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
 
                     lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
                         'id']
-                    lineage_ids = set(
-                        [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
-                    for lineage_id in lineage_ids:
-                        current_rules = self.sdk.get_rules_for_ds(lds_guid, lineage_id, project_id, env_name)
-                        current_range_rules = {i['fieldName']: i['uuid'] for i in current_rules['data']['predicates'] if
-                                               i['functionName'] == 'Range' and (i['environment'] == env_name)}
-                        current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if
-                                                  i['functionName'] == 'Frequency' and (i['environment'] == env_name)]
+
+                    if context == "DATA_STATS":
+                        lineage_ids = set(
+                            [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
+                        for lineage_id in lineage_ids:
+                            current_rules = self.sdk.get_rules_for_ds_in_project(lds_guid, lineage_id, project_id,
+                                                                                 env_name)
+                            current_range_rules = {i['fieldName']: i['uuid'] for i in
+                                                   current_rules['data']['predicates'] if
+                                                   i['functionName'] == 'Range' and (i['environment'] == env_name)}
+                            current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if
+                                                      i['functionName'] == 'Frequency' and (
+                                                                  i['environment'] == env_name)]
+                            if fun['name'] == 'Range' and (field_name in current_range_rules):
+                                self.sdk.update_rule(current_range_rules[field_name], fun)
+                            elif fun['name'] == 'Frequency' and current_frequency_rule:
+                                self.sdk.update_rule(current_frequency_rule[0], fun)
+
+                            else:
+                                self.sdk.create_rule(lds_guid, lineage_id, project_id, process_id, env_name, field_name,
+                                                     fun)
+
+                    elif context == "LOGICAL_DATA_SOURCE":
+                        current_rules = self.sdk.get_all_rules_for_ds(lds_guid)
+                        current_range_rules = {i['fieldName']: i['uuid'] for i in
+                                               current_rules['data']['predicates'] if
+                                               i['functionName'] == 'Range'}
+                        current_variation_rules = {i['fieldName']: i['uuid'] for i in
+                                               current_rules['data']['predicates'] if
+                                               i['functionName'] == 'Variability'}
                         if fun['name'] == 'Range' and (field_name in current_range_rules):
                             self.sdk.update_rule(current_range_rules[field_name], fun)
-                        elif fun['name'] == 'Frequency' and current_frequency_rule:
-                            self.sdk.update_rule(current_frequency_rule[0], fun)
+                        elif fun['name'] == 'Variability' and (field_name in current_variation_rules):
+                            self.sdk.update_rule(current_variation_rules[field_name], fun)
 
                         else:
-                            self.sdk.create_rule(lds_guid, lineage_id, project_id, process_id, env_name, field_name, fun)
+                            self.sdk.create_rule(lds_id=lds_guid, field_name=field_name,
+                                                 fun=fun,context = "LOGICAL_DATA_SOURCE")
+
+
 
 
     def check_local_rules(self):

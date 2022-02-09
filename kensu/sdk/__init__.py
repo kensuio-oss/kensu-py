@@ -25,7 +25,11 @@ class AbstractSDK(ABC):
         pass
 
     @abstractmethod
-    def get_rules_for_ds(self, ds_id, lineage_id, project_id, env):
+    def get_all_rules_for_ds(self, ds_id):
+        pass
+
+    @abstractmethod
+    def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
         pass
 
     @abstractmethod
@@ -60,6 +64,9 @@ class AbstractSDK(ABC):
     def get_logical_ds_name_from_ds(self, dsId):
         pass
 
+    @abstractmethod
+    def get_datasources(self):
+        pass
 
 
 class DoNothingSDK(ABC):
@@ -80,8 +87,11 @@ class DoNothingSDK(ABC):
     
     def get_rules(self):
         pass
+
+    def get_all_rules_for_ds(self, ds_id):
+        pass
     
-    def get_rules_for_ds(self, ds_id, lineage_id, project_id, env):
+    def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
         pass
     
     def get_datasources_in_logical(self, logical):
@@ -108,6 +118,9 @@ class DoNothingSDK(ABC):
     def get_logical_ds_name_from_ds(self, dsId):
         pass
 
+    def get_datasources(self):
+        pass
+
 
 class SDK(AbstractSDK):
     def __init__(self, url, sdk_token):
@@ -128,20 +141,31 @@ class SDK(AbstractSDK):
         v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
         return v.json()
 
-    def create_rule(self, lds_id, lineage_id, project_id, process_id, env_name, field_name, fun):
+    def create_rule(self,lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None, fun=None, context = "DATA_STATS"):
         url_pref = "/business/api/v1/predicates"
-        payload = {
-            "context": "DATA_STATS",
-            "datasourceId": lds_id,
-            "lineageId": lineage_id,
-            "projectId": project_id,
-            "processId": process_id,
-            "environment": env_name,
-            "isLogical": True,
-            "fieldName": field_name,
-            "functionName": fun["name"],
-            "arguments": fun["arguments"]
-        }
+        if context == "DATA_STATS":
+            payload = {
+                "context": "DATA_STATS",
+                "datasourceId": lds_id,
+                "lineageId": lineage_id,
+                "projectId": project_id,
+                "processId": process_id,
+                "environment": env_name,
+                "isLogical": True,
+                "fieldName": field_name,
+                "functionName": fun["name"],
+                "arguments": fun["arguments"]
+            }
+        elif context == "LOGICAL_DATA_SOURCE":
+            payload = {
+                "context": "LOGICAL_DATA_SOURCE",
+                "datasourceId": lds_id,
+                "environment": "",
+                "fieldName": field_name,
+                "functionName": fun["name"],
+                "arguments": fun["arguments"]
+            }
+
         v = requests.post(self.url + url_pref, json=payload, cookies=self.cookie, verify=False)
         return v.json()
 
@@ -152,15 +176,20 @@ class SDK(AbstractSDK):
                     "arguments": fun["arguments"]}
 
         v = requests.put(self.url + url_pref, json=payload, cookies=self.cookie, verify=False)
-        return v.json()
+        return None
 
     def get_rules(self):
         url_pref = "/business/api/views/v1/predicate-catalog"
         v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
         return v.json()
 
-    def get_rules_for_ds(self, ds_id, lineage_id, project_id, env):
+    def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
         url_pref = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s"%(ds_id,lineage_id,project_id,env)
+        v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
+        return v.json()
+
+    def get_all_rules_for_ds(self,ds_id):
+        url_pref = "/business/api/v1/predicates?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE"%(ds_id)
         v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
         return v.json()
 
@@ -173,25 +202,25 @@ class SDK(AbstractSDK):
         return v.json()
 
     def get_latest_datasource_in_logical(self, logical, n=-1):
-        js = get_datasources_in_logical(self, logical)
+        js = self.get_datasources_in_logical(logical)
         sorted_js = (sorted((i for i in js), key=lambda k: k['timestamp']))
 
         if len(sorted_js)>=abs(n):
             uuid = sorted_js[n]["uuid"]
-            ds = get_datasource(url, self.cookie, uuid)
+            ds = self.get_datasource(uuid)
             return ds
         else:
             return None
 
     def get_schema(self, schema_id):
-        v = requests.get(url+"/api/services/v1/resources/schema/%s" %schema_id, cookies=self.cookie, verify=False)
+        v = requests.get(self.url+"/api/services/v1/resources/schema/%s" %schema_id, cookies=self.cookie, verify=False)
         return v.json()
 
     def get_latest_schema_in_datasource(self, ds):
         if ds:
             schemas = ds['schemas']
             schema_uuid = (max((i for i in schemas), key=lambda k: k['timestamp']))['schemaId']
-            schema = get_schema(self, schema_uuid)
+            schema = self.get_schema(schema_uuid)
             return {x["columnName"]:x["columnType"] for x in schema['schema']}
         else:
             return None
@@ -212,3 +241,7 @@ class SDK(AbstractSDK):
         v = requests.get(uri, cookies=self.cookie, verify=False)
         ds = v.json()
         return ds["data"]["logicalDatasource"]["name"]
+
+    def get_datasources(self):
+        v = requests.get(self.url+"/api/services/v1/resources/datasources",cookies=self.cookie,verify=False)
+        return v.json()

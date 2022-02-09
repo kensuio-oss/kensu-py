@@ -1,20 +1,21 @@
 from kensu.utils.kensu_provider import KensuProvider
 import warnings
 
-def add_rule(data_source, field, type, parameters):
+def add_rule(data_source, field, type, parameters,context="DATA_STATS"):
     k = KensuProvider().instance()
     k.rules.append({data_source:
                         {'field': field,
-                         'fun': {"name": type, "arguments": parameters}
+                         'fun': {"name": type, "arguments": parameters},
+                         'context':context
                          }})
 
-def add_min_max(data_source, field, min = None, max = None):
+def add_min_max(data_source, field, min = None, max = None, context = "DATA_STATS"):
     parameters = {}
     if min is not None:
         parameters["minVal"] = min
     if max is not None:
         parameters["maxVal"] = max
-    add_rule(data_source,field,type='Range',parameters=parameters)
+    add_rule(data_source,field,type='Range',parameters=parameters,context=context)
 
 def add_missing_value_rules(data_source, data_frame=None, cols=None):
     if cols is None:
@@ -44,14 +45,19 @@ def add_frequency_rule(data_source, hours = None, days = None, weeks = None, mon
 
 
 #TODO Variabilty over time
-def add_variability_rule(data_source, variation, hours = None, days = None, weeks = None, months = None):
+def add_variability_rule(data_source, field, variation_in_percent, hours = None, days = None, weeks = None, months = None,context = "DATA_STATS"):
 
     parameters = {}
-    parameters['variation'] = variation
+    parameters['variation'] = variation_in_percent
 
-    add_rule(data_source,field=None,
+    add_rule(data_source,field=field,
              type='Variability',
-             parameters=parameters)
+             parameters=parameters,context=context)
+
+def add_variability_constraint_data_source(data_source, field, variation_in_percent, hours = None, days = None, weeks = None, months = None):
+    context = "LOGICAL_DATA_SOURCE"
+    return add_variability_rule(data_source, field, variation_in_percent, hours, days, weeks, months,context)
+
 
 def check_format_consistency(data_source):
     k = KensuProvider().instance()

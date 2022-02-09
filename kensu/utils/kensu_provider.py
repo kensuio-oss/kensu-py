@@ -38,6 +38,7 @@ class KensuProvider(object):
             report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
             get_code_version = kwargs["get_code_version"] if "get_code_version" in kwargs else None
             stats = kwargs["compute_stats"] if "compute_stats" in kwargs else True
+            input_stats = kwargs["input_stats"] if "input_stats" in kwargs else True
             sql_util_url = kwargs["sql_util_url"] if "sql_util_url" in kwargs else None
 
             _kensu = Kensu(api_url=api_url, auth_token=auth_token, process_name=process_name, user_name=user_name,
@@ -46,7 +47,7 @@ class KensuProvider(object):
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
                       report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
                       get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn,
-                      compute_stats=stats, bigquery_headers = bigquery_headers, sql_util_url= sql_util_url)
+                      compute_stats=stats,input_stats=input_stats, bigquery_headers = bigquery_headers, sql_util_url= sql_util_url)
 
             KensuProvider().setKensu(_kensu)
             return _kensu
