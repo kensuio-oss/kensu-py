@@ -486,7 +486,8 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
         #FIXME
         table = None
         if fmt == 'gbq' or isinstance(args[0],str) == False:
-             return None
+          return None
+
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
             location = get_absolute_path(args[0])
