@@ -53,14 +53,18 @@ class QueryJob(bqj.QueryJob):
         return job
 
     @staticmethod
-    def override_result(job: bqj.QueryJob) -> bqj.QueryJob:
+    def override_result(job #  type: google.cloud.bigquery.job.QueryJob
+                        ) -> bqj.QueryJob:
         f = job.result
 
         def wrapper(*args, **kwargs):
             kensu = KensuProvider().instance()
             result = f(*args, **kwargs)
             client = kensu.data_collectors['BigQuery']
-            dest = job.destination
+            ddl_target_table = job.ddl_target_table
+            dest = job.destination or ddl_target_table
+            is_ddl_write = bool(ddl_target_table)
+            print(f'in QueryJob.result(): dest={dest}')
             if isinstance(dest, bq.TableReference):
                 dest = client.get_table(dest)
 
@@ -68,7 +72,8 @@ class QueryJob(bqj.QueryJob):
             db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
                 kensu=kensu,
                 client=client,
-                query=job.query)
+                job=job,
+                query=BqOfflineParser.normalize_table_refs(job.query))
             try:
                 bq_lineage = BqRemoteParser.parse(
                     kensu=kensu,
@@ -87,11 +92,15 @@ class QueryJob(bqj.QueryJob):
                 ksu=kensu,
                 df_result=result,
                 operation_type='BigQuery SQL result',
-                report_output=kensu.report_in_mem,
+                report_output=kensu.report_in_mem or is_ddl_write,
                 # FIXME: how to know when in mem or when bigquery://projects/psyched-freedom-306508/datasets/_b63f45da1cafbd073e5c2770447d963532ac43ec/tables/anonc79d9038a13ab2dbe40064636b0aceedc62b5d69
-                register_output_orig_data=False  # FIXME? when do we need this? INSERT INTO?
+                register_output_orig_data=is_ddl_write  # used for DDL writes, like CREATE TABLE t2 AS SELECT * FROM t1
+                # FIXME: how about INSERT INTO?
             )
-            # FIXME? kensu.report_with_mapping()
+            if is_ddl_write:
+                # FIXME: report_with_mapping fails with empty inputs/lineage?
+                if len(bq_lineage.lineage) > 0:
+                    kensu.report_with_mapping()
 
             return result
 
