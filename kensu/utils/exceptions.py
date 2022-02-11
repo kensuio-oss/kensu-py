@@ -22,3 +22,12 @@ class NrowsConsistencyError(Exception):
     def __str__(self):
         d = f"{self.name} has less rows than expected: {self.output_nrows} out of a maximum of {self.input_nrows} - {self.value}%"
         return d
+
+
+class SdkError(Exception):
+    def __init__(self, message=""):
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return f'{self.message}'

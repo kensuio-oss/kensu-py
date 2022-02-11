@@ -1,6 +1,7 @@
 from kensu.utils.kensu_provider import KensuProvider
 import warnings
 
+
 def add_rule(data_source, field, type, parameters,context="DATA_STATS"):
     k = KensuProvider().instance()
     k.rules.append({data_source:
@@ -9,7 +10,8 @@ def add_rule(data_source, field, type, parameters,context="DATA_STATS"):
                          'context':context
                          }})
 
-def add_min_max(data_source, field, min = None, max = None, context = "DATA_STATS"):
+
+def add_min_max(data_source, field, min = None, max = None, context="DATA_STATS"):
     parameters = {}
     if min is not None:
         parameters["minVal"] = min
@@ -17,15 +19,16 @@ def add_min_max(data_source, field, min = None, max = None, context = "DATA_STAT
         parameters["maxVal"] = max
     add_rule(data_source,field,type='Range',parameters=parameters,context=context)
 
-def add_missing_value_rules(data_source, data_frame=None, cols=None):
+
+def add_missing_value_rules(data_source, data_frame=None, cols=None, context="DATA_STATS"):
     if cols is None:
         cols = data_frame.columns
     for col in cols:
         field = col+'.nullrows'
-        add_rule(data_source, field, type='Range', parameters={'maxVal':0})
+        add_rule(data_source, field, type='Range', parameters={'maxVal':0}, context=context)
 
-def add_frequency_rule(data_source, hours = None, days = None, weeks = None, months = None):
 
+def add_frequency_rule(data_source, hours=None, days=None, weeks=None, months=None):
     if hours:
         timeLapseUnit = 'Hours'
         timeLapse = hours
@@ -38,15 +41,18 @@ def add_frequency_rule(data_source, hours = None, days = None, weeks = None, mon
     elif months:
         timeLapseUnit = 'Months'
         timeLapse = months
+    else:
+        print("add_frequency_rule failed: no time unit specified")
+        return None
 
-    add_rule(data_source,field=None,
+    add_rule(data_source,
+             field=None,
              type='Frequency',
              parameters={'timeLapse': timeLapse,'timeLapseUnit':timeLapseUnit})
 
 
 #TODO Variabilty over time
 def add_variability_rule(data_source, field, variation_in_percent, hours = None, days = None, weeks = None, months = None,context = "DATA_STATS"):
-
     parameters = {}
     parameters['variation'] = variation_in_percent
 
@@ -54,37 +60,33 @@ def add_variability_rule(data_source, field, variation_in_percent, hours = None,
              type='Variability',
              parameters=parameters,context=context)
 
+
 def add_variability_constraint_data_source(data_source, field, variation_in_percent, hours = None, days = None, weeks = None, months = None):
     context = "LOGICAL_DATA_SOURCE"
     return add_variability_rule(data_source, field, variation_in_percent, hours, days, weeks, months,context)
 
 
 def check_format_consistency(data_source):
-    k = KensuProvider().instance()
-
-    from kensu.sdk import get_latest_datasource_in_logical
-    cookie = k.get_cookie()
-    checked_format = get_latest_datasource_in_logical(k.api_url.replace("-api",""),cookie,data_source)['format']
-    previous_ds = get_latest_datasource_in_logical(k.api_url.replace("-api",""),cookie,data_source,n=-2)
+    k_sdk = KensuProvider().instance().sdk
+    checked_format = k_sdk.get_latest_datasource_in_logical(data_source)['format']
+    previous_ds = k_sdk.get_latest_datasource_in_logical(data_source, n=-2)
 
     if checked_format and previous_ds:
         previous_format = previous_ds['format']
         bool = checked_format == previous_format
-
         if bool:
-            None
+            pass
         else:
             print("The format of the datasource {} is not consistent, expected {}, got {}".format(data_source,previous_format, checked_format))
 
+
 def check_schema_consistency(data_source):
-    from kensu.sdk import get_latest_schema_in_logical
-    k = KensuProvider().instance()
-    cookie = k.get_cookie()
-    checked_schema = get_latest_schema_in_logical(k.api_url.replace("-api",""),cookie, data_source, n=-1)
-    previous_schema = get_latest_schema_in_logical(k.api_url.replace("-api",""),cookie, data_source, n=-2)
+    k_sdk = KensuProvider().instance().sdk
+    checked_schema = k_sdk.get_latest_schema_in_logical(data_source, n=-1)
+    previous_schema = k_sdk.get_latest_schema_in_logical(data_source, n=-2)
 
     if checked_schema and previous_schema:
-        #Check of field changes
+        # Check of field changes
         missing_keys = previous_schema.keys() - checked_schema.keys()
         if missing_keys:
             print("The following key(s) are missing from {} : {}".format(data_source,list(missing_keys)))
@@ -104,10 +106,11 @@ def check_schema_consistency(data_source):
                 print("The following field in {} has a wrong type: {} Expected {}, got {}".format(data_source,y,previous_schema[y],checked_schema[y]))
 
 
-#TODO WIP check nrows
+# TODO WIP check nrows
 def check_nrows_consistency(how = "minimum"):
     k = KensuProvider().instance()
     k.check_rules.append({"nrows_consistency":how})
+
 
 def create_kensu_nrows_consistency(how):
     k = KensuProvider().instance()

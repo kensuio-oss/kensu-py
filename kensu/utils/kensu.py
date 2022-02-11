@@ -129,7 +129,7 @@ class Kensu(object):
         sklearn_support = kwargs_or_conf_or_default("sklearn_support", False)
         bigquery_support = kwargs_or_conf_or_default("bigquery_support", False)
         tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", False)
-        matplotlib_support = kwargs_or_conf_or_default("tensorflow_support", False)
+        matplotlib_support = kwargs_or_conf_or_default("matplotlib_support", False)
 
         self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support, matplotlib_support = matplotlib_support)
 
@@ -154,12 +154,15 @@ class Kensu(object):
         user_name = kwargs_or_conf_or_default("user_name", "Missing User Name", user_name)
         code_location = kwargs_or_conf_or_default("code_location", None, code_location)
 
+        reporter = kwargs_or_conf_or_default('reporter', None)
         do_report = kwargs_or_conf_or_default("do_report", True, do_report)
         report_to_file = kwargs_or_conf_or_default("report_to_file", False, report_to_file)
         offline_file_name = kwargs_or_conf_or_default("offline_file_name", None, offline_file_name)
         compute_stats = kwargs_or_conf_or_default("compute_stats", True, compute_stats)
         input_stats = kwargs_or_conf_or_default("input_stats", True)
         compute_delta = kwargs_or_conf_or_default("compute_delta",False)
+        if compute_delta and not input_stats:
+            logging.warning("delta nrows stats (compute_delta=True) will not work without setting input_stats=True")
         raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
@@ -169,12 +172,13 @@ class Kensu(object):
 
         sdk_pat = kwargs_or_conf_or_default("PAT", None)
         sdk_url = kwargs_or_conf_or_default("sdk_url", None)
+        sdk_verify_ssl = kwargs_or_conf_or_default("sdk_verify_ssl", True)
         if sdk_pat is None:
             self.sdk = sdk.DoNothingSDK()
         else:
             if sdk_url is None:
                 sdk_url = self.api_url.replace('-api', '')                
-            self.sdk = sdk.SDK(sdk_url, sdk_pat)
+            self.sdk = sdk.SDK(sdk_url, sdk_pat, verify_ssl=sdk_verify_ssl)
 
 
         # add function to Kensu entities
@@ -184,7 +188,7 @@ class Kensu(object):
         if isinstance(reporter, str) or config.has_section('kensu.reporter'):
             reporter = Reporter.create(config['kensu.reporter'], reporter)
         elif reporter is not None and hasattr(reporter, '__call__'):
-            reporter = GenericReporter(reporter)
+            reporter = GenericReporter(config, reporter.__call__)
 
         injection.set_reporter(reporter)
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
@@ -245,6 +249,7 @@ class Kensu(object):
         self.real_schema_df = {}
         self.schema_name_by_guid = {}
         self.logical_name_by_guid = {}
+        # by lineage_id, thus this tracks for which lineages a lineage run was already sent
         self.sent_runs = []
         self.data_collectors = {}
         self.model={}
@@ -326,6 +331,9 @@ class Kensu(object):
 
     def in_mem(self, var_name):
         return "in-memory-data://" + self.process.pk.qualified_name + "/" + var_name
+
+    def name_for_stats(self, input_name):
+        return input_name.replace('.', '_')
 
     def report_with_mapping(self):
         self.set_reinit()
@@ -428,8 +436,8 @@ class Kensu(object):
                     self.sent_runs.append(lineage.to_guid())
 
 
-                    def create_stats(schema):
-                        stats_df = self.real_schema_df[schema]
+                    def create_stats(schema_guid):
+                        stats_df = self.real_schema_df[schema_guid]
 
                         if isinstance(stats_df, KensuDatasourceAndSchema):
                             stats_df.f_publish_stats(lineage_run.to_guid())
@@ -450,24 +458,26 @@ class Kensu(object):
                                     #TODO Support ndarray
                                     stats = None
                             if stats is not None:
-                                self.schema_stats[schema] = stats
+                                self.schema_stats[schema_guid] = stats
                                 if lineage_run.to_guid() not in self.stats_to_send:
                                     self.stats_to_send[lineage_run.to_guid()] = {}
-                                self.stats_to_send[lineage_run.to_guid()][schema] = stats
-                                if schema == to_guid:
+                                self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+                                if schema_guid == to_guid:
                                     if 'nrows' in stats and self.compute_delta:
+                                        # fixme: extract a helper
                                         output_nrows = stats['nrows']
                                         #TODO Corner case: if from_pk = to_pk
-                                        for input_schema in from_pks:
-                                            input_stats = self.schema_stats[input_schema]
-                                            input_nrows = input_stats['nrows'] if 'nrows' in input_stats else None
+                                        for input_schema_guid in from_pks:
+                                            input_stats = self.schema_stats.get(input_schema_guid)
+                                            input_nrows = input_stats and input_stats.get('nrows')
                                             if input_nrows:
                                                 delta_nrows = input_nrows - output_nrows
-                                                input_name = self.logical_name_by_guid[input_schema] if input_schema in self.logical_name_by_guid else self.schema_name_by_guid[input_schema]
-                                                stats['delta.nrows_'+input_name.replace('.','_')+'.abs']=delta_nrows
-                                                stats['delta.nrows_' + input_name.replace('.', '_')+'.decrease in %'] = round(100*delta_nrows/input_nrows,2)
-                                        self.schema_stats[schema] = stats
-                                        self.stats_to_send[lineage_run.to_guid()][schema] = stats
+                                                input_name = self.logical_name_by_guid.get(input_schema_guid, self.schema_name_by_guid.get(input_schema_guid))
+                                                clean_input_name = self.name_for_stats(input_name)
+                                                stats['delta.nrows_' + clean_input_name + '.abs']=delta_nrows
+                                                stats['delta.nrows_' + clean_input_name + '.decrease in %'] = round(100*delta_nrows/input_nrows,2)
+                                        self.schema_stats[schema_guid] = stats
+                                        self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
 
 
                         #FIXME should be using extractors instead
@@ -486,7 +496,7 @@ class Kensu(object):
                                                            stored_in_schema_ref=SchemaRef(by_guid=to_guid)),
                                          metrics=metrics, hyper_params_as_json=hyperparams)._report()
                     for schema in from_pks:
-                        if self.input_stats == True:
+                        if self.input_stats:
                             create_stats(schema)
                     create_stats(to_guid)
 
