@@ -1,11 +1,19 @@
+import logging
+
 import requests
 
 from abc import ABC, abstractmethod
 
+
 # we could reuse the reporters instead
+from requests import JSONDecodeError
+
+from kensu.utils.exceptions import SdkError
+
+
 class AbstractSDK(ABC):
     @abstractmethod
-    def get_cookie():
+    def get_cookie(self):
         pass
 
     @abstractmethod
@@ -53,7 +61,7 @@ class AbstractSDK(ABC):
         pass
 
     @abstractmethod
-    def get_latest_schema_in_logical(self, url, logical,n=-1):
+    def get_latest_schema_in_logical(self, logical,n=-1):
         pass
 
     @abstractmethod
@@ -73,7 +81,7 @@ class DoNothingSDK(ABC):
     def __init__(self):
         pass
 
-    def get_cookie():
+    def get_cookie(self):
         pass
     
     def get_lineages_in_project(self, project, process, env, code_version):
@@ -109,7 +117,7 @@ class DoNothingSDK(ABC):
     def get_latest_schema_in_datasource(self, ds):
         pass
     
-    def get_latest_schema_in_logical(url, logical, n=-1):
+    def get_latest_schema_in_logical(self, logical, n=-1):
         pass
     
     def get_latest_stats_for_ds(self, projectId, env, linId, dsId):
@@ -123,26 +131,45 @@ class DoNothingSDK(ABC):
 
 
 class SDK(AbstractSDK):
-    def __init__(self, url, sdk_token):
+    def __init__(self, url, sdk_token, verify_ssl):
         self.url = url
         self.PAT = sdk_token
         self.cookie_url = self.url + '/api/auth/callback?client_name=ExternalAppTokenClient'
         self.cookie_header = {'X-External-App-Token': self.PAT}
-        self.cookie = self.get_cookie() 
+        self.verify_ssl = verify_ssl
+        self.cookie = self.get_cookie()  # FIXME: get_cookie called only once in __init__()! thus it might get expired!
 
     def get_cookie(self):
         session = requests.Session()
-        response = session.post(url=self.cookie_url, headers=self.cookie_header, verify=False)
+        response = session.post(url=self.cookie_url, headers=self.cookie_header, verify=self.verify_ssl)
         cookie = session.cookies
         return cookie
 
-    def get_lineages_in_project(self, project, process, env, code_version):
-        url_pref = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s"%(project,process,env,code_version)
-        v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
-        return v.json()
+    def requests_get_json(self, uri_suffix):
+        # FIXME: proper URI concat
+        # FIXME: verify if this update the cookie jar?
+        # FIXME: what if cookie expired?
+        resp = requests.get(self.url + uri_suffix, cookies=self.cookie, verify=self.verify_ssl)
+        if not (200 <= resp.status_code <= 299):
+            msg = f"Failed to query Kensu SDK for uri={uri_suffix} status={resp.status_code}:\n{resp.text}"
+            e = SdkError(msg)
+            logging.warning(msg, e)
+            raise SdkError(e)
+        try:
+            return resp.json()
+        except JSONDecodeError as e:
+            logging.warning(f"Unable to decode Kensu SDK response for uri={uri_suffix}:\n{v}", e)
+            raise SdkError(e)
 
-    def create_rule(self,lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None, fun=None, context = "DATA_STATS"):
-        url_pref = "/business/api/v1/predicates"
+
+    def get_lineages_in_project(self, project, process, env, code_version):
+        # FIXME: use proper URLencode
+        uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (project,process,env,code_version)
+        return self.requests_get_json(uri)
+
+    def create_rule(self, lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None, fun=None, context="DATA_STATS"):
+        uri = "/business/api/v1/predicates"
+        payload = None
         if context == "DATA_STATS":
             payload = {
                 "context": "DATA_STATS",
@@ -166,40 +193,36 @@ class SDK(AbstractSDK):
                 "arguments": fun["arguments"]
             }
 
-        v = requests.post(self.url + url_pref, json=payload, cookies=self.cookie, verify=False)
-        return v.json()
+        if payload:
+            return requests.post(self.url + uri, json=payload, cookies=self.cookie, verify=self.verify_ssl).json()
 
     def update_rule(self, predicate, fun):
-        url_pref = "/business/api/v1/predicates/%s"%predicate
+        uri = "/business/api/v1/predicates/%s" % predicate
 
         payload = {"functionName": fun["name"],
-                    "arguments": fun["arguments"]}
+                   "arguments": fun["arguments"]}
 
-        v = requests.put(self.url + url_pref, json=payload, cookies=self.cookie, verify=False)
+        v = requests.put(self.url + uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
         return None
 
     def get_rules(self):
-        url_pref = "/business/api/views/v1/predicate-catalog"
-        v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
-        return v.json()
+        uri = "/business/api/views/v1/predicate-catalog"
+        return self.requests_get_json(uri)
 
     def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
-        url_pref = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s"%(ds_id,lineage_id,project_id,env)
-        v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
-        return v.json()
+        uri = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s" % (ds_id,lineage_id,project_id,env)
+        return self.requests_get_json(uri)
 
     def get_all_rules_for_ds(self,ds_id):
-        url_pref = "/business/api/v1/predicates?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE"%(ds_id)
-        v = requests.get(self.url + url_pref, cookies=self.cookie, verify=False)
-        return v.json()
+        uri = "/business/api/v1/predicates?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE" % (ds_id)
+        return self.requests_get_json(uri)
 
     def get_datasources_in_logical(self, logical):
-        v = requests.get(self.url + "/api/services/v1/experimental/datasources/in-logical/%s" % logical, cookies=self.cookie, verify=False)
-        return v.json()
+        # FIXME: 404
+        return self.requests_get_json("/api/services/v1/experimental/datasources/in-logical/%s" % logical)
 
     def get_datasource(self, dsId):
-        v = requests.get(self.url + "/api/services/v1/resources/datasource/%s" % dsId, cookies=self.cookie, verify=False)
-        return v.json()
+        return self.requests_get_json("/api/services/v1/resources/datasource/%s" % dsId)
 
     def get_latest_datasource_in_logical(self, logical, n=-1):
         js = self.get_datasources_in_logical(logical)
@@ -213,8 +236,7 @@ class SDK(AbstractSDK):
             return None
 
     def get_schema(self, schema_id):
-        v = requests.get(self.url+"/api/services/v1/resources/schema/%s" %schema_id, cookies=self.cookie, verify=False)
-        return v.json()
+        return self.requests_get_json("/api/services/v1/resources/schema/%s" % schema_id)
 
     def get_latest_schema_in_datasource(self, ds):
         if ds:
@@ -225,23 +247,19 @@ class SDK(AbstractSDK):
         else:
             return None
 
-    def get_latest_schema_in_logical(self, url, logical,n=-1):
-        ds = get_latest_datasource_in_logical(url, logical, n)
-        schema = get_latest_schema_in_datasource(url, ds)
+    def get_latest_schema_in_logical(self, logical, n=-1):
+        ds = self.get_latest_datasource_in_logical(logical, n)
+        schema = self.get_latest_schema_in_datasource(ds)
         return schema
 
     def get_latest_stats_for_ds(self, projectId, env, linId, dsId):
-        uri = self.url + "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=false&environment=%s"%(dsId,linId,projectId,env)
-        v = requests.get(uri, cookies=self.cookie, verify=False)
-        stats_json = sorted(v.json()['data']['stats'],key=lambda k: k['timestamp'])[-1]
+        resp_json = self.requests_get_json("/business/api/v1/performance/data/%s/%s?projectId=%s&logical=false&environment=%s" % (dsId,linId,projectId,env))
+        stats_json = sorted(resp_json['data']['stats'], key=lambda k: k['timestamp'])[-1]
         return stats_json['stats']
 
     def get_logical_ds_name_from_ds(self, dsId):
-        uri = self.url + "/business/api/v1/datasources/%s"%dsId
-        v = requests.get(uri, cookies=self.cookie, verify=False)
-        ds = v.json()
+        ds = self.requests_get_json("/business/api/v1/datasources/%s" % dsId)
         return ds["data"]["logicalDatasource"]["name"]
 
     def get_datasources(self):
-        v = requests.get(self.url+"/api/services/v1/resources/datasources",cookies=self.cookie,verify=False)
-        return v.json()
+        return self.requests_get_json("/api/services/v1/resources/datasources")

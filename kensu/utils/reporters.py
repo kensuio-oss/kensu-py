@@ -39,9 +39,9 @@ class Reporter(object):
     def create(config, name = None):
         name = name or config.get("name", None)
         reporter = None
-        if name == "GenericReporter":
-            reporter = GenericReporter(config)
-        elif name == "DoNothingReporter":
+        # if name == "GenericReporter":
+        #     reporter = GenericReporter(config)
+        if name == "DoNothingReporter":
             reporter = DoNothingReporter(config)
         elif name == "PrintReporter":
             reporter = PrintReporter(config)
@@ -62,8 +62,9 @@ class GenericReporter(Reporter):
     def __init__(self, config, fun):
         super().__init__(config)
         self.fun = fun
+
     def apply(self, obj, kensu_api, method):
-        return fun(obj, kensu_api, method)
+        return self.fun(obj, kensu_api, method)
 
 
 class DoNothingReporter(Reporter):

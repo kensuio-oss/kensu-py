@@ -24,22 +24,24 @@ class KensuProvider(object):
             KensuProvider().setKensu(None)
         if ksu_provided_inst is None or allow_reinit:
             from kensu.utils.kensu import Kensu
-            pandas_support = kwargs["pandas_support"] if "pandas_support" in kwargs else True
-            sklearn_support = kwargs["sklearn_support"] if "sklearn_support" in kwargs else True
-            bigquery_support = kwargs["bigquery_support"] if "bigquery_support" in kwargs else None
-            tensorflow_support = kwargs["tensorflow_support"] if "tensorflow_support" in kwargs else None
-            bigquery_headers = kwargs["bigquery_headers"] if "bigquery_headers" in kwargs else None
+            pandas_support = kwargs.get("pandas_support", True)
+            sklearn_support = kwargs.get("sklearn_support")
+            bigquery_support = kwargs.get("bigquery_support")
+            tensorflow_support = kwargs.get("tensorflow_support")
+            bigquery_headers = kwargs.get("bigquery_headers")
 
-            project_names = kwargs["project_names"] if "project_names" in kwargs else None
-            environment = kwargs["environment"] if "environment" in kwargs else None
-            timestamp = kwargs["timestamp"] if "timestamp" in kwargs else None
-            logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
+            project_names = kwargs.get("project_names")
+            environment = kwargs.get("environment")
+            timestamp = kwargs.get("timestamp")
+            logical_naming = kwargs.get("logical_naming")
             mapping = kwargs["mapping"] if "mapping" in kwargs else True
-            report_in_mem = kwargs["report_in_mem"] if "report_in_mem" in kwargs else False
-            get_code_version = kwargs["get_code_version"] if "get_code_version" in kwargs else None
-            stats = kwargs["compute_stats"] if "compute_stats" in kwargs else True
-            input_stats = kwargs["input_stats"] if "input_stats" in kwargs else True
-            sql_util_url = kwargs["sql_util_url"] if "sql_util_url" in kwargs else None
+            report_in_mem = kwargs.get("report_in_mem")
+            get_code_version = kwargs.get("get_code_version")
+            stats = kwargs.get("compute_stats")
+            input_stats = kwargs.get("input_stats")
+            sql_util_url = kwargs.get("sql_util_url")
+            compute_delta = kwargs.get("compute_delta")
+            sdk_verify_ssl = kwargs.get("sdk_verify_ssl")
 
             _kensu = Kensu(api_url=api_url, auth_token=auth_token, process_name=process_name, user_name=user_name,
                       code_location=code_location, init_context=init_context, do_report=do_report, pandas_support = pandas_support,
@@ -47,7 +49,9 @@ class KensuProvider(object):
                       project_names=project_names,environment=environment,timestamp=timestamp,logical_naming=logical_naming,mapping=mapping, report_in_mem = report_in_mem,
                       report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
                       get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn,
-                      compute_stats=stats,input_stats=input_stats, bigquery_headers = bigquery_headers, sql_util_url= sql_util_url)
+                      compute_stats=stats,input_stats=input_stats, bigquery_headers = bigquery_headers, sql_util_url= sql_util_url,
+                      compute_delta=compute_delta,
+                      sdk_verify_ssl=sdk_verify_ssl)
 
             KensuProvider().setKensu(_kensu)
             return _kensu
