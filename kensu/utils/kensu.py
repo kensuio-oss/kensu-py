@@ -84,7 +84,7 @@ class Kensu(object):
     def __init__(self, api_url=None, auth_token=None, process_name=None,
                  user_name=None, code_location=None, init_context=True, 
                  do_report=None, report_to_file=None, offline_file_name=None, 
-                 reporter=None, compute_stats=True, 
+                 compute_stats=True, 
                  config=None, **kwargs):
         """
         config: : configparser.ConfigParser if None `build_conf` will be tried
