@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import jwt
 
 from kensu.client import *
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
@@ -14,7 +15,8 @@ from kensu.utils.helpers import to_hash_key
 from kensu.utils.injection import Injection
 from kensu.pandas import DataFrame,Series
 from kensu.utils.reporters import *
-
+from kensu.utils.rule_engine import create_kensu_nrows_consistency
+from kensu import sdk
 
 
 class Kensu(object):
@@ -34,10 +36,10 @@ class Kensu(object):
                 git_repo = git.Repo(cur_dir, search_parent_directories=True)
                 return git_repo
             except git.GitError as e:
-                logging.warn("kensu-py was unable to identify a git repo. The working dir is not a git repo?")
+                logging.warning("kensu-py was unable to identify a git repo. The working dir is not a git repo?")
                 pass
         except ImportError as e:
-            logging.warn("Install GitPython for a maximum context about the GIT code repo if any")
+            logging.warning("Install GitPython for a maximum context about the GIT code repo if any")
             pass
 
     @staticmethod
@@ -52,7 +54,6 @@ class Kensu(object):
 
     @staticmethod
     def discover_code_version():
-
         code_version = datetime.datetime.now().isoformat()
 
         git_repo = Kensu.get_git_repo()
@@ -77,13 +78,13 @@ class Kensu(object):
         try:
             config.read(conf_path)
         except:
-            logging.warn(f"Cannot load config from file `%s`" % (conf_path))
+            logging.warning(f"Cannot load config from file `%s`" % (conf_path))
         return config
 
     def __init__(self, api_url=None, auth_token=None, process_name=None,
                  user_name=None, code_location=None, init_context=True, 
                  do_report=None, report_to_file=None, offline_file_name=None, 
-                 reporter=None, compute_stats=True, 
+                 compute_stats=True, 
                  config=None, **kwargs):
         """
         config: : configparser.ConfigParser if None `build_conf` will be tried
@@ -102,24 +103,35 @@ class Kensu(object):
         else:
             kensu_auth_token = auth_token
 
-        def kwargs_or_conf_or_default(key, default, kw=kwargs, conf=kensu_conf):
-            if key in kw and kw[key] is not None:
+        # returns a value following this precedence:
+        #   kwargs = arg > conf > default
+        # default is used to determine the type of the conf value (it can be overriden by tpe)
+        def kwargs_or_conf_or_default(key, default, arg=None, kw=kwargs, conf=kensu_conf, tpe=None):
+            if arg is not None:
+                return arg
+            elif key in kw and kw[key] is not None:
                 return kw[key]
             elif key in conf and conf.get(key) is not None:
+                if default is not None and tpe is None:
+                    tpe = type(default)
                 r = conf.get(key)
-                if isinstance(default, list):
-                    r = r.replace(" ","").split(",")
-                elif isinstance(default, bool):
+                if tpe is list:
+                    r = r.split(",")
+                elif tpe is bool:
                     r = conf.getboolean(key)
+                elif tpe is not None:
+                    r = tpe(r)
                 return r
             else:
                 return default
         self.extractors = Extractors()
         pandas_support = kwargs_or_conf_or_default("pandas_support", True)
-        sklearn_support = kwargs_or_conf_or_default("sklearn_support", True)
+        sklearn_support = kwargs_or_conf_or_default("sklearn_support", False)
         bigquery_support = kwargs_or_conf_or_default("bigquery_support", False)
         tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", False)
-        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support)
+        matplotlib_support = kwargs_or_conf_or_default("matplotlib_support", False)
+
+        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support, matplotlib_support = matplotlib_support)
 
         bigquery_headers = kwargs_or_conf_or_default("bigquery_headers", None)
         if bigquery_headers:
@@ -127,7 +139,7 @@ class Kensu(object):
 
         project_names = kwargs_or_conf_or_default("project_names", [])
         environment = kwargs_or_conf_or_default("environment", None)
-        timestamp = kwargs_or_conf_or_default("timestamp", None)
+        timestamp = kwargs_or_conf_or_default("timestamp", None, tpe=int)
         logical_naming = kwargs_or_conf_or_default("logical_naming", None)
         mapping = kwargs_or_conf_or_default("mapping", None)
         report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
@@ -138,34 +150,45 @@ class Kensu(object):
         else:
             get_code_version = Kensu.discover_code_version
 
-        def default_if_arg_none(arg, default):
-            if arg is None:
-                return default
-            else:
-                return arg
-        process_name = default_if_arg_none(process_name, kensu_conf.get("process_name"))
-        user_name = default_if_arg_none(user_name, kensu_conf.get("user_name"))
-        code_location = default_if_arg_none(code_location, kensu_conf.get("code_location"))
+        process_name = kwargs_or_conf_or_default("process_name", "Missing Application Name", process_name)
+        user_name = kwargs_or_conf_or_default("user_name", "Missing User Name", user_name)
+        code_location = kwargs_or_conf_or_default("code_location", None, code_location)
 
-        reporter = default_if_arg_none(reporter, kensu_conf.get("reporter", None))
-        do_report = default_if_arg_none(do_report, kensu_conf.getboolean("do_report", True))
-        report_to_file = default_if_arg_none(report_to_file, kensu_conf.getboolean("report_to_file", False))
-        offline_file_name = default_if_arg_none(offline_file_name, kensu_conf.get("offline_file_name", None))
+        reporter = kwargs_or_conf_or_default('reporter', None)
+        do_report = kwargs_or_conf_or_default("do_report", True, do_report)
+        report_to_file = kwargs_or_conf_or_default("report_to_file", False, report_to_file)
+        offline_file_name = kwargs_or_conf_or_default("offline_file_name", None, offline_file_name)
+        compute_stats = kwargs_or_conf_or_default("compute_stats", True, compute_stats)
+        input_stats = kwargs_or_conf_or_default("input_stats", True)
+        compute_delta = kwargs_or_conf_or_default("compute_delta",False)
+        if compute_delta and not input_stats:
+            logging.warning("delta nrows stats (compute_delta=True) will not work without setting input_stats=True")
+        raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
+        self.api_url = kwargs_or_conf_or_default("api_url", None)
+
+        sdk_pat = kwargs_or_conf_or_default("PAT", None)
+        sdk_url = kwargs_or_conf_or_default("sdk_url", None)
+        sdk_verify_ssl = kwargs_or_conf_or_default("sdk_verify_ssl", True)
+        if sdk_pat is None:
+            self.sdk = sdk.DoNothingSDK()
+        else:
+            if sdk_url is None:
+                sdk_url = self.api_url.replace('-api', '')                
+            self.sdk = sdk.SDK(sdk_url, sdk_pat, verify_ssl=sdk_verify_ssl)
+
 
         # add function to Kensu entities
         injection = Injection()
 
         # reporter could be either an instance of Reporter already, or None, or a String (the class name of the reporter)
-        reporter_config = None
-
         if isinstance(reporter, str) or config.has_section('kensu.reporter'):
             reporter = Reporter.create(config['kensu.reporter'], reporter)
         elif reporter is not None and hasattr(reporter, '__call__'):
-            reporter = GenericReporter(reporter)
+            reporter = GenericReporter(config, reporter.__call__)
 
         injection.set_reporter(reporter)
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
@@ -175,8 +198,11 @@ class Kensu(object):
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats
+        self.compute_delta = compute_delta
+        self.raise_on_check_failure = raise_on_check_failure
         self.offline_file_name = offline_file_name
         self.sql_util_url = sql_util_url
+        self.input_stats = input_stats
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
@@ -200,6 +226,10 @@ class Kensu(object):
         if "in-mem" in name and ds.format is not None:
             name = name + " of format=" + str(ds.format or '?')
         self.schema_name_by_guid[schema.to_guid()] = name
+        try:
+            self.logical_name_by_guid[schema.to_guid()] = ds.categories[0].split("::")[1]
+        except:
+            None
         return schema
 
     def to_schema_name(self, s_guid):
@@ -207,7 +237,6 @@ class Kensu(object):
 
     def to_schema_names(self, s_guids):
         return list(set([self.to_schema_name(s_guid) for s_guid in s_guids]))
-
 
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
         # list of triples i, o, mapping strategy
@@ -219,12 +248,19 @@ class Kensu(object):
         # so must be not set for in memory DSes
         self.real_schema_df = {}
         self.schema_name_by_guid = {}
+        self.logical_name_by_guid = {}
+        # by lineage_id, thus this tracks for which lineages a lineage run was already sent
         self.sent_runs = []
         self.data_collectors = {}
         self.model={}
         self.set_timestamp(timestamp)
         self.inputs_ds = []
+        self.lineage_and_ds = {}
         self.write_reinit = False
+        self.rules = []
+        self.check_rules = []
+        self.schema_stats = {}
+        self.stats_to_send={}
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -295,6 +331,9 @@ class Kensu(object):
 
     def in_mem(self, var_name):
         return "in-memory-data://" + self.process.pk.qualified_name + "/" + var_name
+
+    def name_for_stats(self, input_name):
+        return input_name.replace('.', '_')
 
     def report_with_mapping(self):
         self.set_reinit()
@@ -377,45 +416,70 @@ class Kensu(object):
                     from_pks.add(from_guid)
                     schemas_pk.add(to_guid)
 
+
                 lineage = ProcessLineage(name=self.get_lineage_name(dataflow),
                                          operation_logic='APPEND',
                                          pk=ProcessLineagePK(
                                              process_ref=ProcessRef(by_guid=self.process.to_guid()),
                                              data_flow=dataflow))._report()
-
-
-
                 if lineage.to_guid() not in self.sent_runs:
+                    from_schema_ref = set(x.from_schema_ref.by_guid for x in lineage.pk.data_flow)
+                    to_schema_ref =  set(x.to_schema_ref.by_guid for x in lineage.pk.data_flow)
+                    self.lineage_and_ds[lineage.to_guid()] = {'from_schema_ref':list(from_schema_ref),
+                                                              'to_schema_ref':to_schema_ref}
+
+
                     lineage_run = LineageRun(
                         pk=LineageRunPK(lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                         process_run_ref=ProcessRunRef(by_guid=self.process_run.to_guid()),
                                         timestamp=round(self.timestamp)))._report()
                     self.sent_runs.append(lineage.to_guid())
 
-                    for schema in schemas_pk:
-                        stats_df = self.real_schema_df[schema]
 
-                        try:
-                            stats = self.extractors.extract_stats(stats_df)
-                        except:
-                            from kensu.requests.models import ksu_str
-                            # FIXME weird... should be fine to delete (and try,except too)
-                            if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
-                                stats = self.extractors.extract_stats(stats_df)
-                            elif isinstance(stats_df, ksu_str):
-                                stats = None
-                            elif isinstance(stats_df, dict):
-                                stats = stats_df
-                            else:
-                                #TODO Support ndarray
-                                stats = None
-                        if stats is not None:
-                            r=DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema),
-                                                     lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid())),
-                                      stats=stats,
-                                      extra_as_json=None)._report()
-                        elif isinstance(stats_df, KensuDatasourceAndSchema):
+                    def create_stats(schema_guid):
+                        stats_df = self.real_schema_df[schema_guid]
+
+                        if isinstance(stats_df, KensuDatasourceAndSchema):
                             stats_df.f_publish_stats(lineage_run.to_guid())
+
+                        else:
+                            try:
+                                stats = self.extractors.extract_stats(stats_df)
+                            except:
+                                from kensu.requests.models import ksu_str
+                                # FIXME weird... should be fine to delete (and try,except too)
+                                if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
+                                    stats = self.extractors.extract_stats(stats_df)
+                                elif isinstance(stats_df, ksu_str):
+                                    stats = None
+                                elif isinstance(stats_df, dict):
+                                    stats = stats_df
+                                else:
+                                    #TODO Support ndarray
+                                    stats = None
+                            if stats is not None:
+                                self.schema_stats[schema_guid] = stats
+                                if lineage_run.to_guid() not in self.stats_to_send:
+                                    self.stats_to_send[lineage_run.to_guid()] = {}
+                                self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+                                if schema_guid == to_guid:
+                                    if 'nrows' in stats and self.compute_delta:
+                                        # fixme: extract a helper
+                                        output_nrows = stats['nrows']
+                                        #TODO Corner case: if from_pk = to_pk
+                                        for input_schema_guid in from_pks:
+                                            input_stats = self.schema_stats.get(input_schema_guid)
+                                            input_nrows = input_stats and input_stats.get('nrows')
+                                            if input_nrows:
+                                                delta_nrows = input_nrows - output_nrows
+                                                input_name = self.logical_name_by_guid.get(input_schema_guid, self.schema_name_by_guid.get(input_schema_guid))
+                                                clean_input_name = self.name_for_stats(input_name)
+                                                stats['delta.nrows_' + clean_input_name + '.abs']=delta_nrows
+                                                stats['delta.nrows_' + clean_input_name + '.decrease in %'] = round(100*delta_nrows/input_nrows,2)
+                                        self.schema_stats[schema_guid] = stats
+                                        self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+
+
                         #FIXME should be using extractors instead
                         if is_ml_model:
                             model_name = self.model[to_guid][1]
@@ -431,6 +495,25 @@ class Kensu(object):
                                                            lineage_run_ref=LineageRunRef(by_guid=lineage_run.to_guid()),
                                                            stored_in_schema_ref=SchemaRef(by_guid=to_guid)),
                                          metrics=metrics, hyper_params_as_json=hyperparams)._report()
+                    for schema in from_pks:
+                        if self.input_stats:
+                            create_stats(schema)
+                    create_stats(to_guid)
+
+
+                    for check in self.check_rules:
+                        if list(check.keys())[0] == 'nrows_consistency':
+                            create_kensu_nrows_consistency(check[list(check.keys())[0]])
+                    self.send_rules()
+
+                    lineage_run_id = lineage_run.to_guid()
+                    for lineage_run_id in self.stats_to_send:
+                        for schema_id in self.stats_to_send[lineage_run_id]:
+                            self.send_stats(lineage_run_id,schema_id,self.stats_to_send[lineage_run_id][schema_id])
+                    if lineage_run_id in self.stats_to_send:
+                        del self.stats_to_send[lineage_run_id]
+
+                    self.check_local_rules()
 
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
@@ -574,3 +657,99 @@ class Kensu(object):
                         metrics=metrics,
                         hyper_params_as_json=json.dumps(hp)
                     )._report()
+
+    def send_stats(self,lineage_run_id, schema_id,stats):
+
+        if stats is not None:
+            DataStats(pk=DataStatsPK(schema_ref=SchemaRef(by_guid=schema_id),
+                                     lineage_run_ref=LineageRunRef(by_guid=lineage_run_id)),
+                      stats=stats,
+                      extra_as_json=None)._report()
+
+    def send_rules(self):
+        if self.rules and self.api_url:
+            process_id = self.process.to_guid()
+            project_id = self.process_run.projects_refs[0].by_guid
+            env_name = self.process_run.environment
+            cv = self.process_run.executed_code_version_ref.by_guid
+
+            for map in self.rules:
+                for lds_id in map:
+                    field_name = map[lds_id]['field']
+                    fun = map[lds_id]['fun']
+                    context = map[lds_id]['context']
+
+                    token_content = jwt.decode(self.kensu_api.api_client.default_headers["X-Auth-Token"], options={"verify_signature": False})
+                    if 'SANDBOX_USER_HASH' in token_content:
+                        sandbox_prefix = token_content['SANDBOX_USER_HASH'] + "-"
+                        project_id = sandbox_prefix + project_id
+                        process_id = sandbox_prefix + process_id
+                        cv = sandbox_prefix +cv
+
+                    data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
+
+                    try:
+                        lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
+                            'id']
+                    except:
+                        logging.info("LDS Guid %s not in this lineage"%lds_id)
+                        lds_guid = None
+                    if lds_guid is not None:
+                        if context == "DATA_STATS":
+                            lineage_ids = set(
+                                [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
+                            for lineage_id in lineage_ids:
+                                current_rules = self.sdk.get_rules_for_ds_in_project(lds_guid, lineage_id, project_id,
+                                                                                     env_name)
+                                current_range_rules = {i['fieldName']: i['uuid'] for i in
+                                                       current_rules['data']['predicates'] if
+                                                       i['functionName'] == 'Range' and (i['environment'] == env_name)}
+                                current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if
+                                                          i['functionName'] == 'Frequency' and (
+                                                                      i['environment'] == env_name)]
+                                if fun['name'] == 'Range' and (field_name in current_range_rules):
+                                    self.sdk.update_rule(current_range_rules[field_name], fun)
+                                elif fun['name'] == 'Frequency' and current_frequency_rule:
+                                    self.sdk.update_rule(current_frequency_rule[0], fun)
+
+                                else:
+                                    self.sdk.create_rule(lds_guid, lineage_id, project_id, process_id, env_name, field_name,
+                                                         fun)
+
+                        elif context == "LOGICAL_DATA_SOURCE":
+                            current_rules = self.sdk.get_all_rules_for_ds(lds_guid)
+                            current_range_rules = {i['fieldName']: i['uuid'] for i in
+                                                   current_rules['data']['predicates'] if
+                                                   i['functionName'] == 'Range'}
+                            current_variation_rules = {i['fieldName']: i['uuid'] for i in
+                                                   current_rules['data']['predicates'] if
+                                                   i['functionName'] == 'Variability'}
+                            if fun['name'] == 'Range' and (field_name in current_range_rules):
+                                self.sdk.update_rule(current_range_rules[field_name], fun)
+                            elif fun['name'] == 'Variability' and (field_name in current_variation_rules):
+                                self.sdk.update_rule(current_variation_rules[field_name], fun)
+
+                            else:
+                                self.sdk.create_rule(lds_id=lds_guid, field_name=field_name,
+                                                     fun=fun,context = "LOGICAL_DATA_SOURCE")
+
+
+
+
+    def check_local_rules(self):
+        from kensu.utils.exceptions import NrowsConsistencyError
+        for check in self.check_rules:
+            if 'check_nrows_consistency' in check:
+                for datasource in check['check_nrows_consistency']:
+                    for rule in check['check_nrows_consistency'][datasource]:
+                        for field in rule:
+                            if rule[field]['output_nrows'] != rule[field]['input_nrows'] :
+                                e = NrowsConsistencyError(datasource, rule[field]['input_nrows'],
+                                                                rule[field]['output_nrows'])
+                                if self.raise_on_check_failure:
+                                    raise e
+                                else:
+                                    logging.warning(e)
+
+
+

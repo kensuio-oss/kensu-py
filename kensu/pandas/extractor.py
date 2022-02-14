@@ -7,7 +7,7 @@ import numpy as np
 import kensu
 from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
-from kensu.utils.helpers import singleton, to_datasource
+from kensu.utils.helpers import singleton, save_stats_json, to_datasource
 
 
 @singleton
@@ -63,26 +63,57 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
     def extract_stats(self, df):
         df = self.skip_wr(df)
         if isinstance(df, pd.DataFrame):
-            stats_dict = {self.tk(k, k1): v for k, o in df.describe().to_dict().items() for k1, v in o.items() if type(v) in [int,float,np.int64]}
-            for key,item in stats_dict.copy().items():
-                if type(item) == np.int64:
-                    stats_dict[key] = int(item)
-                if np.isnan(item):
-                    del stats_dict[key]
+            try:
+                df_desc_numbers = df.describe(include=['number']).to_dict().items()
+            except:
+                df_desc_numbers = {}
+
+            stats_dict = {self.tk(k, k1): v for k, o in df_desc_numbers for k1, v in o.items()}
+
             #Extract datetime for timeliness
             date_df = df.select_dtypes(['datetime', 'datetimetz'])
             date_dict = {}
             # if not checked, when there's no Datetime types,
             # it would throw `ValueError: Cannot describe a DataFrame without columns`
             if not (date_df.ndim == 2 and date_df.columns.size == 0):
-                date_describe = date_df.describe().to_dict()
+                date_describe = date_df.describe(datetime_is_numeric=False).to_dict()
                 for col in date_describe:
                     first = date_describe[col]['first'].timestamp()*1000
                     last = date_describe[col]['last'].timestamp()*1000
                     date_dict[col + '.first'] = first
                     date_dict[col + '.last'] = last
+            
+            #Extract categories and boolean as categorical series
+            cat_names = df.select_dtypes(['category', 'boolean', 'object']).columns
+            cat_dict = {}
+            for cat_col in cat_names:
+                vc = df[cat_col].value_counts()
+                vc_dict = vc.to_dict()
+                for k, v in vc_dict.items():
+                    if not np.isnan(v):
+                        cat_dict[self.tk(cat_col, k)] = v
+                count_names = ["nrows", "count", "len", "numrows"]
+                count_name = None
+                for n in count_names:
+                    if n in vc_dict:
+                        pass
+                    else:
+                        count_name = n
+                        break
+                if count_name is None:
+                    logging.warning("Because the categorical value has many category names matches 'nrows', 'count', and alike, the count stat is set to 'kensu.nrows' for " + cat_col)
+                    count_name = "kensu.nrows"
+                cat_dict[self.tk(cat_col, count_name)] = vc.sum()
+                
+                distinct_count_name = "num_categories"
+                if distinct_count_name in vc_dict:
+                    logging.warning("Because the categorical value has a category names 'num_categories', the number of categories stat is set to 'kensu.num_categories' for " + cat_col)
+                    distinct_count_name = self.tk("kensu", distinct_count_name)
+                cat_dict[self.tk(cat_col, distinct_count_name)] = len(vc_dict)
+                
+                # TODO do we need nulls and such?
 
-            stats_dict = {**stats_dict,**date_dict}
+            stats_dict = {**stats_dict, **date_dict, **cat_dict}
 
             #Add missing value computation
             count = len(df)
@@ -91,8 +122,19 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                 try:
                     stats_dict[col + '.nullrows'] =  count - stats_dict[col + '.count']
                 except:
-                    logging.debug('Unable to get NA count for ' + str(col))
+                    try:
+                        stats_dict[col + '.nullrows'] = count - stats_dict[col + '.nrows']
+                    except:
+                        logging.debug('Unable to get NA count for ' + str(col))
 
+            for key, item in stats_dict.copy().items():
+                if isinstance(item,str):
+                    del stats_dict[key]
+                elif np.isnan(item):
+                    del stats_dict[key]
+                elif isinstance(item, np.number):
+                    stats_dict[key] = item.item()
+                
             return stats_dict
         elif isinstance(df, pd.Series):
             return {k: v for k, v in df.describe().to_dict().items() if type(v) in [int,float] }
