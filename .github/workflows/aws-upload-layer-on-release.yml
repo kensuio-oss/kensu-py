@@ -51,7 +51,7 @@ jobs:
           # aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Setup Python 3.8
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2.3.2
         with:
           python-version: '3.8'
 
