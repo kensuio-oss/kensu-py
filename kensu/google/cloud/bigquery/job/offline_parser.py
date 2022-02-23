@@ -4,6 +4,7 @@
 # Copyright 2021 Kensu Inc
 #
 import logging
+import re
 from typing import Union
 
 from google.cloud.bigquery import Table, TableReference
@@ -24,12 +25,15 @@ class BqOfflineParser:
 
     @staticmethod
     def normalize_table_refs(q):
-        # FIXME: this might be error prone!?
+        # FIXME: this might be still quite error prone in non-standard use-cases...
         """
         >>> normalize_table_refs('SELECT * FROM `a1`.`b2`.`c3`')
         'SELECT * FROM `a1.b2.c3`'
         """
-        # FIXME: use regex
+        matches = re.findall(r'`([a-zA-Z0-9-_]+)`.`([a-zA-Z0-9-_]+)`.`([a-zA-Z0-9-_]+)`', q)
+        for (s1, s2, s3) in matches:
+            q = q.replace(f'`{s1}`.`{s2}`.`{s3}`', f'`{s1}.{s2}.{s3}`')
+
         return q
 
     @staticmethod
