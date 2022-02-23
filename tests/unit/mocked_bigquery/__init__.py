@@ -81,7 +81,7 @@ def mock(mocker):
                 spec=google.cloud.bigquery.job.query.QueryJob,
                 query=sample_sql,
                 referenced_tables=list(table_id_to_bqtable.keys()),
-                ddl_target_table=None
+                ddl_target_table=None,
                 destination=res_table,
                 result=lambda: job_result
             ),
