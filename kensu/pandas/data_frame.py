@@ -233,6 +233,7 @@ class KensuPandasDelegator(object):
                         col_orig = [k.name for k in orig_sc.pk.fields]
 
                         try:
+                            item = args[1]
                             orig_series = eventually_report_in_mem(kensu.extractors.extract_data_source(item, kensu.default_physical_location_ref))
                             orig_sc_series = eventually_report_in_mem(kensu.extractors.extract_schema(orig_series, item))
                         except:
@@ -244,8 +245,7 @@ class KensuPandasDelegator(object):
                             if col in col_orig:
                                 kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(),
                                                              str(col), name)
-                            else:
-                                if col_series:
+                            elif col_series:
                                     col_origin = col_series[0]
                                     kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc_series.to_guid(),
                                                                  str(col_origin), name)
@@ -280,7 +280,7 @@ class KensuPandasDelegator(object):
                         right_sc = eventually_report_in_mem(kensu.extractors.extract_schema(right_ds, right_df))
 
 
-                        if how == 'inner':
+                        if how in ['inner','outer']:
                             result_cols = result.columns
                             columns_left = left_df.columns
                             columns_right = right_df.columns
@@ -486,7 +486,8 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
         #FIXME
         table = None
         if fmt == 'gbq' or isinstance(args[0],str) == False:
-            return None
+          return None
+
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
             location = get_absolute_path(args[0])
@@ -570,6 +571,34 @@ class KensuSeriesDelegator(object):
             return KensuSeriesDelegator.handle_callable(self, name, attr_value)
         else:
             return KensuSeriesDelegator.handle_field(self, name, attr_value)
+
+    def wrapped_series_op(self, other_input, wrapped_fn, op_title=None):
+        kensu = KensuProvider().instance()
+        op_title = op_title or 'Series ' + str(wrapped_fn.__name__)
+        input_kensu_series = self
+
+        other_series = other_input.get_s() if isinstance(other_input,Series) else other_input
+        result = Series.using(wrapped_fn(other_series))
+        result_ds = eventually_report_in_mem(
+            kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
+                                                 logical_naming=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
+
+        inputs = [self,other_input]
+        for input in inputs:
+            if isinstance(input,Series):
+                input_ds = eventually_report_in_mem(
+                    kensu.extractors.extract_data_source(input, kensu.default_physical_location_ref,
+                                                         logical_naming=kensu.logical_naming))
+                input_sc = eventually_report_in_mem(kensu.extractors.extract_schema(input_ds, input))
+                result_col = [k.name for k in result_sc.pk.fields][0]
+                orig_col = [k.name for k in input_sc.pk.fields][0]
+                kensu.add_dependencies_mapping(result_sc.to_guid(), str(result_col), input_sc.to_guid(),
+                                               str(orig_col), str(wrapped_fn.__name__))
+        return result
+
+    def __sub__(self, other):
+         return self.wrapped_series_op(other, self.get_s().__sub__)
 
     @staticmethod
     def wrap_returned_df(kensu_s, returned, name, original):
@@ -1055,7 +1084,6 @@ def wrap_pandas_get_dummies(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-
 def wrap_merge(method):
     def wrapper(*args, **kwargs):
         kensu = KensuProvider().instance()
@@ -1215,6 +1243,29 @@ def wrap_to_datetime(method):
 
         df_result_kensu = Series.using(df_result)
 
+        return df_result_kensu
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+def wrap_concat(method):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+        df_result = method(*args, **kwargs)
+        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
+
+        col_dest = [k.name for k in result_sc.pk.fields]
+
+        for df in args[0]:
+            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+            orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, df))
+            col_orig = [k.name for k in orig_sc.pk.fields]
+            for col in col_dest:
+                if col in col_orig:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
+                                           "concat")
+        df_result_kensu = DataFrame.using(df_result)
         return df_result_kensu
 
     wrapper.__doc__ = method.__doc__

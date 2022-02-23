@@ -13,6 +13,7 @@ certifi >= 14.05.14
 datetime
 python_dateutil >= 2.5.3
 six >= 1.10
+pyjwt
 
 # config
 configparser
