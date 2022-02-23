@@ -42,7 +42,8 @@ class BqOfflineParser:
         table_infos = []
         if job:
             # Referenced tables for the job. Queries that reference more than 50 tables will not have a complete list.
-            referenced_tables = job.referenced_tables # type: list[TableReference]
+            # FIXME: separate referenced from ddl target
+            referenced_tables = job.referenced_tables + [j for j in [job.ddl_target_table] if j] # type: list[TableReference]
             # [TableReference(DatasetReference('project', 'db'), 'table')]
             table_infos = list([BqOfflineParser.table_ref_to_kensu(client, table_id=t)
                             for t in referenced_tables])
