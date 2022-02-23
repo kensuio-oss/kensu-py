@@ -15,7 +15,6 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 from kensu.utils.helpers import extract_ksu_ds_schema
 from kensu.utils.kensu import Kensu
 import google.cloud.bigquery as bq
-#import google.cloud.bigquery
 import sqlparse
 
 logger = logging.getLogger(__name__)
