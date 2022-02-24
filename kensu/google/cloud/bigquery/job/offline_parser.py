@@ -100,7 +100,7 @@ class BqOfflineParser:
             table_id: Union[Table, TableReference, str],
     ):
         table = client.get_table(table_id)
-        ds, sc = BqKensuHelpers.table_to_kensu(table)  # FIXME?
+        ds, sc = BqKensuHelpers.table_to_kensu(table)
         return table, ds, sc
 
     @staticmethod
