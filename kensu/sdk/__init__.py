@@ -6,8 +6,6 @@ from abc import ABC, abstractmethod
 
 
 # we could reuse the reporters instead
-from requests import JSONDecodeError
-
 from kensu.utils.exceptions import SdkError
 
 
@@ -157,9 +155,9 @@ class SDK(AbstractSDK):
             raise SdkError(e)
         try:
             return resp.json()
-        except JSONDecodeError as e:
+        except:
             logging.warning(f"Unable to decode Kensu SDK response for uri={uri_suffix}:\n{v}", e)
-            raise SdkError(e)
+            raise SdkError()
 
 
     def get_lineages_in_project(self, project, process, env, code_version):

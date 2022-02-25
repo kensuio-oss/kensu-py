@@ -29,10 +29,11 @@ class Injection(object):
         self.DO_REPORT = do_report
         self.REPORT_TO_FILE = report_to_file
         if self.REPORTER is None:
-            if report_to_file:
-                self.set_reporter(FileReporter(None, offline_file_name or "kensu_offline_events.txt"))
-            else:
-                self.set_reporter(ApiReporter(None))
+            if do_report:
+                if report_to_file:
+                    self.set_reporter(FileReporter(None, offline_file_name or "kensu_offline_events.txt"))
+                else:
+                    self.set_reporter(ApiReporter(None))
 
     def set_kensu_api(self, kensu_api):
         if not self.ENTITIES_INJECTED:
