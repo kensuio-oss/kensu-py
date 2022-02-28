@@ -685,6 +685,8 @@ class Kensu(object):
                         project_id = sandbox_prefix + project_id
                         process_id = sandbox_prefix + process_id
                         cv = sandbox_prefix +cv
+                    else:
+                        sandbox_prefix = ''
 
                     data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
 
@@ -692,8 +694,12 @@ class Kensu(object):
                         lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
                             'id']
                     except:
-                        logging.info("LDS Guid %s not in this lineage"%lds_id)
-                        lds_guid = None
+                        try:
+                            lds_guid = sandbox_prefix+"logical-data-source-" + lds_id
+                        except:
+                            logging.info("LDS Guid %s not in this lineage"%lds_id)
+                            lds_guid = None
+
                     if lds_guid is not None:
                         if context == "DATA_STATS":
                             lineage_ids = set(
