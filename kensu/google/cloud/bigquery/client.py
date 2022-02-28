@@ -68,7 +68,8 @@ class Client(client.Client):
                     db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
                         kensu=kensu,
                         client=client,
-                        query=query.replace("\n", " ")
+                        job=j, # FIXME: here job might be not finished yet, and thus, not have some of the stats
+                        query=BqOfflineParser.normalize_table_refs(query.replace("\n", " ")) # FIXME: or replace in query sent to online parser too?
                     )
 
                     try:
@@ -85,6 +86,7 @@ class Client(client.Client):
                     db_metadata_out, table_id_to_bqtable_out, table_infos_out = BqOfflineParser.get_referenced_tables_metadata(
                         kensu=kensu,
                         client=client,
+                        job=j,
                         table=dest)
 
                     table_infos_out[0][1]._report()
@@ -154,6 +156,7 @@ class Client(client.Client):
         dest_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
             kensu=kensu,
             client=gclient,
+            job=None,
             table=destination)
         ds = table_infos[0][1]._report()
         sc = table_infos[0][2]._report()

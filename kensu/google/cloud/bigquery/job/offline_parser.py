@@ -4,8 +4,10 @@
 # Copyright 2021 Kensu Inc
 #
 import logging
+import re
+from typing import Union
 
-from google.cloud.bigquery import Table
+from google.cloud.bigquery import Table, TableReference
 
 from kensu.google.cloud.bigquery.job.bq_helpers import BqKensuHelpers
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, GenericComputedInMemDs, \
@@ -20,24 +22,63 @@ logger = logging.getLogger(__name__)
 
 class BqOfflineParser:
 
-    # FIXME: or should we better simply fetch schema ALL visible tables and databases !!!!???
+    @staticmethod
+    def normalize_table_refs(q):
+        # FIXME: this might be still quite error prone in non-standard use-cases...
+        """
+        >>> normalize_table_refs('SELECT * FROM `a1`.`b2`.`c3`')
+        'SELECT * FROM `a1.b2.c3`'
+        """
+        matches = re.findall(r'`([a-zA-Z0-9-_]+)`.`([a-zA-Z0-9-_]+)`.`([a-zA-Z0-9-_]+)`', q)
+        for (s1, s2, s3) in matches:
+            q = q.replace(f'`{s1}`.`{s2}`.`{s3}`', f'`{s1}.{s2}.{s3}`')
+
+        return q
+
     @staticmethod
     def get_referenced_tables_metadata(
             kensu: Kensu,
             client: bq.Client,
+            job,  # type: google.cloud.bigquery.job.QueryJob
             query: str = None,
             table: Table = None):
+        table_infos = []
+        if job:
+            # Referenced tables for the job. Queries that reference more than 50 tables will not have a complete list.
+            # FIXME: separate referenced from ddl target
+            referenced_tables = job.referenced_tables + [j for j in [job.ddl_target_table] if j] # type: list[TableReference]
+            # [TableReference(DatasetReference('project', 'db'), 'table')]
+            table_infos = list([BqOfflineParser.table_ref_to_kensu(client, table_id=t)
+                            for t in referenced_tables])
+        is_bigquery_api_limit_reached = len(table_infos) > 49
+        if not table_infos or is_bigquery_api_limit_reached:
+            fallback_tables = list(BqOfflineParser.fallback_referenced_tables_from_sql(kensu=kensu,
+                                                                              client=client,
+                                                                              query=query,
+                                                                              table=query))
+            table_infos = list(set(table_infos + fallback_tables))
+        return BqOfflineParser.to_sql_util_metadata(table_infos)
+
+
+    # FIXME: or should we better simply fetch schema for ALL visible tables and databases !!!!???
+    @staticmethod
+    def fallback_referenced_tables_from_sql(
+            kensu: Kensu,
+            client: bq.Client,
+            query: str = None,
+            table: Table = None):
+        # FIXME: return table/tableRef here?!
         if query:
             table_infos = BqOfflineParser.get_table_info_from_sql(client, query)
         elif table:
-            tb = client.get_table(table)
-            ds,sc = BqKensuHelpers.table_to_kensu(tb)
-            table_infos = [(tb,ds,sc)]
+            table_infos = [BqOfflineParser.table_ref_to_kensu(client, table_id=table)]
+        else:
+            table_infos = []
+        return table_infos
 
-        # for table, ds, sc in table_infos:
-        #     # FIXME: this possibly don't fit here well...
-        #     kensu.real_schema_df[sc.to_guid()] = table
 
+    @staticmethod
+    def to_sql_util_metadata(table_infos):
         table_id_to_bqtable = {}
         metadata = {"tables": []}
         for table, ds, sc in table_infos:
@@ -52,6 +93,16 @@ class BqOfflineParser:
             metadata["tables"].append(table_md)
         return metadata,  table_id_to_bqtable, table_infos
 
+
+    @staticmethod
+    def table_ref_to_kensu(
+            client: bq.Client,
+            table_id: Union[Table, TableReference, str],
+    ):
+        table = client.get_table(table_id)
+        ds, sc = BqKensuHelpers.table_to_kensu(table)
+        return table, ds, sc
+
     @staticmethod
     def get_table_info_for_id(client: bq.Client, id: sqlparse.sql.Identifier or sqlparse.sql.Token):
         try:
@@ -59,9 +110,7 @@ class BqOfflineParser:
                 name = (id.get_real_name()).strip('`')
             elif isinstance(id,sqlparse.sql.Token):
                 name = id.value.strip('`')
-            table = client.get_table(name)
-            ds, sc = BqKensuHelpers.table_to_kensu(table)  # FIXME?
-            return table, ds, sc
+            return BqOfflineParser.table_ref_to_kensu(client, table_id=name)
         except Exception as e:
             logger.debug("get_table_info_for_id failed for table={}, maybe not BQ table: {}".format(id, str(e)))
             # FIXME this is because the current find_sql_identifiers also returns the column names...
