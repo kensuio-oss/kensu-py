@@ -439,7 +439,8 @@ class Kensu(object):
                     def create_stats(schema_guid):
                         stats_df = self.real_schema_df[schema_guid]
 
-                        if isinstance(stats_df, KensuDatasourceAndSchema):
+                        # FIXME: ideally need to prevent f_get_stats called multiple times
+                        if isinstance(stats_df, KensuDatasourceAndSchema) and not stats_df.f_get_stats:
                             stats_df.f_publish_stats(lineage_run.to_guid())
 
                         else:
