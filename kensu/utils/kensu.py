@@ -452,35 +452,34 @@ class Kensu(object):
 
                     def create_stats(schema_guid):
                         stats_df = self.real_schema_df[schema_guid]
-                        if True:
-                            stats = self.extract_stats(stats_df)
-                            if stats is None and isinstance(stats_df, KensuDatasourceAndSchema):
-                                # in this special case, the stats are reported not by kensu-py,
-                                # but by some external library called from .f_publish_stats callback
-                                # as an example - stats publishing directly from Apache Spark JVM
-                                # for pyspark's python-JVM interop jobs (where data moves between Spark & Python)
-                                stats_df.f_publish_stats(lineage_run.to_guid())
-                            elif stats is None:
-                                self.schema_stats[schema_guid] = stats
-                                if lineage_run.to_guid() not in self.stats_to_send:
-                                    self.stats_to_send[lineage_run.to_guid()] = {}
-                                self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
-                                if schema_guid == to_guid:
-                                    if 'nrows' in stats and self.compute_delta:
-                                        # fixme: extract a helper
-                                        output_nrows = stats['nrows']
-                                        #TODO Corner case: if from_pk = to_pk
-                                        for input_schema_guid in from_pks:
-                                            input_stats = self.schema_stats.get(input_schema_guid)
-                                            input_nrows = input_stats and input_stats.get('nrows')
-                                            if input_nrows:
-                                                delta_nrows = input_nrows - output_nrows
-                                                input_name = self.logical_name_by_guid.get(input_schema_guid, self.schema_name_by_guid.get(input_schema_guid))
-                                                clean_input_name = self.name_for_stats(input_name)
-                                                stats['delta.nrows_' + clean_input_name + '.abs']=delta_nrows
-                                                stats['delta.nrows_' + clean_input_name + '.decrease in %'] = round(100*delta_nrows/input_nrows,2)
-                                        self.schema_stats[schema_guid] = stats
-                                        self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+                        stats = self.extract_stats(stats_df)
+                        if stats is None and isinstance(stats_df, KensuDatasourceAndSchema):
+                            # in this special case, the stats are reported not by kensu-py,
+                            # but by some external library called from .f_publish_stats callback
+                            # as an example - stats publishing directly from Apache Spark JVM
+                            # for pyspark's python-JVM interop jobs (where data moves between Spark & Python)
+                            stats_df.f_publish_stats(lineage_run.to_guid())
+                        elif stats is None:
+                            self.schema_stats[schema_guid] = stats
+                            if lineage_run.to_guid() not in self.stats_to_send:
+                                self.stats_to_send[lineage_run.to_guid()] = {}
+                            self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+                            if schema_guid == to_guid:
+                                if 'nrows' in stats and self.compute_delta:
+                                    # fixme: extract a helper
+                                    output_nrows = stats['nrows']
+                                    #TODO Corner case: if from_pk = to_pk
+                                    for input_schema_guid in from_pks:
+                                        input_stats = self.schema_stats.get(input_schema_guid)
+                                        input_nrows = input_stats and input_stats.get('nrows')
+                                        if input_nrows:
+                                            delta_nrows = input_nrows - output_nrows
+                                            input_name = self.logical_name_by_guid.get(input_schema_guid, self.schema_name_by_guid.get(input_schema_guid))
+                                            clean_input_name = self.name_for_stats(input_name)
+                                            stats['delta.nrows_' + clean_input_name + '.abs']=delta_nrows
+                                            stats['delta.nrows_' + clean_input_name + '.decrease in %'] = round(100*delta_nrows/input_nrows,2)
+                                    self.schema_stats[schema_guid] = stats
+                                    self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
 
 
                         #FIXME should be using extractors instead
