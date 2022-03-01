@@ -337,7 +337,7 @@ def scala_ds_and_schema_to_py(dam, ds, schema):
     def f_get_stats():
         # ******************************************************************************************
         # WARNING : Do not return anything else than None, because f_publish_stats is preferred giving the responsibility
-        # to Spark to send the data stats only when it's available (Future computation is completed)
+        # to Spark to send the data stats only when it's available (when computation inside scala Future is completed)
         # ******************************************************************************************
         return None
     return KensuDatasourceAndSchema(ksu_ds=py_ds, ksu_schema=py_schema, f_get_stats=f_get_stats, f_publish_stats = f_publish_stats)

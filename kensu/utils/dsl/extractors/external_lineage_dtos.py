@@ -8,11 +8,11 @@ class KensuDatasourceAndSchema:
                  ksu_ds,
                  ksu_schema,
                  f_get_stats=lambda: None,
-                 f_publish_stats = lambda lineage_run_id : {}):
+                 f_publish_stats=lambda lineage_run_id: {}):
         """
         :param kensu.client.DataSource ksu_ds: Datasource info which was extracted from external system
         :param kensu.client.Schema ksu_schema: Schema info for the datasource
-        :param () -> typing.Dict[string, float] f_get_stats: [Optional] a function to retrieve DataStats for this DataSource
+        :param () -> typing.Union[typing.Dict[string, float], None] f_get_stats: [Optional] a function to retrieve DataStats for this DataSource
         :param (str) -> () f_publish_stats : [Optional] a function publishing the statistics given a lineage run guid
         """
 
