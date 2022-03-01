@@ -169,6 +169,7 @@ class Kensu(object):
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
         self.api_url = kwargs_or_conf_or_default("api_url", None)
+        self.report_to_file = report_to_file
 
         sdk_pat = kwargs_or_conf_or_default("PAT", None)
         sdk_url = kwargs_or_conf_or_default("sdk_url", None)
