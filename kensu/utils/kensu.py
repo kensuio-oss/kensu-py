@@ -459,7 +459,7 @@ class Kensu(object):
                             # as an example - stats publishing directly from Apache Spark JVM
                             # for pyspark's python-JVM interop jobs (where data moves between Spark & Python)
                             stats_df.f_publish_stats(lineage_run.to_guid())
-                        elif stats is None:
+                        elif stats is not None:
                             self.schema_stats[schema_guid] = stats
                             if lineage_run.to_guid() not in self.stats_to_send:
                                 self.stats_to_send[lineage_run.to_guid()] = {}
