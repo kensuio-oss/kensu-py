@@ -90,7 +90,7 @@ class BqRemoteParser:
                         input_filters=stats_filters)
                 except Exception as e:
                     stats_values = None
-                    logger.debug(f"Unable to compute the stats: {e}")
+                    logger.warning(f"Unable to compute the stats: {e}")
 
             logger.debug(
                 f'table_id {table_id} (table.ref={bg_table_ref}, ds_path: {ds_path}) got input_filters: {stats_filters} & stat_aggs:{str(stats_aggs)}')

@@ -335,6 +335,20 @@ class Kensu(object):
     def name_for_stats(self, input_name):
         return input_name.replace('.', '_')
 
+    def extract_stats(self, stats_df):
+        try:
+            stats = self.extractors.extract_stats(stats_df)
+        except Exception as e:
+            logging.warning(f'stats extraction from {type(stats_df)} failed', e)
+            if isinstance(stats_df, dict):
+                # FIXME: this is weird logic here... we'd post the actual data instead of stats!
+                stats = stats_df
+            else:
+                # TODO Support ndarray
+                stats = None
+        return stats
+
+
     def report_with_mapping(self):
         self.set_reinit()
         import pandas as pd
@@ -438,46 +452,34 @@ class Kensu(object):
 
                     def create_stats(schema_guid):
                         stats_df = self.real_schema_df[schema_guid]
-
-                        if isinstance(stats_df, KensuDatasourceAndSchema):
+                        stats = self.extract_stats(stats_df)
+                        if stats is None and isinstance(stats_df, KensuDatasourceAndSchema):
+                            # in this special case, the stats are reported not by kensu-py,
+                            # but by some external library called from .f_publish_stats callback
+                            # as an example - stats publishing directly from Apache Spark JVM
+                            # for pyspark's python-JVM interop jobs (where data moves between Spark & Python)
                             stats_df.f_publish_stats(lineage_run.to_guid())
-
-                        else:
-                            try:
-                                stats = self.extractors.extract_stats(stats_df)
-                            except:
-                                from kensu.requests.models import ksu_str
-                                # FIXME weird... should be fine to delete (and try,except too)
-                                if isinstance(stats_df, pd.DataFrame) or isinstance(stats_df, DataFrame) or isinstance(stats_df,Series) or isinstance(stats_df,pd.Series) :
-                                    stats = self.extractors.extract_stats(stats_df)
-                                elif isinstance(stats_df, ksu_str):
-                                    stats = None
-                                elif isinstance(stats_df, dict):
-                                    stats = stats_df
-                                else:
-                                    #TODO Support ndarray
-                                    stats = None
-                            if stats is not None:
-                                self.schema_stats[schema_guid] = stats
-                                if lineage_run.to_guid() not in self.stats_to_send:
-                                    self.stats_to_send[lineage_run.to_guid()] = {}
-                                self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
-                                if schema_guid == to_guid:
-                                    if 'nrows' in stats and self.compute_delta:
-                                        # fixme: extract a helper
-                                        output_nrows = stats['nrows']
-                                        #TODO Corner case: if from_pk = to_pk
-                                        for input_schema_guid in from_pks:
-                                            input_stats = self.schema_stats.get(input_schema_guid)
-                                            input_nrows = input_stats and input_stats.get('nrows')
-                                            if input_nrows:
-                                                delta_nrows = input_nrows - output_nrows
-                                                input_name = self.logical_name_by_guid.get(input_schema_guid, self.schema_name_by_guid.get(input_schema_guid))
-                                                clean_input_name = self.name_for_stats(input_name)
-                                                stats['delta.nrows_' + clean_input_name + '.abs']=delta_nrows
-                                                stats['delta.nrows_' + clean_input_name + '.decrease in %'] = round(100*delta_nrows/input_nrows,2)
-                                        self.schema_stats[schema_guid] = stats
-                                        self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+                        elif stats is not None:
+                            self.schema_stats[schema_guid] = stats
+                            if lineage_run.to_guid() not in self.stats_to_send:
+                                self.stats_to_send[lineage_run.to_guid()] = {}
+                            self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
+                            if schema_guid == to_guid:
+                                if 'nrows' in stats and self.compute_delta:
+                                    # fixme: extract a helper
+                                    output_nrows = stats['nrows']
+                                    #TODO Corner case: if from_pk = to_pk
+                                    for input_schema_guid in from_pks:
+                                        input_stats = self.schema_stats.get(input_schema_guid)
+                                        input_nrows = input_stats and input_stats.get('nrows')
+                                        if input_nrows:
+                                            delta_nrows = input_nrows - output_nrows
+                                            input_name = self.logical_name_by_guid.get(input_schema_guid, self.schema_name_by_guid.get(input_schema_guid))
+                                            clean_input_name = self.name_for_stats(input_name)
+                                            stats['delta.nrows_' + clean_input_name + '.abs']=delta_nrows
+                                            stats['delta.nrows_' + clean_input_name + '.decrease in %'] = round(100*delta_nrows/input_nrows,2)
+                                    self.schema_stats[schema_guid] = stats
+                                    self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
 
 
                         #FIXME should be using extractors instead
