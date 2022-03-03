@@ -148,7 +148,8 @@ class BqOfflineParser:
                 format='BigQuery table',
                 categories=None,
                 maybe_schema=[(f.name, f.field_type) for f in input_sc.pk.fields],
-                f_get_stats= None # FIXME: needs input filters
+                # FIXME: hmm, are stats not implemented for fallback mode? also needs input filters
+                f_get_stats=lambda: None
             )
             all_inputs.append(input)
         return GenericComputedInMemDs.for_direct_or_full_mapping(all_inputs=all_inputs, out_field_names=res_field_names)
