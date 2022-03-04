@@ -8,6 +8,8 @@ import traceback
 
 import google
 
+from kensu.google.cloud.bigquery.extractor import KensuBigQuerySupport
+from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stats
 from kensu.google.cloud.bigquery.job.offline_parser import BqOfflineParser
 from kensu.google.cloud.bigquery.job.remote_parser import BqRemoteParser
 from kensu.pandas import DataFrame
@@ -89,6 +91,17 @@ class QueryJob(bqj.QueryJob):
 
             QueryJob._store_bigquery_job_destination(result=result, dest=dest)
 
+            if is_ddl_write and isinstance(ddl_target_table, bq.TableReference) and kensu.compute_stats:
+                # for DDL writes, stats can be computed by just reading the whole table
+                # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
+                out_stats_values = compute_bigquery_stats(
+                    table_ref=ddl_target_table,
+                    table=client.get_table(ddl_target_table),
+                    client=client,
+                    # stats for all output columns
+                    stats_aggs=None,
+                    input_filters=None)
+                KensuBigQuerySupport.set_stats(result, out_stats_values)
             bq_lineage.report(
                 ksu=kensu,
                 df_result=result,
