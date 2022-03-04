@@ -16,7 +16,13 @@ else:
 
     class ndarrayDelegator(object):
         SKIP_KENSU_FIELDS = ["_ndarray__k_nd", "INTERCEPTORS", "_ksu_loc_id"]
-        SKIP_KENSU_METHODS = ["get_nd", "kensu_init", "to_string"]
+        SKIP_KENSU_METHODS = [
+            "get_nd",
+            "kensu_init",
+            "to_string",
+            "__array_finalize__", '__array_prepare__', '__array_wrap__',  # FIXME: double check?
+            'wrapped_ndarray_binary_op',
+        ]
 
 
         def __getattribute__(self, name):
@@ -25,14 +31,20 @@ else:
                 return attr_value
             elif name == "__class__":
                 return attr_value
+            elif name in ndarrayDelegator.SKIP_KENSU_METHODS:
+                return attr_value
             elif name in ['mean','std']:
                 # fixme: lin lost?
                 attr_value = object.__getattribute__(self.get_nd(), name)
                 return attr_value
-            elif name in ['round','reshape']:
+            elif name in ['round','reshape',
+                          'astype',
+                          'take'
+                          ]:
                 attr_value = object.__getattribute__(self.get_nd(), name)
                 return ndarrayDelegator.handle_callable(self, name, attr_value)
             elif hasattr(attr_value, '__call__'):
+                logging.warning('ndarray not delegated call to {}'.format(name))
                 #return ndarrayDelegator.handle_callable(self, name, attr_value)
                 return attr_value
             else:
@@ -139,12 +151,19 @@ else:
             return obj
 
         def __getitem__(self, item):
-            returned = self.get_nd()[item]
+            if self.__k_nd is None:
+                # fixme: in this case get_nd() would return the self... and thus if we'd call same __getitem__ again and it'd loop forever...
+                # FIXME... lineage lost?
+                returned = super(ndarray, self).__getitem__(item)
+            else:
+              returned = self.get_nd().__getitem__(item)
             # fixme: input lineage lost
             if isinstance(returned,str):
                 return returned
             else:
-                return ndarray.using(returned)
+                res = ndarray.using(returned)
+                numpy_report(self, res, 'ndarray.__getitem__')
+                return res
 
         def __repr__(self):
             nd = self.get_nd()
@@ -206,12 +225,20 @@ else:
 
         def __array_finalize__(self, obj):
             if obj is None: return
-            self.__k_nd = getattr(obj, '__k_nd', None)
+            self.__k_nd = getattr(obj, '__k_nd', None) # FIXME?
 
         @staticmethod
         def using(o):
             if isinstance(o, ndarray):
-                d = ndarray.using(o.get_nd())
+                if o.__k_nd is not None: # infinite recursion if not having this condition
+                    # this was loosing lineage if called by customer!!!
+                    # FIXME: do we need to recreate the object? can we reuse it if we already have a wrapper?
+                    res = ndarray.using(o.get_nd())
+                    numpy_report(o, res, 'ndarray.using')
+                    return res
+                else:
+                    return o # FIXME! what the hell... this should never be called?!
+                # d = ndarray.using(o.get_nd())
                 return d
             else:
                 d = ndarray(o.shape,o.dtype)
@@ -221,7 +248,8 @@ else:
         def get_nd(self):
             # if the current Kensu ndarray isn't delegating... TODO.. need to have a type for this instead...
             if self.__k_nd is None:
-                return self
+                return self # FIXME: this should NEVER happen!
+                #return super(ndarray, self) # FIXME: this is not always usable/iterable!!! multi-inheritance?
             else:
                 return self.__k_nd
 
@@ -407,7 +435,15 @@ else:
 
             original_result = method(*new_args, **kwargs)
             ksu_result = ndarray.using(original_result)
-            numpy_report(obj, ksu_result, "Numpy array")
+            if isinstance(obj, list):
+                # as a work around we report lineage only on the first item of the list,
+                # as it might be too big otherwise
+                # FIXME: in case we got a regular list as arg, we have to depend on each item of the list,
+                #  and it is very inefficient! we should at least take only unique deps of deps (if possible/easy)
+                for obj_item in obj[:1]:
+                    numpy_report(obj_item, ksu_result, "Numpy array item")
+            else:
+                numpy_report(obj, ksu_result, "Numpy array")
             return ksu_result
 
         wrapper.__doc__ = method.__doc__

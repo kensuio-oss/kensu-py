@@ -11,7 +11,7 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
-from kensu.utils.helpers import to_hash_key
+from kensu.utils.helpers import to_hash_key, stacktrace_without_error
 from kensu.utils.injection import Injection
 from kensu.pandas import DataFrame,Series
 from kensu.utils.reporters import *
@@ -242,7 +242,7 @@ class Kensu(object):
     def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
         # list of triples i, o, mapping strategy
         # i and o are either one or a list of triples (object, DS, SC)
-        self.dependencies = []
+        self.dependencies = [] # FIXME: deprecated?
         self.dependencies_mapping = []
         self.dependencies_per_columns = {}
         # when set, it seems to indicate if a schema/DS is a real one (is not in memory),
@@ -323,11 +323,22 @@ class Kensu(object):
         return self.dependencies_mapping
 
     def add_dependencies_mapping(self, guid, col, from_guid, from_col, type):
+        DEBUG = True # FIXME: make configurable?
+        DEBUG_ONLY_INMEM_INPUTS_WITHOUT_INPUTS = True
         dep = {'GUID': guid,
                'COLUMNS': col,
                'FROM_ID': from_guid,
                'FROM_COLUMNS': from_col,
                'TYPE': type}
+        if DEBUG:
+            is_input_in_mem = not bool(from_guid in self.real_schema_df)
+            if (not DEBUG_ONLY_INMEM_INPUTS_WITHOUT_INPUTS) or is_input_in_mem:
+                inputs_with_input_lineage = [1 for d in self.dependencies_mapping if d.get('GUID') == from_guid]
+                if not bool(inputs_with_input_lineage):
+                    id_with_name = lambda guid: "(name={}, id={})".format(self.schema_name_by_guid.get(guid) or '', guid)
+                    msg = "Adding a lineage {} to {} with in-mem input which has no its own inputs at all".format(id_with_name(from_guid), id_with_name(guid))
+                    logging.warning(msg)
+                    stacktrace_without_error()
         self.dependencies_mapping.append(dep)
 
     def in_mem(self, var_name):
@@ -558,7 +569,9 @@ class Kensu(object):
 
     def get_dependencies(self):
         return self.dependencies
-    def add_dependency(self, i, o, mapping_strategy=mapping_strategies.FULL):
+
+    # FIXME: deprecated?
+    def add_dependency(self, i, o, mapping_strategy=mapping_strategies.FULL, op_name=None):
         if not isinstance(i, tuple):
             (ids, isc) = self.extractors.extract_data_source_and_schema(i, self.default_physical_location_ref)
             i = (i, ids, isc)
@@ -567,21 +580,31 @@ class Kensu(object):
             (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
             o = (o, ods, osc)
 
-        self.dependencies.append((i, o, mapping_strategy))
-    def add_dependencies(self, ins, outs, mapping_strategy=mapping_strategies.FULL):
+        (o, ods, osc) = o
+        (i, ids, isc) = i
+
+        for o in [f.name for f in osc.pk.fields]:
+            for i in [f.name for f in isc.pk.fields]:
+                if mapping_strategy.mapping_function(i, o):
+                    self.add_dependencies_mapping(osc.to_guid(), str(o), isc.to_guid(),
+                                       str(i), op_name or 'add_dependency '+ str(mapping_strategy))
+
+        #self.dependencies.append((i, o, mapping_strategy))
+
+    # FIXME: deprecated?
+    def add_dependencies(self, ins, outs, mapping_strategy=mapping_strategies.FULL, op_name=None):
         new_ins = []
         for i in ins:
             if not isinstance(i, tuple):
                 (ids, isc) = self.extractors.extract_data_source_and_schema(i, self.default_physical_location_ref)
                 i = (i, ids, isc)
-                new_ins.append(i)
 
-        new_outs = []
-        for o in outs:
-            if not isinstance(o, tuple):
-                (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
-                o = (o, ods, osc)
-                new_outs.append(o)
+                for o in outs:
+                    if not isinstance(o, tuple):
+                        (ods, osc) = self.extractors.extract_data_source_and_schema(o, self.default_physical_location_ref)
+                        o = (o, ods, osc)
+
+                        self.add_dependency(i, o, mapping_strategy, op_name=op_name)
 
         self.dependencies.append((new_ins, new_outs, mapping_strategy))
 

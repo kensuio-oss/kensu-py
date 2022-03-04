@@ -16,7 +16,8 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMe
 from kensu.utils.kensu_class_handlers import KensuClassHandlers
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.dsl import mapping_strategies
-from kensu.utils.helpers import eventually_report_in_mem, extract_ksu_ds_schema, get_absolute_path
+from kensu.utils.helpers import eventually_report_in_mem, extract_ksu_ds_schema, get_absolute_path, \
+    stacktrace_without_error
 
 from kensu.client import *
 from kensu.utils.wrappers import remove_ksu_wrappers
@@ -113,7 +114,7 @@ class KensuPandasDelegator(object):
                 result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
                 kensu.add_dependency((pd_df, orig_ds, orig_sc), (result, result_ds, result_sc),
-                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN_OR_FULL)
             elif result is not None and isinstance(result, ndarray):
                 kensu = KensuProvider().instance()
                 orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(pd_df, kensu.default_physical_location_ref))
@@ -123,7 +124,10 @@ class KensuPandasDelegator(object):
                 result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
                 kensu.add_dependency((pd_df, orig_ds, orig_sc), (result, result_ds, result_sc),
-                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
+                                   mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN_OR_FULL)
+            elif result is not None and isinstance(result, numpy.ndarray) and not isinstance(result, ndarray):
+                logging.warning('unexpectedly got an numpy.ndarray instead of kensu.ndarray in handle_field(name={})'.format(name))
+                stacktrace_without_error()
 
 
             return result
@@ -369,7 +373,7 @@ class KensuPandasDelegator(object):
             # assigning the Kensu DF to the indexer to continue the tracing, wrapping the internal iloc/loc object
             prop_value.obj = dao
         else:
-            # TODO log?
+            logging.warning("Kensu unhandled callable property name=" + name)
             pass
 
         return prop_value
@@ -408,8 +412,9 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
                 kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref))
             result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df))
 
-            for col in [k.name for k in result_sc.pk.fields]:
-                kensu.add_dependencies_mapping(result_sc.to_guid(), col, orig_sc.to_guid(), col, 'init')
+            for out_col in [k.name for k in result_sc.pk.fields]:
+                for orig_col in [k.name for k in orig_sc.pk.fields]:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), out_col, orig_sc.to_guid(), orig_col, 'DataFrame init')
 
         elif isinstance(data,dict):
             from kensu.itertools import kensu_list
@@ -435,8 +440,8 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
             for key in deps.keys():
                 for orig_sc in deps[key]:
-                    for col in [k.name for k in orig_sc.pk.fields]:
-                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(key), orig_sc.to_guid(), str(col), 'init')
+                    for out_col in [k.name for k in orig_sc.pk.fields]:
+                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(key), orig_sc.to_guid(), str(out_col), 'init')
 
 
 
@@ -517,7 +522,7 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             else:
                 def process_dag(out):
 
-                    deps = kensu.get_dependencies()
+                    deps = kensu.get_dependencies() # FIXME: deprecated?
 
                     def process_dag_layer(out, layer="-"):
                         for [i, o, strategy] in iter(deps):
@@ -957,7 +962,7 @@ class Series(KensuSeriesDelegator, pd.Series):
                 kensu.add_dependency((s, orig_ds, orig_sc), (s, ds, sc), mapping_strategy=mapping_strategies.DIRECT)
 
                 def process_dag(out):
-                    deps = kensu.get_dependencies()
+                    deps = kensu.get_dependencies() # FIXME: deprecated?
 
                     def process_dag_layer(out, layer="-"):
                         for [i, o, strategy] in iter(deps):

@@ -5,10 +5,17 @@ import numpy
 import kensu
 from kensu.client import FieldDef, SchemaPK, Schema, DataSource, DataSourcePK
 from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location, get_rand_location
-from kensu.utils.helpers import singleton
+from kensu.utils.helpers import singleton, stacktrace_without_error
+from kensu.utils.kensu_provider import KensuProvider
+
 
 @singleton
 class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport class
+
+    def report_full_ndarray_schema(self):
+        # otherwise we DDos
+        #return not KensuProvider().instance().report_in_mem
+        return False
 
     def is_supporting(self, nd):
         return isinstance(nd, numpy.ndarray) or isinstance(nd, kensu.numpy.ndarray)
@@ -25,7 +32,7 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
     # return list of FieldDef
     def extract_schema_fields(self, nd):
         nd = self.skip_wr(nd)
-        if nd.dtype.names == None :
+        if nd.dtype.names == None or not self.report_full_ndarray_schema():
             return [FieldDef(name="value", field_type=str(nd.dtype), nullable=True)]
         else:
             d = list()
@@ -42,11 +49,7 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
                 # so return a random uuid even if we expect a stable one
                 # otherwise - AttributeError: numpy.ndarray' object has no attribute '_ksu_loc_id'
                 print('WARN: kensu ndarraySupport.extract_location got unexpected arg type: '+str(type(nd)))
-                try:
-                    raise Exception("no error, just marking stack trace for debugging")
-                except Exception:  # thrown by default extract_data_source/extract_schema
-                    import traceback
-                    traceback.print_stack()
+                stacktrace_without_error()
                 return get_rand_location()
             else:
                 return get_or_set_rand_location(nd)
