@@ -15,7 +15,7 @@ def compute_bigquery_stats(table_ref=None, table=None, client=None, stats_aggs=N
     r = {}
     kensu = KensuProvider().instance()
     client: Client = client or kensu.data_collectors['BigQuery']
-    if stats_aggs is None:
+    if stats_aggs is None and table is not None:
         logger.debug('Got empty statistic listing from remote service, proceeding with fallback statistic list')
         stats_aggs = generate_fallback_stats_queries(table)
 
