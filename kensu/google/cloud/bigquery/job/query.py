@@ -101,7 +101,7 @@ class QueryJob(bqj.QueryJob):
                     # stats for all output columns
                     stats_aggs=None,
                     input_filters=None)
-                KensuBigQuerySupport.set_stats(result, out_stats_values)
+                KensuBigQuerySupport().set_stats(result, out_stats_values)
             bq_lineage.report(
                 ksu=kensu,
                 df_result=result,

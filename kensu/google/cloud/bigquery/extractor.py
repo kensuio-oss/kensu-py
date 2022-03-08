@@ -17,6 +17,7 @@ from kensu.utils.kensu_provider import KensuProvider
 
 @singleton
 class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSupport class
+    KENSU_DDL_STATS_VALUES_ATTR = 'kensu_ddl_stats_values'
 
     def is_supporting(self, table):
         return isinstance(table, google.cloud.bigquery.table.Table) or \
@@ -89,15 +90,14 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
     def tk(self, k, k1): return k + '.' + k1
 
-    @staticmethod
-    def set_stats(obj, out_stats_values):
+    def set_stats(self, obj, out_stats_values):
         # store stats to be later picked up by extract_stats below
-        obj.kensu_ddl_stats_values = out_stats_values
+        setattr(obj, self.KENSU_DDL_STATS_VALUES_ATTR, out_stats_values)
 
     # return dict of doubles (stats)
     def extract_stats(self, df):
-        if hasattr(df, 'kensu_ddl_stats_values'):
-            return getattr(df, 'kensu_ddl_stats_values')
+        if hasattr(df, self.KENSU_DDL_STATS_VALUES_ATTR):
+            return getattr(df, self.KENSU_DDL_STATS_VALUES_ATTR)
         # otherwise, stats definitions are computed directly in wrapper in more efficient fashion, see `query.py`
         return None
 
