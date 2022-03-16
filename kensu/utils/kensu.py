@@ -99,7 +99,7 @@ class Kensu(object):
         if kensu_host is None:
             kensu_host = kensu_conf.get("api_url")
         if auth_token is None:
-            kensu_auth_token = kensu_conf.get("api_token")
+            kensu_auth_token = os.environ.get('KENSU_API_TOKEN') or kensu_conf.get("api_token")
         else:
             kensu_auth_token = auth_token
 
@@ -171,8 +171,8 @@ class Kensu(object):
         self.api_url = kwargs_or_conf_or_default("api_url", None)
         self.report_to_file = report_to_file
 
-        sdk_pat = kwargs_or_conf_or_default("PAT", None)
-        sdk_url = kwargs_or_conf_or_default("sdk_url", None)
+        sdk_pat = os.environ.get('KENSU_SDK_PAT') or kwargs_or_conf_or_default("PAT", None)
+        sdk_url = os.environ.get('KENSU_SDK_URL') or kwargs_or_conf_or_default("sdk_url", None)
         sdk_verify_ssl = kwargs_or_conf_or_default("sdk_verify_ssl", True)
         if sdk_pat is None:
             self.sdk = sdk.DoNothingSDK()
@@ -213,10 +213,7 @@ class Kensu(object):
     # sets the api url using host if passed, otherwise gets KENSU_API_URL
     def get_kensu_host(self, host=None):
         if host is None:
-            if "KENSU_API_URL" in os.environ:
-                kensu_host = os.environ["KENSU_API_URL"]
-            else:
-                kensu_host = None
+                kensu_host = os.environ.get("KENSU_API_URL")
         else:
             kensu_host = host
 
