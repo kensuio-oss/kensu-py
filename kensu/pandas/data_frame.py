@@ -486,8 +486,17 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
         #FIXME
         table = None
         if fmt == 'gbq' or isinstance(args[0],str) == False:
-          return None
-
+            return None
+        if fmt == 'sql':
+            from sqlalchemy.engine.base import Engine
+            engine = None
+            for arg in args:
+                if isinstance(arg,Engine):
+                    engine = arg
+            if engine == None:
+                engine = kwargs['con']
+            fmt = engine.name
+            location = engine.url.database + '/' + args[0]
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
             location = get_absolute_path(args[0])
