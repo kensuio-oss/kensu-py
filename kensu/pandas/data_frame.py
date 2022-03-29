@@ -495,8 +495,11 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
                     engine = arg
             if engine == None:
                 engine = kwargs['con']
-            fmt = engine.name
-            location = engine.url.database + '/' + args[0]
+            if engine.name == 'postgresql':
+                fmt = 'Postgres table'
+
+                #FIXME How to find the schema name?
+                location = "postgres://"+ engine.url.host +":"+ str(engine.url.port)+'/'+engine.url.database + '.public.' + args[0]
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
             location = get_absolute_path(args[0])
