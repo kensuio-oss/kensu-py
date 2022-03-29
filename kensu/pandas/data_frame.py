@@ -495,7 +495,7 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
                     engine = arg
             if engine == None:
                 engine = kwargs['con']
-            if engine.name == 'postgresql':
+            if engine is not None and engine.name == 'postgresql':
                 fmt = 'Postgres table'
 
                 #FIXME How to find the schema name?
