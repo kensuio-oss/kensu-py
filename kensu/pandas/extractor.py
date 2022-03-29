@@ -70,6 +70,11 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
             stats_dict = {self.tk(k, k1): v for k, o in df_desc_numbers for k1, v in o.items()}
 
+            # add all counts
+            all_count = df.describe(include='all').loc[['count']].to_dict().items()
+            count_dict= {self.tk(k, k1): v for k, o in all_count for k1, v in o.items()}
+
+
             #Extract datetime for timeliness
             date_df = df.select_dtypes(['datetime', 'datetimetz'])
             date_dict = {}
@@ -84,14 +89,14 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                     date_dict[col + '.last'] = last
             
             #Extract categories and boolean as categorical series
-            cat_names = df.select_dtypes(['category', 'boolean', 'object']).columns
+            cat_names = df.select_dtypes(['category', 'boolean']).columns
             cat_dict = {}
             for cat_col in cat_names:
                 vc = df[cat_col].value_counts()
                 vc_dict = vc.to_dict()
                 for k, v in vc_dict.items():
                     if not np.isnan(v):
-                        cat_dict[self.tk(cat_col, k)] = v
+                        cat_dict[self.tk(cat_col, str(k))] = v
                 count_names = ["nrows", "count", "len", "numrows"]
                 count_name = None
                 for n in count_names:
@@ -113,11 +118,12 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                 
                 # TODO do we need nulls and such?
 
-            stats_dict = {**stats_dict, **date_dict, **cat_dict}
+            stats_dict = {**stats_dict,**count_dict, **date_dict, **cat_dict}
 
             #Add missing value computation
             count = len(df)
             stats_dict['nrows'] = count
+
             for col in df:
                 try:
                     stats_dict[col + '.nullrows'] =  count - stats_dict[col + '.count']

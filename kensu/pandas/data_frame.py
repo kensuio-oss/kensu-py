@@ -486,8 +486,20 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
         #FIXME
         table = None
         if fmt == 'gbq' or isinstance(args[0],str) == False:
-          return None
+            return None
+        if fmt == 'sql':
+            from sqlalchemy.engine.base import Engine
+            engine = None
+            for arg in args:
+                if isinstance(arg,Engine):
+                    engine = arg
+            if engine == None:
+                engine = kwargs['con']
+            if engine is not None and engine.name == 'postgresql':
+                fmt = 'Postgres table'
 
+                #FIXME How to find the schema name?
+                location = "postgres://"+ engine.url.host +":"+ str(engine.url.port)+'/'+engine.url.database + '.public.' + args[0]
 
         if location is None and location != 'BigQuery Table' and len(args) > 0:
             location = get_absolute_path(args[0])
