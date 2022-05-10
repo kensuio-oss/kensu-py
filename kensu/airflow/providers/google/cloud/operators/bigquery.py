@@ -120,7 +120,8 @@ class BigQueryCreateExternalTableOperator(gcp_bigquery.BigQueryCreateExternalTab
                     source_format=source_format,
                     result_schema=result_schema
                 )
-                if not QueryJob.report_ddl_write_with_stats(dst_bq_table=dst_bq_table,
+                if not QueryJob.report_ddl_write_with_stats(result=dst_bq_table,
+                                                            ddl_target_table=dst_bq_table,
                                                             bq_client=bq_client,
                                                             lineage=lineage,
                                                             is_ddl_write=True,

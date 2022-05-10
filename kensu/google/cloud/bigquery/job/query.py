@@ -116,7 +116,8 @@ class QueryJob(bqj.QueryJob):
             traceback.print_exc()
             bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
         QueryJob.report_ddl_write_with_stats(
-            dst_bq_table=result,
+            result=result,
+            ddl_target_table=ddl_target_table,
             bq_client=client,
             lineage=bq_lineage,
             is_ddl_write=is_ddl_write
@@ -125,27 +126,28 @@ class QueryJob(bqj.QueryJob):
 
     @staticmethod
     def report_ddl_write_with_stats(
-            dst_bq_table,
+            result,
+            ddl_target_table,
             bq_client,
             lineage,
             is_ddl_write,
             operation_type=None
     ):
         kensu = KensuProvider().instance()
-        if kensu.compute_stats and is_ddl_write and isinstance(dst_bq_table, bq.Table):
+        if kensu.compute_stats and is_ddl_write and isinstance(ddl_target_table, bq.Table):
             # for DDL writes, stats can be computed by just reading the whole table
             # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
             out_stats_values = compute_bigquery_stats(
-                table_ref=dst_bq_table.reference,
-                table=dst_bq_table,
+                table_ref=ddl_target_table.reference,
+                table=ddl_target_table,
                 client=bq_client,
                 # stats for all output columns
                 stats_aggs=None,
                 input_filters=None)
-            KensuBigQuerySupport().set_stats(dst_bq_table, out_stats_values)
+            KensuBigQuerySupport().set_stats(ddl_target_table, out_stats_values)
         lineage.report(
             kensu,
-            df_result=dst_bq_table,
+            df_result=result,
             report_output=kensu.report_in_mem or is_ddl_write,
             register_output_orig_data=True,
             operation_type=operation_type
@@ -157,7 +159,7 @@ class QueryJob(bqj.QueryJob):
             else:
                 logging.warning("Kensu got empty lineage - not reporting")
                 logging.info("bq_lineage:" + str(lineage))
-                logging.info("dst_bq_table:" + str(dst_bq_table))
+                logging.info("dst_bq_table:" + str(ddl_target_table))
                 return False
 
 
