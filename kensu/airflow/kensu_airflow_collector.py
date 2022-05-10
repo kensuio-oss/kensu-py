@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from airflow.utils.context import Context
 
 KENSU_ERRORS_FAIL_JOB = True
+COLLECTOR_STATUS_INIT = "initializing..."
+COLLECTOR_STATUS_DONE = "done."
 
 
 def airflow_init_kensu(
@@ -57,8 +59,3 @@ def handle_ex(obj, ex):
 
 def log_status(obj, status):
     logging.info(f"Kensu collector for {type(obj)} is {status}")
-
-
-COLLECTOR_STATUS_INIT = "initializing..."
-COLLECTOR_STATUS_DONE = "done."
-

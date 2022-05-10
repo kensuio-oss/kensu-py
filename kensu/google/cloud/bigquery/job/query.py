@@ -83,8 +83,8 @@ class QueryJob(bqj.QueryJob):
         ddl_target_table = job.ddl_target_table
         dest = job.destination or ddl_target_table
         is_ddl_write = bool(ddl_target_table)
-        logging.info(f'in QueryJob.result(): dest={dest}')
-        logging.info(f'in QueryJob.result(): referenced={job.referenced_tables}')
+        logging.debug(f'in QueryJob.result(): dest={dest}')
+        logging.debug(f'in QueryJob.result(): referenced={job.referenced_tables}')
 
         if isinstance(dest, bq.TableReference):
             dest = client.get_table(dest)
@@ -150,7 +150,7 @@ class QueryJob(bqj.QueryJob):
             df_result=result,
             operation_type=operation_type,
             report_output=kensu.report_in_mem or is_ddl_write,
-            register_output_orig_data=is_ddl_write
+            register_output_orig_data=is_ddl_write   # used for DDL writes, like CREATE TABLE t2 AS SELECT * FROM t1
         )
         if is_ddl_write:
             if len(lineage.lineage) > 0:
