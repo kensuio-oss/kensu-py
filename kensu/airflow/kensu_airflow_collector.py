@@ -1,19 +1,10 @@
-import traceback
-
 from airflow.models import BaseOperator
-from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook, BigQueryJob
-from airflow.providers.google.cloud.operators import bigquery as gcp_bigquery
 
 import logging
 
-from google.cloud.bigquery import TableReference
-
-from kensu.google.cloud.bigquery import QueryJob
-from kensu.utils.dsl.extractors.external_lineage_dtos import *
-from kensu.google.cloud.bigquery.extractor import *
 from typing import TYPE_CHECKING
 
-from kensu.utils.helpers import extract_ksu_ds_schema
+from kensu.utils.kensu_provider import KensuProvider
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context

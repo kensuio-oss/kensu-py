@@ -1,3 +1,4 @@
+import google
 from airflow.providers.google.cloud.operators.bigquery import *
 
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook, BigQueryJob
@@ -10,11 +11,11 @@ from google.cloud.bigquery import TableReference
 from kensu.airflow.kensu_airflow_collector import COLLECTOR_STATUS_INIT, COLLECTOR_STATUS_DONE, log_status, \
     airflow_init_kensu, handle_ex
 from kensu.google.cloud.bigquery import QueryJob
-from kensu.utils.dsl.extractors.external_lineage_dtos import *
-from kensu.google.cloud.bigquery.extractor import *
 from typing import TYPE_CHECKING
 
+from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
 from kensu.utils.helpers import extract_ksu_ds_schema
+from kensu.utils.kensu_provider import KensuProvider
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context
