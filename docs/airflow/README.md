@@ -5,10 +5,13 @@ Installation on Google Cloud
 - Add the following "PYPI packages" tab of composer "Environment details":
 ```
 Name    Version
-twine   <=3.8.0
-kensu   [gbq, pandas]
-fsspec
-gcsfs
+----    -------
+kensu   [gbq, pandas, airflow-google]
+
+# the ones below should be loaded autoamtically through kensu[airflow-goofle]
+# twine   <=3.8.0
+# fsspec
+# gcsfs
 ```
 -  For sample Airflow app to work set these env vars to point to your GCP cluster or modify the sample airflow app in [./combined_data_ingestion_and_processing.py](./combined_data_ingestion_and_processing.py):
     * GCP_PROJECT_ID
