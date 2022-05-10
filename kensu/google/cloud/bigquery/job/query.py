@@ -112,7 +112,7 @@ class QueryJob(bqj.QueryJob):
                 db_metadata=db_metadata,
                 table_id_to_bqtable=table_id_to_bqtable)
         except:
-            logging.warning("Error in BigQuery collector, using fallback implementation")
+            logger.warning("Error in BigQuery collector, using fallback implementation")
             traceback.print_exc()
             bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
         QueryJob.report_ddl_write_with_stats(
@@ -157,9 +157,9 @@ class QueryJob(bqj.QueryJob):
                 kensu.report_with_mapping()
                 return True
             else:
-                logging.warning("Kensu got empty lineage - not reporting")
-                logging.info("bq_lineage:" + str(lineage))
-                logging.info("dst_bq_table:" + str(ddl_target_table))
+                logger.warning("Kensu got empty lineage - not reporting")
+                logger.info("lineage:" + str(lineage))
+                logger.info("ddl_target_table:" + str(ddl_target_table))
                 return False
 
 
