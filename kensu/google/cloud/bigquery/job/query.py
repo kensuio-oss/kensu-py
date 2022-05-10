@@ -118,7 +118,7 @@ class QueryJob(bqj.QueryJob):
         QueryJob.report_ddl_write_with_stats(
             result=result,
             ddl_target_table=ddl_target_table,
-            bq_client=client,
+            client=client,
             lineage=bq_lineage,
             is_ddl_write=is_ddl_write
         )
@@ -128,7 +128,7 @@ class QueryJob(bqj.QueryJob):
     def report_ddl_write_with_stats(
             result,
             ddl_target_table,
-            bq_client,
+            client,
             lineage,
             is_ddl_write,
             operation_type=None
@@ -140,17 +140,17 @@ class QueryJob(bqj.QueryJob):
             out_stats_values = compute_bigquery_stats(
                 table_ref=ddl_target_table.reference,
                 table=ddl_target_table,
-                client=bq_client,
+                client=client,
                 # stats for all output columns
                 stats_aggs=None,
                 input_filters=None)
-            KensuBigQuerySupport().set_stats(ddl_target_table, out_stats_values)
+            KensuBigQuerySupport().set_stats(result, out_stats_values)
         lineage.report(
-            kensu,
+            ksu=kensu,
             df_result=result,
+            operation_type=operation_type,
             report_output=kensu.report_in_mem or is_ddl_write,
-            register_output_orig_data=True,
-            operation_type=operation_type
+            register_output_orig_data=is_ddl_write
         )
         if is_ddl_write:
             if len(lineage.lineage) > 0:
