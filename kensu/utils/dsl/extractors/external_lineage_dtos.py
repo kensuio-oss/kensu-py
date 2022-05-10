@@ -73,6 +73,13 @@ def filter_matching_fields(fields, other_fields):
     return [f for f in fields if f.lower() in other_fields_lowercase]
 
 
+def to_lds_info(path):
+    # FIXME: LDS location support is not yet merged, so we must set LDS name to the path!
+    return [
+        f"logical::{path}",
+        f"logicalLocation::{path}"
+    ]
+
 class GenericComputedInMemDs:
     def __init__(
             self,
@@ -86,6 +93,31 @@ class GenericComputedInMemDs:
 
     def __repr__(self):
         return 'GenericComputedInMemDs(lineage={})'.format(str(self.lineage))
+
+
+    @staticmethod
+    def build_approx_lineage(
+            source_uris,  # type: list[str]
+            source_format,  # type: str
+            result_schema  # type: Schema
+    ):
+        from kensu.utils.kensu_provider import KensuProvider
+        ksu = KensuProvider().instance()
+        ksu_inputs = []
+        for src_uri in source_uris:
+            ksu_input = KensuDatasourceAndSchema.for_path_with_opt_schema(
+                ksu=ksu,
+                ds_path=src_uri,
+                format=source_format,
+                maybe_schema=[(f.name, f.field_type) for f in result_schema.pk.fields]
+            )
+            ksu_inputs.append(ksu_input)
+
+        lineage = GenericComputedInMemDs.for_direct_or_full_mapping(
+            all_inputs=ksu_inputs,
+            out_field_names=[f.name for f in result_schema.pk.fields]
+        )
+        return ksu_inputs, lineage
 
     @staticmethod
     def for_direct_or_full_mapping(
@@ -162,18 +194,23 @@ class GenericComputedInMemDs:
 
 
     @staticmethod
-    def report_copy_with_opt_schema(src, dest, operation_type, maybe_schema=None, dest_name=None, src_name=None):
+    def report_copy_with_opt_schema(src, dest, operation_type, maybe_schema=None, dest_name=None, src_name=None,
+                                    src_categories=None, dest_categories=None):
         from kensu.utils.kensu_provider import KensuProvider
         ksu = KensuProvider().instance()
-        input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=src, maybe_schema=maybe_schema, ds_name=src_name)
-        output_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=dest, maybe_schema=maybe_schema, ds_name=dest_name)
+        if src_categories is None:
+            src_categories = to_lds_info(src)
+        if dest_categories is None:
+            dest_categories = to_lds_info(dest)
+        input_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=src, maybe_schema=maybe_schema, ds_name=src_name, categories=src_categories)
+        output_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu, ds_path=dest, maybe_schema=maybe_schema, ds_name=dest_name, categories=dest_categories)
         if maybe_schema is None:
             maybe_schema = [("unknown", "unknown")]
         lineage_info = [ExtDependencyEntry(
             input_ds=input_ds,
             # FIXME: kensu-py lineage do not work without schema as well...
-            lineage= dict([(str(fieldname), [str(fieldname)])
-                           for (fieldname, dtype) in maybe_schema]))]
+            lineage=dict([(str(fieldname), [str(fieldname)])
+                          for (fieldname, dtype) in maybe_schema]))]
         inputs_lineage = GenericComputedInMemDs(inputs=[input_ds], lineage=lineage_info)
         # register lineage in KensuProvider
         inputs_lineage.report(ksu=ksu, df_result=output_ds, operation_type=operation_type, report_output=True, register_output_orig_data=True)
