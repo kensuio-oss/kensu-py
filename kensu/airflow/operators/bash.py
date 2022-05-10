@@ -6,7 +6,7 @@ from airflow.operators.bash import *
 
 from kensu.airflow.kensu_airflow_collector import COLLECTOR_STATUS_INIT, COLLECTOR_STATUS_DONE, log_status, \
     airflow_init_kensu, handle_ex
-from kensu.utils.helpers import report_simple_copy_with_guessed_schema
+from kensu.utils.helpers import report_simple_copy_with_guessed_schema, get_absolute_path
 
 
 def dumb_parse_curl(s):
@@ -21,7 +21,13 @@ def dumb_parse_curl(s):
             logging.info("dumb_parse_curl parsed groups: " + str(m.groups()))
             input_uri = m.group(1)
             output_filename = m.group(2)
-            report_simple_copy_with_guessed_schema(input_uri=input_uri, output_filename=output_filename)
+            output_absolute_uri = get_absolute_path(output_filename)
+            report_simple_copy_with_guessed_schema(
+                input_uri=input_uri,
+                output_absolute_uri=output_absolute_uri,
+                read_schema_from_filename=output_filename,
+                operation_type='airflow.BashOperator::curl'
+            )
             return True
     except Exception as e:
         logging.warning(f"caught exception in dumb_parse_curl", e)
@@ -55,3 +61,5 @@ class BashOperator(airflow_bash.BashOperator):
         log_status(self, COLLECTOR_STATUS_DONE)
         return res
 
+
+BashOperator.__doc__ = airflow_bash.BashOperator.__doc__

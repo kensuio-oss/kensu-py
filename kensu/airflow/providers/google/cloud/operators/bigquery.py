@@ -66,6 +66,9 @@ class BigQueryInsertJobOperator(gcp_bigquery.BigQueryInsertJobOperator):
         return job_id
 
 
+BigQueryInsertJobOperator.__doc__ = gcp_bigquery.BigQueryInsertJobOperator.__doc__
+
+
 class BigQueryCreateExternalTableOperator(gcp_bigquery.BigQueryCreateExternalTableOperator):
 
     def __init__(
@@ -128,3 +131,6 @@ class BigQueryCreateExternalTableOperator(gcp_bigquery.BigQueryCreateExternalTab
             handle_ex(self, ex)
         log_status(self, COLLECTOR_STATUS_DONE)
         return res
+
+
+BigQueryCreateExternalTableOperator.__doc__ = gcp_bigquery.BigQueryCreateExternalTableOperator.__doc__

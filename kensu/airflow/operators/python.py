@@ -27,3 +27,6 @@ class PythonOperator(airflow_python.PythonOperator):
         res = super(PythonOperator, self).execute(context)
         log_status(self, COLLECTOR_STATUS_DONE)
         return res
+
+
+PythonOperator.__doc__ = airflow_python.PythonOperator.__doc__

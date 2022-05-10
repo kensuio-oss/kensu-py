@@ -7,6 +7,8 @@ import logging
 # this import is actually used by end-user
 from pysftp import CnOpts
 
+from kensu.utils.helpers import report_simple_copy_with_guessed_schema
+
 
 class Connection(pysftp.Connection):
 
@@ -52,31 +54,14 @@ class Connection(pysftp.Connection):
 
         logging.info(f"sftp.put(localpath: {absolute_localpath}, remote_qualified_path:{qualified_remote_path})")
         # schema is not known for a generic ftp file copy !!! but we try to guess it
-        maybe_schema = [("unknown, unknown"), ]
-        from kensu.utils.helpers import extract_ksu_ds_schema
         from kensu.utils.helpers import get_absolute_path as get_kensu_abs_path
         kensu_normalized_absolute_path = get_kensu_abs_path(absolute_localpath)
-        try:
-            import kensu.pandas as pd
-            maybe_pandas_df = pd.read_csv(absolute_localpath, sep=";")
-            from kensu.utils.kensu_provider import KensuProvider
-            ksu = KensuProvider().instance()
-            ds, schema = extract_ksu_ds_schema(ksu, maybe_pandas_df, report=False, register_orig_data=False)
-            maybe_schema = [(f.name, f.field_type) for f in schema.pk.fields]
-        except:
-            print("Kensu failed to infer schema for data of pysftp copy operation...")
-            import traceback
-            traceback.print_exc()
-            traceback.print_tb(tb=None)
-        print('Extracted schema:', maybe_schema)
-        from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
-        GenericComputedInMemDs.report_copy_with_opt_schema(
-            src=kensu_normalized_absolute_path,
-            dest=qualified_remote_path,
-            operation_type="sftp.put()",
-            maybe_schema=maybe_schema
+        report_simple_copy_with_guessed_schema(
+            input_uri=kensu_normalized_absolute_path,
+            output_absolute_uri=qualified_remote_path,
+            read_schema_from_filename=absolute_localpath,
+            operation_type='sftp.put()'
         )
-
     put.__doc__ = pysftp.Connection.put.__doc__
 
 

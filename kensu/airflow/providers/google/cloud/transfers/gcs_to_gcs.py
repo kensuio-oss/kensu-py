@@ -85,3 +85,6 @@ class GCSToGCSOperator(airflow_gcs_to_gcs.GCSToGCSOperator):
             handle_ex(self, ex)
         log_status(self, COLLECTOR_STATUS_DONE)
         return res
+
+
+GCSToGCSOperator.__doc__ = airflow_gcs_to_gcs.GCSToGCSOperator.__doc__
