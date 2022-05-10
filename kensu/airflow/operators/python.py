@@ -1,12 +1,12 @@
-from typing import Dict
+from airflow.operators import python as airflow_python
 
-import airflow
+from airflow.operators.python import *
 
 from kensu.airflow.kensu_airflow_collector import COLLECTOR_STATUS_INIT, COLLECTOR_STATUS_DONE, log_status, \
     airflow_init_kensu, handle_ex
 
 
-class PythonOperator(airflow.operators.python.PythonOperator):
+class PythonOperator(airflow_python.PythonOperator):
     def __init__(
             self,
             *args,

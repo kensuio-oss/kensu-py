@@ -116,32 +116,51 @@ class QueryJob(bqj.QueryJob):
             logging.warning("Error in BigQuery collector, using fallback implementation")
             traceback.print_exc()
             bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
+        QueryJob.report_ddl_write_with_stats(
+            dst_bq_table=dest,
+            bq_client=client,
+            lineage=bq_lineage,
+            is_ddl_write=is_ddl_write
+        )
 
-        # FIXME: rm - QueryJob._store_bigquery_job_destination(result=result, dest=dest)
 
-        if is_ddl_write and isinstance(ddl_target_table, bq.TableReference) and kensu.compute_stats:
+    @staticmethod
+    def report_ddl_write_with_stats(
+            dst_bq_table,
+            bq_client,
+            lineage,
+            is_ddl_write,
+            operation_type=None
+    ):
+        ksu = KensuProvider().instance()
+        if ksu.compute_stats and is_ddl_write and isinstance(dst_bq_table, bq.Table):
             # for DDL writes, stats can be computed by just reading the whole table
             # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
             out_stats_values = compute_bigquery_stats(
-                table_ref=ddl_target_table,
-                table=client.get_table(ddl_target_table),
-                client=client,
+                table_ref=dst_bq_table.reference,
+                table=dst_bq_table,
+                client=bq_client,
                 # stats for all output columns
                 stats_aggs=None,
                 input_filters=None)
-            KensuBigQuerySupport().set_stats(result, out_stats_values)
-        bq_lineage.report(
-            ksu=kensu,
-            df_result=result,
-            operation_type='BigQuery SQL result',
-            report_output=kensu.report_in_mem or is_ddl_write,
-            register_output_orig_data=is_ddl_write  # used for DDL writes, like CREATE TABLE t2 AS SELECT * FROM t1
-            # FIXME: how about INSERT INTO?
+            KensuBigQuerySupport().set_stats(dst_bq_table, out_stats_values)
+        lineage.report(
+            ksu,
+            df_result=dst_bq_table,
+            report_output=True,
+            register_output_orig_data=True,
+            operation_type=operation_type
         )
         if is_ddl_write:
-            # FIXME: report_with_mapping fails with empty inputs/lineage?
-            if len(bq_lineage.lineage) > 0:
-                kensu.report_with_mapping()
+            if len(lineage.lineage) > 0:
+                ksu.report_with_mapping()
+                return True
+            else:
+                logging.warning("Kensu got empty lineage - not reporting")
+                logging.info("bq_lineage:" + str(lineage))
+                logging.info("dst_bq_table:" + str(dst_bq_table))
+                return False
+
 
     @staticmethod
     def _store_bigquery_job_destination(result, dest):

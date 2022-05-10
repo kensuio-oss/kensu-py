@@ -1,10 +1,12 @@
 import logging
 from typing import Dict
 
-import airflow
+from airflow.operators import bash as airflow_bash
+from airflow.operators.bash import *
 
 from kensu.airflow.kensu_airflow_collector import COLLECTOR_STATUS_INIT, COLLECTOR_STATUS_DONE, log_status, \
-    airflow_init_kensu, handle_ex, report_simple_copy_with_guessed_schema
+    airflow_init_kensu, handle_ex
+from kensu.utils.helpers import report_simple_copy_with_guessed_schema
 
 
 def dumb_parse_curl(s):
@@ -27,7 +29,7 @@ def dumb_parse_curl(s):
     return None
 
 
-class BashOperator(airflow.operators.bash.BashOperator):
+class BashOperator(airflow_bash.BashOperator):
     def __init__(
             self,
             *args,

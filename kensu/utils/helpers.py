@@ -87,6 +87,37 @@ def report_all2all_lineage(in_obj, out_obj, op_type, in_inmem=True, out_inmem=Tr
                                                from_guid=in_schema.to_guid(),
                                                from_col=str(col),
                                                type=op_type)
+
+
+def report_simple_copy_with_guessed_schema(input_uri,  # type: str
+                                           output_filename,  # type: str
+                                           ):
+    from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
+    try:
+        maybe_schema = None
+        output_absolute_uri = get_absolute_path(output_filename)
+        logging.info(f"report_simple_copy_with_guessed_schema input={input_uri} output={output_absolute_uri}")
+        if output_absolute_uri.endswith('.csv'):
+            try:
+                # FIXME: part of duplicated code here
+                import kensu.pandas as pd
+                maybe_pandas_df = pd.read_csv(output_filename)  # FIXME: sep=";"
+                from kensu.utils.kensu_provider import KensuProvider
+                ksu = KensuProvider().instance()
+                _, schema = extract_ksu_ds_schema(ksu, maybe_pandas_df, report=False, register_orig_data=False)
+                maybe_schema = [(f.name, f.field_type) for f in schema.pk.fields]
+            except Exception as ex:
+                logging.warning("unable to guess schema of .csv() file", ex)
+        GenericComputedInMemDs.report_copy_with_opt_schema(
+            src=input_uri,
+            dest=output_absolute_uri,
+            operation_type='airflow.BashOperator::curl',
+            maybe_schema=maybe_schema
+        )
+    except Exception as e:
+        logging.warning(f"caught exception in dumb_parse_curl", e)
+
+
 def flatten(d, parent_key='', sep='.'):
     items = []
     if isinstance(d,list):
@@ -169,4 +200,3 @@ def extract_short_json_schema(result, result_ds):
 
     short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)
     return short_result_sc
-

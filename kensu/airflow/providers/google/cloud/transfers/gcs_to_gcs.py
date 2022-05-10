@@ -6,7 +6,7 @@ from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from airflow.providers.google.cloud.transfers import gcs_to_gcs as airflow_gcs_to_gcs
 
 from kensu.airflow.kensu_airflow_collector import COLLECTOR_STATUS_INIT, COLLECTOR_STATUS_DONE, log_status, \
-    airflow_init_kensu, handle_ex, report_simple_copy_with_guessed_schema
+    airflow_init_kensu, handle_ex
 from kensu.utils.dsl.extractors.external_lineage_dtos import GenericComputedInMemDs
 
 if TYPE_CHECKING:
