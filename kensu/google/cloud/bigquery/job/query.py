@@ -55,7 +55,7 @@ class QueryJob(bqj.QueryJob):
         return job
 
     @staticmethod
-    def override_result(job #  type: google.cloud.bigquery.job.QueryJob
+    def override_result(job  # type: google.cloud.bigquery.job.QueryJob
                         ) -> bqj.QueryJob:
         f = job.result
 
@@ -116,7 +116,7 @@ class QueryJob(bqj.QueryJob):
             traceback.print_exc()
             bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
         QueryJob.report_ddl_write_with_stats(
-            dst_bq_table=dest,
+            dst_bq_table=result,
             bq_client=client,
             lineage=bq_lineage,
             is_ddl_write=is_ddl_write
@@ -131,8 +131,8 @@ class QueryJob(bqj.QueryJob):
             is_ddl_write,
             operation_type=None
     ):
-        ksu = KensuProvider().instance()
-        if ksu.compute_stats and is_ddl_write and isinstance(dst_bq_table, bq.Table):
+        kensu = KensuProvider().instance()
+        if kensu.compute_stats and is_ddl_write and isinstance(dst_bq_table, bq.Table):
             # for DDL writes, stats can be computed by just reading the whole table
             # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
             out_stats_values = compute_bigquery_stats(
@@ -144,15 +144,15 @@ class QueryJob(bqj.QueryJob):
                 input_filters=None)
             KensuBigQuerySupport().set_stats(dst_bq_table, out_stats_values)
         lineage.report(
-            ksu,
+            kensu,
             df_result=dst_bq_table,
-            report_output=True,
+            report_output=kensu.report_in_mem or is_ddl_write,
             register_output_orig_data=True,
             operation_type=operation_type
         )
         if is_ddl_write:
             if len(lineage.lineage) > 0:
-                ksu.report_with_mapping()
+                kensu.report_with_mapping()
                 return True
             else:
                 logging.warning("Kensu got empty lineage - not reporting")

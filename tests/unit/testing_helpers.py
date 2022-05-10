@@ -55,9 +55,11 @@ def assert_log_msg_exists(msg, msg2=None, msg3=None, full_str_match=False, test_
             else:
                 return m is None or m in line
     with open(KensuProvider().instance().offline_file_name, "r") as f:
-        b = bool([True for l in f.readlines()
+        lines = f.readlines()
+        b = bool([True for l in lines
                      if msg in l and contains(msg2, l) and contains(msg3, l)])
         if test_case is not None:
-            test_case.assertTrue(b, "Missing a line with all of '{}' '{}' '{}'".format(msg, msg2, msg3))
+            lines_str = "\n".join(["- " + str(l) for l in lines])
+            test_case.assertTrue(b, "Missing a line with all of '{}' '{}' '{}' in offline file:\n {}".format(msg, msg2, msg3, lines_str))
         else:
             assert b
