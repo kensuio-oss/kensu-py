@@ -83,8 +83,8 @@ class QueryJob(bqj.QueryJob):
         ddl_target_table = job.ddl_target_table
         dest = job.destination or ddl_target_table
         is_ddl_write = bool(ddl_target_table)
-        logging.debug(f'in QueryJob.result(): dest={dest}')
-        logging.debug(f'in QueryJob.result(): referenced={job.referenced_tables}')
+        logger.debug(f'in QueryJob.result(): dest={dest}')
+        logger.debug(f'in QueryJob.result(): referenced={job.referenced_tables}')
 
         if isinstance(dest, bq.TableReference):
             dest = client.get_table(dest)
