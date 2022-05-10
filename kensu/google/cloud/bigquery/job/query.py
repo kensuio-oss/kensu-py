@@ -88,8 +88,7 @@ class QueryJob(bqj.QueryJob):
 
         if isinstance(dest, bq.TableReference):
             dest = client.get_table(dest)
-        else:
-            return
+
         if result is not None:
             QueryJob._store_bigquery_job_destination(result=result, dest=dest)
         else:
