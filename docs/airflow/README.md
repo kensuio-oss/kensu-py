@@ -39,6 +39,7 @@ Add kensu URL/token to either `conf.ini` in `dags/` dir or Airflow variables as 
 If you're running airflow locally these could also be set like this:
 ```
 export AIRFLOW_VAR_KENSU_API_URL=BAR
+export AIRFLOW_VAR_KENSU_API_TOKEN=FOO
 ```
 
 ### Debug
