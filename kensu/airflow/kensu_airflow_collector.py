@@ -34,7 +34,7 @@ def airflow_init_kensu(
     # so we set the important/sensitive settings explicitly from Airflow (secured) variables
     from airflow.models import Variable
     api_url = Variable.get("KENSU_API_URL", default_var=None)
-    auth_token = Variable.get("KSU_API_TOKEN", default_var=None)
+    auth_token = Variable.get("KENSU_API_TOKEN", default_var=None)
 
     KensuProvider().initKensu(
         api_url=api_url,
