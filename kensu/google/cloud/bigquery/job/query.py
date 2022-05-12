@@ -55,7 +55,7 @@ class QueryJob(bqj.QueryJob):
         return job
 
     @staticmethod
-    def override_result(job #  type: google.cloud.bigquery.job.QueryJob
+    def override_result(job  # type: google.cloud.bigquery.job.QueryJob
                         ) -> bqj.QueryJob:
         f = job.result
 
@@ -63,64 +63,105 @@ class QueryJob(bqj.QueryJob):
             kensu = KensuProvider().instance()
             result = f(*args, **kwargs)
             client = kensu.data_collectors['BigQuery']
-            ddl_target_table = job.ddl_target_table
-            dest = job.destination or ddl_target_table
-            is_ddl_write = bool(ddl_target_table)
-            logger.debug(f'in QueryJob.result(): dest={dest}')
-            logger.debug(f'in QueryJob.result(): referenced={job.referenced_tables}')
-            if isinstance(dest, bq.TableReference):
-                dest = client.get_table(dest)
-
-            #TODO What if several SELECT queries linked with ; ?
-            db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
-                kensu=kensu,
-                client=client,
-                job=job,
-                query=BqOfflineParser.normalize_table_refs(job.query))
-            try:
-                bq_lineage = BqRemoteParser.parse(
-                    kensu=kensu,
-                    client=client,
-                    query=job.query,
-                    db_metadata=db_metadata,
-                    table_id_to_bqtable=table_id_to_bqtable)
-            except:
-                logger.warning("Error in BigQuery collector, using fallback implementation")
-                traceback.print_exc()
-                bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
-
-            QueryJob._store_bigquery_job_destination(result=result, dest=dest)
-
-            if is_ddl_write and isinstance(ddl_target_table, bq.TableReference) and kensu.compute_stats:
-                # for DDL writes, stats can be computed by just reading the whole table
-                # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
-                out_stats_values = compute_bigquery_stats(
-                    table_ref=ddl_target_table,
-                    table=client.get_table(ddl_target_table),
-                    client=client,
-                    # stats for all output columns
-                    stats_aggs=None,
-                    input_filters=None)
-                KensuBigQuerySupport().set_stats(result, out_stats_values)
-            bq_lineage.report(
-                ksu=kensu,
-                df_result=result,
-                operation_type='BigQuery SQL result',
-                report_output=kensu.report_in_mem or is_ddl_write,
-                # FIXME: how to know when in mem or when bigquery://projects/psyched-freedom-306508/datasets/_b63f45da1cafbd073e5c2770447d963532ac43ec/tables/anonc79d9038a13ab2dbe40064636b0aceedc62b5d69
-                register_output_orig_data=is_ddl_write  # used for DDL writes, like CREATE TABLE t2 AS SELECT * FROM t1
-                # FIXME: how about INSERT INTO?
-            )
-            if is_ddl_write:
-                # FIXME: report_with_mapping fails with empty inputs/lineage?
-                if len(bq_lineage.lineage) > 0:
-                    kensu.report_with_mapping()
-
+            QueryJob.report_bq_sql_query_job(client=client, job=job, result=result)
             return result
 
         wrapper.__doc__ = f.__doc__
         setattr(job, 'result', wrapper)
         return job
+
+
+    @staticmethod
+    def report_bq_sql_query_job(
+            client: 'Client',
+            job: 'QueryJob',
+            result=None
+    ):
+        """track QueryJob without requiring to subclass the Job itself"""
+
+        kensu = KensuProvider().instance()
+        ddl_target_table = job.ddl_target_table
+        dest = job.destination or ddl_target_table
+        is_ddl_write = bool(ddl_target_table)
+        logger.debug(f'in QueryJob.result(): dest={dest}')
+        logger.debug(f'in QueryJob.result(): referenced={job.referenced_tables}')
+
+        if isinstance(dest, bq.TableReference):
+            dest = client.get_table(dest)
+
+        if result is not None:
+            QueryJob._store_bigquery_job_destination(result=result, dest=dest)
+        else:
+            if isinstance(dest, bq.Table):
+                result = dest
+            else:
+                return
+
+
+        # TODO What if several SELECT queries linked with ; ?
+        db_metadata, table_id_to_bqtable, table_infos = BqOfflineParser.get_referenced_tables_metadata(
+            kensu=kensu,
+            client=client,
+            job=job,
+            query=BqOfflineParser.normalize_table_refs(job.query))
+        try:
+            bq_lineage = BqRemoteParser.parse(
+                kensu=kensu,
+                client=client,
+                query=job.query,
+                db_metadata=db_metadata,
+                table_id_to_bqtable=table_id_to_bqtable)
+        except:
+            logger.warning("Error in BigQuery collector, using fallback implementation")
+            traceback.print_exc()
+            bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
+        QueryJob.report_ddl_write_with_stats(
+            result=result,
+            ddl_target_table=ddl_target_table,
+            client=client,
+            lineage=bq_lineage,
+            is_ddl_write=is_ddl_write
+        )
+
+
+    @staticmethod
+    def report_ddl_write_with_stats(
+            result,
+            ddl_target_table,
+            client,
+            lineage,
+            is_ddl_write,
+            operation_type=None
+    ):
+        kensu = KensuProvider().instance()
+        if kensu.compute_stats and is_ddl_write and isinstance(ddl_target_table, bq.Table):
+            # for DDL writes, stats can be computed by just reading the whole table
+            # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
+            out_stats_values = compute_bigquery_stats(
+                table_ref=ddl_target_table.reference,
+                table=ddl_target_table,
+                client=client,
+                # stats for all output columns
+                stats_aggs=None,
+                input_filters=None)
+            KensuBigQuerySupport().set_stats(result, out_stats_values)
+        lineage.report(
+            ksu=kensu,
+            df_result=result,
+            operation_type=operation_type,
+            report_output=kensu.report_in_mem or is_ddl_write,
+            register_output_orig_data=is_ddl_write   # used for DDL writes, like CREATE TABLE t2 AS SELECT * FROM t1
+        )
+        if is_ddl_write:
+            if len(lineage.lineage) > 0:
+                kensu.report_with_mapping()
+                return True
+            else:
+                logger.warning("Kensu got empty lineage - not reporting")
+                logger.info("lineage:" + str(lineage))
+                logger.info("ddl_target_table:" + str(ddl_target_table))
+                return False
+
 
     @staticmethod
     def _store_bigquery_job_destination(result, dest):

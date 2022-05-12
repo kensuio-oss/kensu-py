@@ -16,6 +16,13 @@ pglast==v3.4:                       pg
 google-cloud-bigquery>=2.26.0:      gbq
 sqlparse >= 0.4.2:                  pg, gbq
 
+apache-airflow[google]==2.2.3:       airflow-google, airflow
+twine<=3.8.0:                        airflow-google
+# for pandas->parquet->gcs (google cloud store)
+gcsfs:                               airflow-google
+fsspec:                              airflow-google
+
+
 # optional for reporters
 confluent-kafka:                    kafka
 
