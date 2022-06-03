@@ -104,7 +104,7 @@ class BigQueryCreateExternalTableOperator(gcp_bigquery.BigQueryCreateExternalTab
                 # }
                 ext_input_conf = self.table_resource.get('externalDataConfiguration', {})
                 source_uris = [f"gs://{self.bucket}/{source_object}"
-                               for source_object in self.source_objects] or \
+                               for source_object in (self.source_objects or [])] or \
                               ext_input_conf.get('sourceUris')
                 source_format = ext_input_conf.get('sourceFormat') or 'CSV'
 
