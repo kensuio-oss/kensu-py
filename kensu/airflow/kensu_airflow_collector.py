@@ -23,7 +23,8 @@ def airflow_init_kensu(
 ):
     if airflow_operator is not None:
         if project_names is None:
-            project_names = ['Airflow :: ' + airflow_operator.dag_id]
+            from airflow.models import Variable
+            project_names = [Variable.get("KENSU_PROJECT", default_var='Airflow :: ' + airflow_operator.dag_id)]
         if process_name is None:
             process_name = airflow_operator.task_id
     # This must be called at each dag Operation, as Airflow operations may run on different Hosts

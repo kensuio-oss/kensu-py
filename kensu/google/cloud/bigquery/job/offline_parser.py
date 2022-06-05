@@ -56,8 +56,15 @@ class BqOfflineParser:
                                                                               client=client,
                                                                               query=query,
                                                                               table=query))
-            table_infos = list(set(table_infos + fallback_tables))
-        return BqOfflineParser.to_sql_util_metadata(table_infos)
+            table_infos = list((table_infos + fallback_tables))
+            #remove duplicates
+            res = []
+            for i in table_infos:
+                if i not in res:
+                    res.append(i)
+        else:
+            res=table_infos
+        return BqOfflineParser.to_sql_util_metadata(res)
 
 
     # FIXME: or should we better simply fetch schema for ALL visible tables and databases !!!!???
