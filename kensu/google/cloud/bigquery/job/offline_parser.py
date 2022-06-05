@@ -62,6 +62,8 @@ class BqOfflineParser:
             for i in table_infos:
                 if i not in res:
                     res.append(i)
+        else:
+            res=table_infos
         return BqOfflineParser.to_sql_util_metadata(res)
 
 
