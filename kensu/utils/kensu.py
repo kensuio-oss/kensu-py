@@ -694,11 +694,8 @@ class Kensu(object):
                         lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
                             'id']
                     except:
-                        try:
-                            lds_guid = sandbox_prefix+"logical-data-source-" + lds_id
-                        except:
-                            logging.info("LDS Guid %s not in this lineage"%lds_id)
-                            lds_guid = None
+                        logging.info("LDS Guid %s not in this lineage"%lds_id)
+                        lds_guid = None
 
                     if lds_guid is not None:
                         if context == "DATA_STATS":
@@ -732,6 +729,7 @@ class Kensu(object):
 
                         elif context == "LOGICAL_DATA_SOURCE":
                             current_rules = self.sdk.get_all_rules_for_ds(lds_guid)
+
                             current_range_rules = {i['fieldName']: i['uuid'] for i in
                                                    current_rules['data']['predicates'] if
                                                    i['functionName'] == 'Range'}

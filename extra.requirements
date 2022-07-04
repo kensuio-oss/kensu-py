@@ -22,6 +22,8 @@ twine<=3.8.0:                        airflow-google
 gcsfs:                               airflow-google
 fsspec:                              airflow-google
 
+# optional for sdk
+packaging:                          sdk
 
 # optional for reporters
 confluent-kafka:                    kafka
