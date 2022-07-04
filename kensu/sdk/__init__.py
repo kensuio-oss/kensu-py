@@ -162,8 +162,17 @@ class SDK(AbstractSDK):
 
     def get_lineages_in_project(self, project, process, env, code_version):
         # FIXME: use proper URLencode
-        uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (project,process,env,code_version)
-        return self.requests_get_json(uri)
+        from packaging import version
+        if version.parse(self.get_business_services_version()) < version.parse('11.0.0'):
+            uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (project,process,env,code_version)
+            return self.requests_get_json(uri)
+        else:
+            uri = "/business/services/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&environment=%s&codeVersionId=%s" % (project, process, env, code_version)
+            return {'data':self.requests_get_json(uri)}
+
+    def get_business_services_version(self):
+        uri = '/business/services/v1/code-version'
+        return self.requests_get_json(uri)['version']
 
     def create_rule(self, lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None, fun=None, context="DATA_STATS"):
         uri = "/business/api/v1/predicates"
@@ -212,8 +221,14 @@ class SDK(AbstractSDK):
         return self.requests_get_json(uri)
 
     def get_all_rules_for_ds(self,ds_id):
-        uri = "/business/api/v1/predicates?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE" % (ds_id)
-        return self.requests_get_json(uri)
+        from packaging import version
+        if version.parse(self.get_business_services_version()) < version.parse('11.0.0'):
+            uri = "/business/api/v1/predicates?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE" % (ds_id)
+            return self.requests_get_json(uri)
+        else:
+            uri = "/business/services/views/v1/rules?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE" % (ds_id)
+            r = self.requests_get_json(uri)
+            return {'data':{'predicates':r}}
 
     def get_datasources_in_logical(self, logical):
         # FIXME: 404
