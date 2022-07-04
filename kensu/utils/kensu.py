@@ -689,13 +689,17 @@ class Kensu(object):
                         sandbox_prefix = ''
 
                     data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
-
                     try:
                         lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
                             'id']
                     except:
-                        logging.info("LDS Guid %s not in this lineage"%lds_id)
-                        lds_guid = None
+                        try:
+                            from kensu.utils.kensu_class_handlers import KensuClassHandlers
+                            from kensu.client.models.logical_data_source import LogicalDataSourcePK
+                            lds_guid = sandbox_prefix + KensuClassHandlers.guid_pk(LogicalDataSourcePK(name=lds_id,location=lds_id))
+                        except:
+                            lds_guid = None
+                            logging.info("LDS Guid %s not in this lineage"%lds_id)
 
                     if lds_guid is not None:
                         if context == "DATA_STATS":

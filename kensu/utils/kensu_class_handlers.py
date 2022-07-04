@@ -4,6 +4,7 @@ from hashlib import sha256
 from kensu.client import UserPK, CodeBasePK, CodeVersionPK , PhysicalLocationPK , DataSourcePK , ProcessPK , SchemaPK , \
                                 ProcessLineagePK , ProcessRunPK , LineageRunPK , DataStatsPK , ModelPK , ModelTrainingPK , \
                                 ModelMetricsPK  , ProcessRunStatsPK , ProjectPK
+from kensu.client.models.logical_data_source import LogicalDataSourcePK
 
 
 
@@ -56,6 +57,14 @@ class KensuClassHandlers(object):
             "_dam_entity_type": "DATA_SOURCE"
             , "location": o.location
             , "physical-location": cls.serializeRef(o.physical_location_ref)
+        }
+
+    @classmethod
+    def caseLogicalDataSourcePK(cls, o):
+        return {
+            "_dam_entity_type": "LOGICAL_DATA_SOURCE"
+            , "location": o.location
+            , "name": o.name
         }
 
     @classmethod
@@ -179,6 +188,7 @@ class KensuClassHandlers(object):
         ModelMetricsPK: caseModelMetricsPK,
         ProcessRunStatsPK: caseProcessRunStatsPK,
         ProjectPK: caseProjectPK,
+        LogicalDataSourcePK: caseLogicalDataSourcePK
     }
 
     @classmethod
