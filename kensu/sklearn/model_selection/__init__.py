@@ -2,7 +2,7 @@ import logging
 
 from functools import reduce
 import pandas as pd
-from sklearn import model_selection
+from sklearn.model_selection import train_test_split as tts
 
 from kensu.pandas import DataFrame,Series
 from kensu.numpy import ndarray
@@ -28,7 +28,7 @@ def train_test_split(*arrays, **options):
             b.append(element.get_s())
     arrays = tuple(a)
 
-    results = model_selection.train_test_split(*arrays, **options)
+    results = tts(*arrays, **options)
 
 
 
@@ -67,4 +67,4 @@ def train_test_split(*arrays, **options):
 
     return new_results
 
-train_test_split.__doc__ = model_selection.train_test_split.__doc__
+train_test_split.__doc__ = tts.__doc__
