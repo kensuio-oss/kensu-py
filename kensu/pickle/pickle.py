@@ -1,6 +1,7 @@
 import pickle as pk
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.helpers import eventually_report_in_mem
+from kensu.utils.wrappers import remove_ksu_wrappers,remove_ksu_kwargs_wrappers
 
 
 def wrap_dump(method):
@@ -13,7 +14,9 @@ def wrap_dump(method):
             fmt = 'Unknown'
         kensu = KensuProvider().instance()
 
-        result = method(*args, **kwargs)
+        new_args = remove_ksu_wrappers(args)
+        new_kwargs= remove_ksu_kwargs_wrappers(kwargs)
+        result = method(*new_args, **new_kwargs)
 
         loc = args[1].name
         model = args[0]
