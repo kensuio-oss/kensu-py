@@ -19,7 +19,7 @@ NAME = "kensu"
 
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
-VERSION = "1.9.1.1" + BUILD_FLAVOR + BUILD_NUMBER
+VERSION = "1.9.2.0" + BUILD_FLAVOR + BUILD_NUMBER
 
 
 
