@@ -252,7 +252,7 @@ class KensuPandasDelegator(object):
 
 
 
-                    if name in ['rename','_set_axis']:
+                    if name in ['rename','_set_axis','astype']:
                         col_dest = [k.name for k in result_sc.pk.fields]
                         col_orig = [k.name for k in orig_sc.pk.fields]
                         for i in range(len(col_dest)):
