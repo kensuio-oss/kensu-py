@@ -206,11 +206,21 @@ class SDK(AbstractSDK):
         return self.debug_request(
             uri=full_uri,
             payload=payload,
-            method='POST',
+            method='PUT',
             fn=lambda: requests.put(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
         )
 
+    def requests_patch_json(self, uri, payload):
+        full_uri = self.url + uri
+        return self.debug_request(
+            uri=full_uri,
+            payload=payload,
+            method='PATCH',
+            fn=lambda: requests.patch(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+        )
+
     def get_lineages_in_project(self, project, process, env, code_version):
+        # FIXME: this works only when explicit environment was specified (and maybe same about code version)
         # FIXME: use proper URLencode
         if self.is_legacy_srv():
             uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (project,process,env,code_version)
@@ -257,16 +267,15 @@ class SDK(AbstractSDK):
             return self.requests_post_json(uri, payload=payload)
 
     def update_rule(self, predicate, fun):
+        payload = {"functionName": fun["name"],
+                   "arguments": fun["arguments"]}
         if self.is_legacy_srv():
             uri = "/business/api/v1/predicates/%s" % predicate
+            v = self.requests_put_json(uri, payload=payload)
         else:
             # e.g.: /business/services/v1/rules/1d7054fd-5f0c-4c71-b94f-2f0fe8deb210
             uri = f"/business/services/v1/rules/{predicate}"
-
-        payload = {"functionName": fun["name"],
-                   "arguments": fun["arguments"]}
-
-        v = requests.put(self.url + uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+            v = self.requests_patch_json(uri, payload=payload)
         return None
 
     @normalize_services_response
