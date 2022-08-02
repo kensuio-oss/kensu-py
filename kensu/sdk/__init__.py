@@ -293,7 +293,7 @@ class SDK(AbstractSDK):
             uri = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s" % (
             ds_id, lineage_id, project_id, env)
         else:
-            uri = f"/business/services/views/v2/performance/data/{ds_id}/{lineage_id}/{project_id}?logical=true&environment={env}"
+            uri = f"/business/services/views/v2/performance/data/{ds_id}/{lineage_id}/{project_id}?environment={env}"
         return self.requests_get_json(uri)
 
     def get_all_rules_for_ds(self, ds_id):
