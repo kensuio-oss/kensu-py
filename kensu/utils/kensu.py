@@ -716,11 +716,12 @@ class Kensu(object):
                                 if lds_guid in lineage_id_for_ds[lineage_id]:
                                     current_rules = self.sdk.get_rules_for_ds_in_project(lds_guid, lineage_id, project_id,
                                                                                          env_name)
-                                    current_range_rules = {i['fieldName']: i['uuid'] for i in
-                                                           current_rules['data']['predicates'] if
-                                                           i['functionName'] == 'Range' and (i['environment'] == env_name)}
-                                    current_frequency_rule = [i['uuid'] for i in current_rules['data']['predicates'] if
-                                                              i['functionName'] == 'Frequency' and (
+                                    current_range_rules = {i['fieldName']: i['uuid']
+                                                           for i in current_rules['data']['predicates']
+                                                           if i['functionName'] == 'Range' and (i['environment'] == env_name) }
+                                    current_frequency_rule = [i['uuid']
+                                                              for i in current_rules['data']['predicates']
+                                                              if i['functionName'] == 'Frequency' and (
                                                                           i['environment'] == env_name)]
                                     if fun['name'] == 'Range' and (field_name in current_range_rules):
                                         self.sdk.update_rule(current_range_rules[field_name], fun)
@@ -734,12 +735,12 @@ class Kensu(object):
                         elif context == "LOGICAL_DATA_SOURCE":
                             current_rules = self.sdk.get_all_rules_for_ds(lds_guid)
 
-                            current_range_rules = {i['fieldName']: i['uuid'] for i in
-                                                   current_rules['data']['predicates'] if
-                                                   i['functionName'] == 'Range'}
-                            current_variation_rules = {i['fieldName']: i['uuid'] for i in
-                                                   current_rules['data']['predicates'] if
-                                                   i['functionName'] == 'Variability'}
+                            current_range_rules = {i['fieldName']: i['uuid']
+                                                   for i in current_rules['data']['predicates']
+                                                   if i['functionName'] == 'Range'}
+                            current_variation_rules = {i['fieldName']: i['uuid']
+                                                       for i in current_rules['data']['predicates']
+                                                       if i['functionName'] == 'Variability'}
                             if fun['name'] == 'Range' and (field_name in current_range_rules):
                                 self.sdk.update_rule(current_range_rules[field_name], fun)
                             elif fun['name'] == 'Variability' and (field_name in current_variation_rules):

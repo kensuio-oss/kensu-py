@@ -1,4 +1,5 @@
 import logging
+import os
 
 import requests
 
@@ -75,6 +76,16 @@ class AbstractSDK(ABC):
         pass
 
 
+def normalize_services_response(func):
+    def wrapper(*args, **kwargs):
+        res = func(*args, **kwargs)
+        if res and 'data' not in res:
+            return {'data': res}
+        return res
+    wrapper.__doc__ = func.__doc__
+    return wrapper
+
+
 class DoNothingSDK(ABC):
     def __init__(self):
         pass
@@ -136,6 +147,14 @@ class SDK(AbstractSDK):
         self.cookie_header = {'X-External-App-Token': self.PAT}
         self.verify_ssl = verify_ssl
         self.cookie = self.get_cookie()  # FIXME: get_cookie called only once in __init__()! thus it might get expired!
+        self.debug_requests = os.environ.get('KENSU_DEBUG_HTTP_REQUESTS', 'False') == 'True'
+        self.is_legacy_services = None
+
+    def is_legacy_srv(self):
+        if self.is_legacy_services is None:
+            from packaging import version
+            self.is_legacy_services = version.parse(self.get_business_services_version()) < version.parse('11.0.0')
+        return self.is_legacy_services
 
     def get_cookie(self):
         session = requests.Session()
@@ -147,7 +166,12 @@ class SDK(AbstractSDK):
         # FIXME: proper URI concat
         # FIXME: verify if this update the cookie jar?
         # FIXME: what if cookie expired?
-        resp = requests.get(self.url + uri_suffix, cookies=self.cookie, verify=self.verify_ssl)
+        uri = self.url + uri_suffix
+        resp = self.debug_request(
+            uri=uri,
+            method='GET',
+            fn=lambda: requests.get(uri, cookies=self.cookie, verify=self.verify_ssl)
+        )
         if not (200 <= resp.status_code <= 299):
             msg = f"Failed to query Kensu SDK for uri={uri_suffix} status={resp.status_code}:\n{resp.text}"
             e = SdkError(msg)
@@ -159,11 +183,46 @@ class SDK(AbstractSDK):
             logging.warning(f"Unable to decode Kensu SDK response for uri={uri_suffix}:\n{v}", e)
             raise SdkError()
 
+    def debug_request(self, uri, method, fn, payload=None):
+        if self.debug_requests:
+            logging.warning(f'performing {method} request to {uri}, payload: {payload}')
+        resp = fn()
+        if self.debug_requests:
+            logging.warning('got response: ' + str(resp))
+            logging.warning('got response text: ' + str(resp.text))
+        return resp
+
+    def requests_post_json(self, uri, payload):
+        full_uri = self.url + uri
+        return self.debug_request(
+            uri=full_uri,
+            payload=payload,
+            method='POST',
+            fn=lambda: requests.post(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+        )
+
+    def requests_put_json(self, uri, payload):
+        full_uri = self.url + uri
+        return self.debug_request(
+            uri=full_uri,
+            payload=payload,
+            method='PUT',
+            fn=lambda: requests.put(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+        )
+
+    def requests_patch_json(self, uri, payload):
+        full_uri = self.url + uri
+        return self.debug_request(
+            uri=full_uri,
+            payload=payload,
+            method='PATCH',
+            fn=lambda: requests.patch(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+        )
 
     def get_lineages_in_project(self, project, process, env, code_version):
+        # FIXME: this works only when explicit environment was specified (and maybe same about code version)
         # FIXME: use proper URLencode
-        from packaging import version
-        if version.parse(self.get_business_services_version()) < version.parse('11.0.0'):
+        if self.is_legacy_srv():
             uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (project,process,env,code_version)
             return self.requests_get_json(uri)
         else:
@@ -175,7 +234,10 @@ class SDK(AbstractSDK):
         return self.requests_get_json(uri)['version']
 
     def create_rule(self, lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None, fun=None, context="DATA_STATS"):
-        uri = "/business/api/v1/predicates"
+        if self.is_legacy_srv():
+            uri = "/business/api/v1/predicates"
+        else:
+            uri = "/business/services/v1/rules"
         payload = None
         if context == "DATA_STATS":
             payload = {
@@ -201,28 +263,41 @@ class SDK(AbstractSDK):
             }
 
         if payload:
-            return requests.post(self.url + uri, json=payload, cookies=self.cookie, verify=self.verify_ssl).json()
+            # FIXME: verify no failure?
+            return self.requests_post_json(uri, payload=payload)
 
     def update_rule(self, predicate, fun):
-        uri = "/business/api/v1/predicates/%s" % predicate
-
         payload = {"functionName": fun["name"],
                    "arguments": fun["arguments"]}
-
-        v = requests.put(self.url + uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+        if self.is_legacy_srv():
+            uri = "/business/api/v1/predicates/%s" % predicate
+            v = self.requests_put_json(uri, payload=payload)
+        else:
+            # e.g.: /business/services/v1/rules/1d7054fd-5f0c-4c71-b94f-2f0fe8deb210
+            uri = f"/business/services/v1/rules/{predicate}"
+            v = self.requests_patch_json(uri, payload=payload)
         return None
 
+    @normalize_services_response
     def get_rules(self):
-        uri = "/business/api/views/v1/predicate-catalog"
+        # FIXME: not used?
+        if self.is_legacy_srv():
+            uri = "/business/api/views/v1/predicate-catalog"
+        else:
+            uri = "/business/services/views/v1/rules"
         return self.requests_get_json(uri)
 
+    @normalize_services_response
     def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
-        uri = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s" % (ds_id,lineage_id,project_id,env)
+        if self.is_legacy_srv():
+            uri = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s" % (
+            ds_id, lineage_id, project_id, env)
+        else:
+            uri = f"/business/services/views/v2/performance/data/{ds_id}/{lineage_id}/{project_id}?environment={env}"
         return self.requests_get_json(uri)
 
-    def get_all_rules_for_ds(self,ds_id):
-        from packaging import version
-        if version.parse(self.get_business_services_version()) < version.parse('11.0.0'):
+    def get_all_rules_for_ds(self, ds_id):
+        if self.is_legacy_srv():
             uri = "/business/api/v1/predicates?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE" % (ds_id)
             return self.requests_get_json(uri)
         else:

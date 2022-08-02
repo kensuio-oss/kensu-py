@@ -1,5 +1,9 @@
 # p.s. this file is automatically loaded by setup.py as install_requires (when calling `pip install -e ".[some-env]"`), 
 # so no need to install it with `pip install -r` manually
+packaging
+
+# pandas is currently required, but installed separately
+# pandas>=1.2.4
 
 # build
 setuptools >= 21.0.0
