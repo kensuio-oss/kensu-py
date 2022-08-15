@@ -667,6 +667,9 @@ class Kensu(object):
                       extra_as_json=None)._report()
 
     def send_rules(self):
+
+        if self.report_to_file:
+            return
         if self.rules and self.api_url:
             process_id = self.process.to_guid()
             project_id = self.process_run.projects_refs[0].by_guid
