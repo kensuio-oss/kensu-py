@@ -673,20 +673,21 @@ class Kensu(object):
             env_name = self.process_run.environment
             cv = self.process_run.executed_code_version_ref.by_guid
 
+            token_content = jwt.decode(self.kensu_api.api_client.default_headers["X-Auth-Token"],
+                                       options={"verify_signature": False})
+
+            if 'SANDBOX_USER_HASH' in token_content:
+                sandbox_prefix = token_content['SANDBOX_USER_HASH'] + "-"
+                project_id = sandbox_prefix + project_id
+                process_id = sandbox_prefix + process_id
+                cv = sandbox_prefix + cv
+            else:
+                sandbox_prefix = ''
             for map in self.rules:
                 for lds_id in map:
                     field_name = map[lds_id]['field']
                     fun = map[lds_id]['fun']
                     context = map[lds_id]['context']
-
-                    token_content = jwt.decode(self.kensu_api.api_client.default_headers["X-Auth-Token"], options={"verify_signature": False})
-                    if 'SANDBOX_USER_HASH' in token_content:
-                        sandbox_prefix = token_content['SANDBOX_USER_HASH'] + "-"
-                        project_id = sandbox_prefix + project_id
-                        process_id = sandbox_prefix + process_id
-                        cv = sandbox_prefix +cv
-                    else:
-                        sandbox_prefix = ''
 
                     data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
                     try:
