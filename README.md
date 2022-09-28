@@ -80,7 +80,7 @@ Each reporter has its own conf keys.
 
 Dispatches to several reporters
 
-- reporters: JSON array of the repoter names, e.g. reporters["KafkaReporter", "FileReporter"] 
+- reporters: JSON array of the reporter names, e.g. reporters["KafkaReporter", "FileReporter"] 
 
 ##### name=KafkaReporter
 

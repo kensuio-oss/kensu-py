@@ -16,7 +16,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format)
 
 class TestPandas(unittest.TestCase):
     token = ""
-    kensu = KensuProvider().initKensu(api_url="", auth_token=token, init_context=True, reporter="DoNothingReporter")
+    kensu = KensuProvider().initKensu(ingestion_url="", ingestion_token=token, init_context=True, reporter="DoNothingReporter")
 
     # FIXME... dunno ... that sounds rather nasty
     # def _constructor(self):

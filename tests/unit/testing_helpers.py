@@ -35,8 +35,8 @@ def setup_kensu_tracker(
     KensuProvider().initKensu(
         init_context=True,
         allow_reinit=True,
-        api_url=api_url,
-        auth_token=auth_token,
+        ingestion_url=api_url,
+        ingestion_token=auth_token,
         report_to_file=offline,
         project_names=project_names,
         offline_file_name=out_file,
