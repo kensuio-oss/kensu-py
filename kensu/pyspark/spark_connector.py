@@ -1,6 +1,5 @@
-import os
 import logging
-from kensu.utils.helpers import extract_config_property
+from kensu.utils.helpers import extract_config_property, get_conf_path
 
 # This function takes the fully classified object name, say: <package>.<name>.
 # Returns the static object instance on the heap
@@ -18,9 +17,6 @@ def ref_scala_object(jvm, object_name):
       for p in class_name_parts:
         o = getattr(o, p)
       return o
-
-def get_conf_path(self, default = "conf.ini"):
-    return os.environ["CONF_FILE"] if "CONF_FILE" in os.environ else default
 
 def wait_for_dam_completion(spark, dam_wait_timeout_secs):
     sc = spark.sparkContext
@@ -193,13 +189,13 @@ def set_fake_timestamp(spark, mocked_timestamp):
     """
     Sets a fake timestamp to be reported to DAM
     """
-    logging.info('DAM set_fake_timestamp starting')
+    logging.info('KENSU overriding execution_timestamp starting')
     sc = spark.sparkContext
     jvm = sc._jvm
     spark_writes_disabler = ref_scala_object(jvm, "io.kensu.third.integration.TimeUtils")
     force_override = False
     spark_writes_disabler.setMockedTime(int(mocked_timestamp), force_override)
-    logging.info('DAM set_fake_timestamp done')
+    logging.info('KENSU overriding execution_timestamp done')
 
 
 def add_ds_path_sanitizer(spark, search_str, replacement_str):
@@ -398,27 +394,27 @@ def get_inputs_lineage_fn(dam, df):
 """
 Assuming Datasource name is /a/b/c.ext
 Allowed values for parameters:
-- datasource_short_name_strategy:
+- data_source_naming_strategy:
   * None (default) - (file) name of DS if use_short_datasource_names else full_path
   * 'File' - c.ext
   * 'LastTwoFoldersAndFile' - a/b/c.ext
   * 'LastFolderAndFile' - b/c.ext
   * 'LastFolder' - b
-  * 'PathBasedRule' - use datasource_short_name_strategy_rules
-- logical_datasource_name_strategy:
+  * 'PathBasedRule' - use data_source_naming_strategy_rules
+- logical_data_source_naming_strategy_rules:
   * None (default) - do not set logical datasource
   * 'File' - c.ext
   * 'LastTwoFoldersAndFile' - a/b/c.ext
   * 'LastFolderAndFile' - b/c.ext
   * 'LastFolder' - b
   * 'PathBasedRule' - use logical_datasource_name_strategy_rules
-- datasource_short_name_strategy_rules or logical_datasource_name_strategy_rules:
+- data_source_naming_strategy_rules or logical_data_source_naming_strategy_rules:
   * pass a list of tuples (string_matcher, naming_strategy) like this:
     [("features_with_attrition_horizon_label", "File"),
      ("attri_pro_risk_indicator_disabled_3", "LastTwoFoldersAndFile"),
      # default - empty string matches everything
      ("", "LastFolderAndFile")]
-- lineage_missing_fallback_strategy:
+- missing_column_lineage_strategy:
     * 'CaseInsensitiveColumnNameMatcherStrat'
     * 'CaseSensitiveColumnNameMatcherStrat'
     * 'AllToAllLineageStrat'
@@ -426,7 +422,7 @@ Allowed values for parameters:
     * 'OutFieldStartsWithInFieldNameLineageStrat'
 """
 def init_kensu_spark(
-        spark_session=None,
+        spark_session=None,  # Must stay first as mostly this is the only argument passed
         ingestion_url=None,
         ingestion_token=None,
         report_to_file=None,
@@ -442,6 +438,7 @@ def init_kensu_spark(
         allow_invalid_ssl_certificates=None,
         compute_stats=None,
         compute_input_stats=None,
+        compute_output_stats=None,
         input_stats_for_only_used_columns=None,
         input_stats_keep_filters=None,
         input_stats_compute_quantiles=None,
@@ -452,26 +449,25 @@ def init_kensu_spark(
         output_stats_cache_bypath=None,
         output_stats_coalesce_enabled=None,
         output_stats_coalesce_workers=None,
-        cache_output_for_datastats=None,
-        use_short_datasource_names=None,
-        shutdown_timeout_secs=None,
-        debugging_log_level=None,
+        cache_output_for_stats=None,
+        shorten_data_source_names=None,
+        shutdown_timeout_sec=None,
         enable_debugging=None,
-        datasource_short_name_strategy=None,
-        datasource_short_name_strategy_rules=None,
-        logical_datasource_name_strategy=None,
-        logical_datasource_name_strategy_rules=None,
-        lineage_missing_fallback_strategy=None,
-        capture_spark_logs=None,
-        h2o=None,
-        add_dam_dataframe_helpers=None,
+        debugging_log_level=None,
+        data_source_naming_strategy=None,
+        data_source_naming_strategy_rules=None,
+        logical_data_source_naming_strategy=None,
+        logical_data_source_naming_strategy_rules=None,
+        missing_column_lineage_strategy=None,
+        debugging_include_spark_logs=None,
+        patch_spark_data_frame=None,
         disable_spark_writes=None,
         environment=None,
-        fake_timestamp=None,
-        project_names=None,  # type: list[str]
-        project=None,
+        execution_timestamp=None,
+        project_name=None,  # type: list[str]
+        h2o_support=None,
         h2o_create_virtual_training_datasource=None,
-        pandas_conversions=None,
+        patch_pandas_conversions=None,
         pandas_to_spark_df_via_tmp_file=None,
         pandas_to_spark_tmp_dir=None,
         **kwargs
@@ -495,18 +491,27 @@ def init_kensu_spark(
         report_to_file = extract_config_property('report_to_file', False, report_to_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         logs_dir_path = extract_config_property('logs_dir_path', None, logs_dir_path, kw=kwargs, conf=kensu_conf)
         offline_file_name = extract_config_property('offline_file_name', 'dam-offline.log', offline_file_name, kw=kwargs, conf=kensu_conf)
+
+        shutdown_timeout_sec = extract_config_property('shutdown_timeout_sec', 10 * 60, shutdown_timeout_sec, kw=kwargs, conf=kensu_conf, tpe=int)
+        # TODO api_verify_ssl ?
+        allow_invalid_ssl_certificates = extract_config_property('api_verify_ssl',False,allow_invalid_ssl_certificates, kw=kwargs, conf=kensu_conf, tpe=bool)
+        enable_debugging = extract_config_property('enable_debugging', False, enable_debugging, kw=kwargs, conf=kensu_conf, tpe=bool)
+        debugging_log_level = extract_config_property('debugging_log_level', 'INFO', debugging_log_level, kw=kwargs, conf=kensu_conf)
+        debugging_include_spark_logs = extract_config_property('debugging_include_spark_logs', False, debugging_include_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
+
         process_name = extract_config_property('process_name', None, process_name, kw=kwargs, conf=kensu_conf)
         process_run_name = extract_config_property('process_run_name', None, process_run_name, kw=kwargs, conf=kensu_conf)
         code_location = extract_config_property('code_location', None, code_location, kw=kwargs, conf=kensu_conf)
         code_version = extract_config_property('code_version', None, code_version, kw=kwargs, conf=kensu_conf)
         user_name = extract_config_property('user_name', None, user_name, kw=kwargs, conf=kensu_conf)
         enable_entity_compaction = extract_config_property('enable_entity_compaction',True,enable_entity_compaction, kw=kwargs, conf=kensu_conf, tpe=bool)
-
-        # TODO api_verify_ssl ?
-        allow_invalid_ssl_certificates = extract_config_property('allow_invalid_ssl_certificates',False,allow_invalid_ssl_certificates, kw=kwargs, conf=kensu_conf, tpe=bool)
+        environment = extract_config_property('environment',None,environment, kw=kwargs, conf=kensu_conf)
+        project_name = extract_config_property('project_name', None, project_name, kw=kwargs, conf=kensu_conf, tpe=list)  # type: list[str]
+        execution_timestamp = extract_config_property('execution_timestamp', None, execution_timestamp, kw=kwargs, conf=kensu_conf, tpe=int)
 
         compute_stats = extract_config_property('compute_stats', True, compute_stats, kw=kwargs, conf=kensu_conf, tpe=bool)
         compute_input_stats = extract_config_property('compute_input_stats', True, compute_input_stats, kw=kwargs, conf=kensu_conf, tpe=bool)
+        compute_output_stats = extract_config_property('compute_output_stats', True, compute_output_stats, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_for_only_used_columns = extract_config_property('input_stats_for_only_used_columns',True,input_stats_for_only_used_columns, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_keep_filters = extract_config_property('input_stats_keep_filters',True,input_stats_keep_filters, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_compute_quantiles = extract_config_property('input_stats_compute_quantiles',False,input_stats_compute_quantiles, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -517,32 +522,26 @@ def init_kensu_spark(
         output_stats_cache_bypath = extract_config_property('output_stats_cache_bypath',False,output_stats_cache_bypath, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_coalesce_enabled = extract_config_property('output_stats_coalesce_enabled',False,output_stats_coalesce_enabled, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_coalesce_workers = extract_config_property('output_stats_coalesce_workers',100,output_stats_coalesce_workers, kw=kwargs, conf=kensu_conf, tpe=int)
-        cache_output_for_datastats = extract_config_property('cache_output_for_datastats',False,cache_output_for_datastats, kw=kwargs, conf=kensu_conf, tpe=bool)
+        cache_output_for_stats = extract_config_property('cache_output_for_stats', False, cache_output_for_stats, kw=kwargs, conf=kensu_conf, tpe=bool)
 
-        use_short_datasource_names = extract_config_property('use_short_datasource_names',True,use_short_datasource_names, kw=kwargs, conf=kensu_conf, tpe=bool)
+        shorten_data_source_names = extract_config_property('shorten_data_source_names', True, shorten_data_source_names, kw=kwargs, conf=kensu_conf, tpe=bool)
+        data_source_naming_strategy = extract_config_property('data_source_naming_strategy', None, data_source_naming_strategy, kw=kwargs, conf=kensu_conf)
+        data_source_naming_strategy_rules = extract_config_property('data_source_naming_strategy_rules', None, data_source_naming_strategy_rules, kw=kwargs, conf=kensu_conf)
+        logical_data_source_naming_strategy = extract_config_property('logical_data_source_naming_strategy', None, logical_data_source_naming_strategy, kw=kwargs, conf=kensu_conf)
+        logical_data_source_naming_strategy_rules = extract_config_property('logical_data_source_naming_strategy_rules', None, logical_data_source_naming_strategy_rules, kw=kwargs, conf=kensu_conf)
 
-        shutdown_timeout_secs = extract_config_property('shutdown_timeout_secs', 10 * 60, shutdown_timeout_secs, kw=kwargs, conf=kensu_conf, tpe=int)
-        enable_debugging = extract_config_property('enable_debugging', False, enable_debugging, kw=kwargs, conf=kensu_conf, tpe=bool)
-        debugging_log_level = extract_config_property('debugging_log_level', 'INFO', debugging_log_level, kw=kwargs, conf=kensu_conf)
+        missing_column_lineage_strategy = extract_config_property('missing_column_lineage_strategy', None, missing_column_lineage_strategy, kw=kwargs, conf=kensu_conf)
 
-        datasource_short_name_strategy = extract_config_property('datasource_short_name_strategy',None,datasource_short_name_strategy, kw=kwargs, conf=kensu_conf)
-        datasource_short_name_strategy_rules = extract_config_property('datasource_short_name_strategy_rules',None,datasource_short_name_strategy_rules, kw=kwargs, conf=kensu_conf)
-        logical_datasource_name_strategy = extract_config_property('logical_naming',None,logical_datasource_name_strategy, kw=kwargs, conf=kensu_conf)
-        logical_datasource_name_strategy_rules = extract_config_property('logical_datasource_name_strategy_rules',None,logical_datasource_name_strategy_rules, kw=kwargs, conf=kensu_conf)
-        lineage_missing_fallback_strategy = extract_config_property('lineage_missing_fallback_strategy',None,lineage_missing_fallback_strategy, kw=kwargs, conf=kensu_conf)
-        capture_spark_logs = extract_config_property('capture_spark_logs',False,capture_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
-        h2o = extract_config_property('h2o',False,h2o, kw=kwargs, conf=kensu_conf, tpe=bool)
-        add_dam_dataframe_helpers = extract_config_property('add_dam_dataframe_helpers',True,add_dam_dataframe_helpers, kw=kwargs, conf=kensu_conf, tpe=bool)
         disable_spark_writes = extract_config_property('disable_spark_writes',False,disable_spark_writes, kw=kwargs, conf=kensu_conf, tpe=bool)
-        environment =  extract_config_property('environment',None,environment, kw=kwargs, conf=kensu_conf)
-        fake_timestamp =  extract_config_property('fake_timestamp',None,fake_timestamp, kw=kwargs, conf=kensu_conf,tpe=int)
-        project_names =  extract_config_property('projects', None, project_names, kw=kwargs, conf=kensu_conf, tpe=list)  # type: list[str]
-        project =  extract_config_property('project_names',None,project, kw=kwargs, conf=kensu_conf)
+
+        h2o_support = extract_config_property('h2o_support', False, h2o_support, kw=kwargs, conf=kensu_conf, tpe=bool)
         h2o_create_virtual_training_datasource = extract_config_property('h2o_create_virtual_training_datasource',True,h2o_create_virtual_training_datasource, kw=kwargs, conf=kensu_conf, tpe=bool)
-        pandas_conversions = extract_config_property('pandas_conversions',True,pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
+
+        patch_spark_data_frame = extract_config_property('patch_spark_data_frame', True, patch_spark_data_frame, kw=kwargs, conf=kensu_conf, tpe=bool)
+
+        patch_pandas_conversions = extract_config_property('patch_pandas_conversions', True, patch_pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_df_via_tmp_file = extract_config_property('pandas_to_spark_df_via_tmp_file',True,pandas_to_spark_df_via_tmp_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_tmp_dir = extract_config_property('pandas_to_spark_tmp_dir','/tmp/spark-to-pandas-tmp',pandas_to_spark_tmp_dir, kw=kwargs, conf=kensu_conf)
-
 
         try:
             # Not initializing ML trackers yet
@@ -649,6 +648,8 @@ def init_kensu_spark(
                 properties.add(t2("dam.spark.data_stats.enabled", compute_stats))
             if compute_input_stats is not None:
                 properties.add(t2("dam.spark.data_stats.input.enabled", compute_input_stats))
+            if compute_input_stats is not None:
+                properties.add(t2("dam.spark.data_stats.output.enabled", compute_input_stats))
             if input_stats_for_only_used_columns:
                 properties.add(t2("dam.spark.data_stats.input.only_used_in_lineage", input_stats_for_only_used_columns))
             if input_stats_keep_filters is not None:
@@ -664,8 +665,8 @@ def init_kensu_spark(
             add_prop("dam.spark.data_stats.output.coalesceEnabled", output_stats_coalesce_enabled)
             add_prop("dam.spark.data_stats.output.coalesceWorkers", output_stats_coalesce_workers)
 
-            if shutdown_timeout_secs is not None:
-                properties.add(t2("dam.spark.shutdown_timeout", shutdown_timeout_secs))
+            if shutdown_timeout_sec is not None:
+                properties.add(t2("dam.spark.shutdown_timeout", shutdown_timeout_sec))
             if enable_debugging:
                 debug_level = debugging_log_level or "INFO"
                 if process_name is not None:
@@ -675,33 +676,31 @@ def init_kensu_spark(
                     dam_debug_filename = join_paths(logs_dir_path, notebook_file_name + ".kensu-collector-debug.log")
                 properties.add(t2("dam.spark.file_debug.level", debug_level))
                 properties.add(t2("dam.spark.file_debug.file_name", dam_debug_filename))
-                properties.add(t2("dam.spark.file_debug.capture_spark_logs", capture_spark_logs))
+                properties.add(t2("dam.spark.file_debug.capture_spark_logs", debugging_include_spark_logs))
                 logging.info("Will write dam DAM log to file:" + dam_debug_filename)
-            if use_short_datasource_names is not None:
-                properties.add(t2("dam.datasources.short.name", use_short_datasource_names))
+            if shorten_data_source_names is not None:
+                properties.add(t2("dam.datasources.short.name", shorten_data_source_names))
 
-            if datasource_short_name_strategy_rules is not None:
-                datasource_short_name_strategy = 'PathBasedRule'
-                converted_rules = convert_naming_rules(datasource_short_name_strategy_rules)
+            if data_source_naming_strategy_rules is not None:
+                data_source_naming_strategy = 'PathBasedRule'
+                converted_rules = convert_naming_rules(data_source_naming_strategy_rules)
                 properties.add(t2("dam.datasources.path_rules.short.naming_strategy", converted_rules))
-            if logical_datasource_name_strategy_rules is not None:
-                logical_datasource_name_strategy = 'PathBasedRule'
-                converted_rules = convert_naming_rules(logical_datasource_name_strategy_rules)
+            if logical_data_source_naming_strategy_rules is not None:
+                logical_data_source_naming_strategy = 'PathBasedRule'
+                converted_rules = convert_naming_rules(logical_data_source_naming_strategy_rules)
                 properties.add(t2("dam.logical.datasources.path_rules.naming_strategy", converted_rules))
 
-            if lineage_missing_fallback_strategy is not None:
-                properties.add(t2('dam.spark.lineage.column_lineage_fallback_strategy', lineage_missing_fallback_strategy))
+            if missing_column_lineage_strategy is not None:
+                properties.add(t2('dam.spark.lineage.column_lineage_fallback_strategy', missing_column_lineage_strategy))
 
-            if datasource_short_name_strategy is not None:
-                properties.add(t2("dam.datasources.short.naming_strategy", datasource_short_name_strategy))
-            if logical_datasource_name_strategy is not None:
-                properties.add(t2("dam.logical.datasources.naming_strategy", logical_datasource_name_strategy))
+            if data_source_naming_strategy is not None:
+                properties.add(t2("dam.datasources.short.naming_strategy", data_source_naming_strategy))
+            if logical_data_source_naming_strategy is not None:
+                properties.add(t2("dam.logical.datasources.naming_strategy", logical_data_source_naming_strategy))
             if environment is not None:
                 properties.add(t2("dam.activity.environment", environment))
-            if project_names is not None:
-                properties.add(t2("dam.activity.projects", project_names))
-            elif project is not None:
-                properties.add(t2("dam.activity.projects", [project]))
+            if project_name is not None:
+                properties.add(t2("dam.activity.projects", project_name))
 
             process_name = None
             if process_name is not None:
@@ -714,7 +713,7 @@ def init_kensu_spark(
             if process_run_name is not None:
                 properties.add(t2("dam.activity.explicit.process_run.name", process_name))
 
-            maybe_fake_timestamp = fake_timestamp or os.environ.get('DAM_OVERRIDE_TIMESTAMP')
+            maybe_fake_timestamp = execution_timestamp
             if maybe_fake_timestamp is not None:
                 set_fake_timestamp(spark_session, maybe_fake_timestamp)
             maybe_ds_path_sanitizer_search = os.environ.get('DAM_DS_PATH_SANITIZER_SEARCH')
@@ -725,10 +724,10 @@ def init_kensu_spark(
             w = jvm.io.kensu.dam.lineage.spark.lineage.Implicits.SparkSessionDAMWrapper(spark_session._jsparkSession)
             w.track(damIngestionUrl, jvm.scala.Option.empty(), properties.toSeq())
 
-            if (shutdown_timeout_secs is not None) and (shutdown_timeout_secs > 0):
+            if (shutdown_timeout_sec is not None) and (shutdown_timeout_sec > 0):
                 logging.info('patching spark.stop to wait for DAM reporting to finish')
                 from pyspark.sql import SparkSession
-                SparkSession.stop = patched_spark_stop(SparkSession.stop, shutdown_timeout_secs)
+                SparkSession.stop = patched_spark_stop(SparkSession.stop, shutdown_timeout_sec)
                 logging.info('patching spark.stop done')
 
             if disable_spark_writes:
@@ -738,7 +737,7 @@ def init_kensu_spark(
                     import traceback
                     logging.info("unexpected issue when disabling df.write {}".format(traceback.format_exc()))
 
-            if cache_output_for_datastats and compute_stats:
+            if cache_output_for_stats and compute_stats:
                 try:
                     logging.info('patching DataFrame.write to cache/persist the results to speedup data-stats computation')
                     from pyspark.sql import DataFrame
@@ -748,10 +747,10 @@ def init_kensu_spark(
                     import traceback
                     logging.info("unexpected issue when patching DataFrame.write: {}".format(traceback.format_exc()))
 
-            if add_dam_dataframe_helpers:
+            if patch_spark_data_frame:
                 patch_dam_df_helpers()
 
-            if pandas_conversions:
+            if patch_pandas_conversions:
                 try:
                     logging.info('patching DataFrame.toPandas')
                     from pyspark.sql import DataFrame
@@ -792,7 +791,7 @@ def init_kensu_spark(
                     from kensu.utils.kensu_provider import KensuProvider as K
                     K().initKensu(do_report=False)
 
-            if h2o:
+            if h2o_support:
                 # needed to support both ways of importing: from local file or dam-client-python package
                 try:
                     from kensu_dam.h2o import dam_patch_h2o

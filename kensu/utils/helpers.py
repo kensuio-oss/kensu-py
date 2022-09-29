@@ -203,6 +203,7 @@ def extract_short_json_schema(result, result_ds):
     short_result_sc = Schema(name="short-schema:" + result_ds.name, pk=sc_pk)
     return short_result_sc
 
+
 def extract_config_property(key, default, arg=None, kw=None, conf=None, tpe=None):
     """
     Looks for a property value following this precedence:
@@ -233,3 +234,7 @@ def extract_config_property(key, default, arg=None, kw=None, conf=None, tpe=None
         return env_var
     else:
         return default
+
+
+def get_conf_path(default = "conf.ini"):
+    return os.environ["KSU_CONF_FILE"] if "KSU_CONF_FILE" in os.environ else default

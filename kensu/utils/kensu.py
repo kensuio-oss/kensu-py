@@ -8,7 +8,7 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
-from kensu.utils.helpers import to_hash_key, extract_config_property
+from kensu.utils.helpers import extract_config_property, get_conf_path, to_hash_key
 from kensu.utils.injection import Injection
 from kensu.utils.reporters import *
 from kensu.utils.rule_engine import create_kensu_nrows_consistency
@@ -60,17 +60,13 @@ class Kensu(object):
         return code_version
 
     @staticmethod
-    def get_conf_path(self, default = "conf.ini"):
-        return os.environ["CONF_FILE"] if "CONF_FILE" in os.environ else default
-
-    @staticmethod
     def build_conf():
         """
         Returns configparser.ConfigParser
         """
         from configparser import ConfigParser, ExtendedInterpolation
         config = ConfigParser(interpolation=ExtendedInterpolation())
-        conf_path = Kensu.get_conf_path("conf.ini")
+        conf_path = get_conf_path("conf.ini")
         try:
             config.read(conf_path)
         except:
@@ -119,7 +115,7 @@ class Kensu(object):
         project_name = get_property("project_name", [])
         environment = get_property("environment", None)
         execution_timestamp = get_property("execution_timestamp", None, tpe=int)
-        logical_naming = get_property("logical_naming", None)
+        logical_data_source_naming_strategy = get_property("logical_data_source_naming_strategy", None)
 
         report_in_mem = get_property("report_in_mem", False)
 
@@ -178,7 +174,7 @@ class Kensu(object):
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
         injection.set_kensu_api(self.kensu_api)
 
-        self.logical_naming = logical_naming
+        self.logical_naming = logical_data_source_naming_strategy
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats

@@ -38,7 +38,7 @@ class KensuProvider(object):
             project_name = kwargs.get("project_name")
             environment = kwargs.get("environment")
             execution_timestamp = kwargs.get("execution_timestamp")
-            logical_naming = kwargs.get("logical_naming")
+            logical_data_source_naming_strategy = kwargs.get("logical_data_source_naming_strategy")
             report_in_mem = kwargs.get("report_in_mem")
             get_code_version = kwargs.get("get_code_version")
             stats = kwargs.get("compute_stats")
@@ -52,7 +52,7 @@ class KensuProvider(object):
                            do_report=do_report, pandas_support=pandas_support, sklearn_support=sklearn_support,
                            bigquery_support=bigquery_support, tensorflow_support=tensorflow_support,
                            project_name=project_name, environment=environment, execution_timestamp=execution_timestamp,
-                           logical_naming=logical_naming, report_in_mem=report_in_mem,
+                           logical_data_source_naming_strategy=logical_data_source_naming_strategy, report_in_mem=report_in_mem,
                            report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
                            get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn,
                            compute_stats=stats, input_stats=input_stats, bigquery_headers=bigquery_headers,
