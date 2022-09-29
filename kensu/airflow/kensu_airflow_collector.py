@@ -38,8 +38,8 @@ def airflow_init_kensu(
     auth_token = Variable.get("KSU_API_TOKEN", default_var=None)
 
     KensuProvider().initKensu(
-        ingestion_url=api_url,
-        ingestion_token=auth_token,
+        kensu_ingestion_url=api_url,
+        kensu_ingestion_token=auth_token,
         init_context=True,
         project_names=project_names,
         process_name=process_name,

@@ -73,7 +73,7 @@ class Kensu(object):
             logging.warning(f"Cannot load config from file `%s`" % (conf_path))
         return config
 
-    def __init__(self, ingestion_url=None, ingestion_token=None, process_name=None,
+    def __init__(self, kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None,
                  user_name=None, code_location=None, do_report=None, report_to_file=None, offline_file_name=None,
                  compute_stats=True, config=None, **kwargs):
         """
@@ -88,8 +88,8 @@ class Kensu(object):
         def get_property(key, default, arg=None, kw=kwargs, conf=kensu_conf, tpe=None):
             return extract_config_property(key, default, arg, kw, conf, tpe)
 
-        kensu_host = get_property("ingestion_url", None, ingestion_url)
-        kensu_auth_token = get_property("ingestion_token", None, ingestion_token)
+        kensu_host = get_property("kensu_ingestion_url", None, kensu_ingestion_url)
+        kensu_auth_token = get_property("kensu_ingestion_token", None, kensu_ingestion_token)
 
         self.extractors = Extractors()
 
@@ -140,7 +140,7 @@ class Kensu(object):
 
         compute_stats = get_property("compute_stats", True, compute_stats)
         compute_input_stats = get_property("compute_input_stats", True)
-        compute_delta = get_property("compute_delta", False)
+        compute_delta = get_property("compute_delta_stats", False)
         if compute_delta and not compute_input_stats:
             logging.warning("delta nrows stats (compute_delta=True) will not work without setting compute_input_stats=True")
         raise_on_check_failure = get_property("raise_on_check_failure", False)
@@ -151,9 +151,9 @@ class Kensu(object):
         self.api_url = kensu_host
         self.report_to_file = report_to_file
 
-        sdk_pat = get_property("api_token", None)
-        sdk_url = get_property("api_url", None)
-        sdk_verify_ssl = get_property("api_verify_ssl", True)
+        sdk_pat = get_property("kensu_api_token", None)
+        sdk_url = get_property("kensu_api_url", None)
+        sdk_verify_ssl = get_property("kensu_api_verify_ssl", True)
         if sdk_pat is None:
             self.sdk = sdk.DoNothingSDK()
         else:

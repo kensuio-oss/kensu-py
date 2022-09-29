@@ -9,8 +9,8 @@ if __name__ == '__main__':
     api_url = os.environ.get('KSU_API_URL') or ''
     auth_token = os.environ.get('KSU_API_TOKEN') or ''
     kensu = KensuProvider().initKensu(init_context=True,
-                                      ingestion_url=api_url,
-                                      ingestion_token=auth_token,
+                                      kensu_ingestion_url=api_url,
+                                      kensu_ingestion_token=auth_token,
                                       report_to_file=offline,
                                       project_names=['aws s3'],
                                       offline_file_name='kensu-offline-to-aws-s3-test.jsonl',

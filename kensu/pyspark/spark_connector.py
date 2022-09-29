@@ -423,8 +423,8 @@ Allowed values for parameters:
 """
 def init_kensu_spark(
         spark_session=None,  # Must stay first as mostly this is the only argument passed
-        ingestion_url=None,
-        ingestion_token=None,
+        kensu_ingestion_url=None,
+        kensu_ingestion_token=None,
         report_to_file=None,
         is_dam_tracking_enabled=True,
         logs_dir_path=None,
@@ -435,7 +435,7 @@ def init_kensu_spark(
         code_version=None,
         user_name=None,
         enable_entity_compaction=None,
-        allow_invalid_ssl_certificates=None,
+        api_verify_ssl=None,
         compute_stats=None,
         compute_input_stats=None,
         compute_output_stats=None,
@@ -486,15 +486,14 @@ def init_kensu_spark(
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
 
-        ingestion_url = extract_config_property('ingestion_url',None,ingestion_url, kw=kwargs, conf=kensu_conf)
-        ingestion_token = extract_config_property('ingestion_token',None,ingestion_token, kw=kwargs, conf=kensu_conf)
+        kensu_ingestion_url = extract_config_property('ingestion_url', None, kensu_ingestion_url, kw=kwargs, conf=kensu_conf)
+        kensu_ingestion_token = extract_config_property('ingestion_token', None, kensu_ingestion_token, kw=kwargs, conf=kensu_conf)
         report_to_file = extract_config_property('report_to_file', False, report_to_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         logs_dir_path = extract_config_property('logs_dir_path', None, logs_dir_path, kw=kwargs, conf=kensu_conf)
         offline_file_name = extract_config_property('offline_file_name', 'dam-offline.log', offline_file_name, kw=kwargs, conf=kensu_conf)
 
         shutdown_timeout_sec = extract_config_property('shutdown_timeout_sec', 10 * 60, shutdown_timeout_sec, kw=kwargs, conf=kensu_conf, tpe=int)
-        # TODO api_verify_ssl ?
-        allow_invalid_ssl_certificates = extract_config_property('api_verify_ssl',False,allow_invalid_ssl_certificates, kw=kwargs, conf=kensu_conf, tpe=bool)
+        api_verify_ssl = extract_config_property('api_verify_ssl', False, api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
         enable_debugging = extract_config_property('enable_debugging', False, enable_debugging, kw=kwargs, conf=kensu_conf, tpe=bool)
         debugging_log_level = extract_config_property('debugging_log_level', 'INFO', debugging_log_level, kw=kwargs, conf=kensu_conf)
         debugging_include_spark_logs = extract_config_property('debugging_include_spark_logs', False, debugging_include_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -597,7 +596,7 @@ def init_kensu_spark(
 
             ### Configuration for tracker
             global dam_url
-            dam_url = os.environ.get("DAM_INGESTION_URL") or ingestion_url
+            dam_url = os.environ.get("DAM_INGESTION_URL") or kensu_ingestion_url
 
             damIngestionUrl = jvm.scala.Option.apply(dam_url)
             t2 = jvm.scala.Tuple2
@@ -633,14 +632,15 @@ def init_kensu_spark(
             properties.add(version)
             properties.add(user)
             properties.add(organization)
-            if ingestion_token:
-                properties.add(t2("dam.ingestion.auth.token", ingestion_token))
+            if kensu_ingestion_token:
+                properties.add(t2("dam.ingestion.auth.token", kensu_ingestion_token))
             if report_to_file is not None:
                 properties.add(t2("dam.ingestion.is_offline", report_to_file))
             if offline_file_name:
                 properties.add(t2("dam.ingestion.offline.file", join_paths(logs_dir_path, offline_file_name)))
-            if allow_invalid_ssl_certificates is not None:
-                properties.add(t2("dam.ingestion.ignore.ssl.cert", allow_invalid_ssl_certificates))
+            if api_verify_ssl is not None:
+                # renamed (and aligned from other places) from allow_invalid_ssl_certificates
+                properties.add(t2("dam.ingestion.ignore.ssl.cert", not api_verify_ssl))
             if enable_entity_compaction is not None:
                 properties.add(t2("dam.ingestion.entity.compaction", enable_entity_compaction))
 
