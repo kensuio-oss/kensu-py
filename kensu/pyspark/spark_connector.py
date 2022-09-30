@@ -426,7 +426,7 @@ def init_kensu_spark(
         kensu_ingestion_url=None,
         kensu_ingestion_token=None,
         report_to_file=None,
-        is_dam_tracking_enabled=True,
+        disable_tracking=False,
         logs_dir_path=None,
         offline_file_name=None,
         process_name=None,
@@ -472,8 +472,11 @@ def init_kensu_spark(
         pandas_to_spark_tmp_dir=None,
         **kwargs
 ):
-    if is_dam_tracking_enabled:
-        logging.info("Initializing DAM...")
+    import os
+    is_tracking_disabled = (os.environ.get("KSU_DISABLE_TRACKING", 'False') == 'True') or disable_tracking
+
+    if not is_tracking_disabled:
+        logging.info("Initializing Kensu tracking...")
         jvm = spark_session.sparkContext._jvm
 
         from configparser import ConfigParser, ExtendedInterpolation
@@ -490,7 +493,7 @@ def init_kensu_spark(
         kensu_ingestion_token = extract_config_property('ingestion_token', None, kensu_ingestion_token, kw=kwargs, conf=kensu_conf)
         report_to_file = extract_config_property('report_to_file', False, report_to_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         logs_dir_path = extract_config_property('logs_dir_path', None, logs_dir_path, kw=kwargs, conf=kensu_conf)
-        offline_file_name = extract_config_property('offline_file_name', 'dam-offline.log', offline_file_name, kw=kwargs, conf=kensu_conf)
+        offline_file_name = extract_config_property('offline_file_name', 'kensu-offline.log', offline_file_name, kw=kwargs, conf=kensu_conf)
 
         shutdown_timeout_sec = extract_config_property('shutdown_timeout_sec', 10 * 60, shutdown_timeout_sec, kw=kwargs, conf=kensu_conf, tpe=int)
         api_verify_ssl = extract_config_property('api_verify_ssl', False, api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -595,10 +598,7 @@ def init_kensu_spark(
             logging.info("Notebook name " + notebook_name)
 
             ### Configuration for tracker
-            global dam_url
-            dam_url = os.environ.get("DAM_INGESTION_URL") or kensu_ingestion_url
-
-            damIngestionUrl = jvm.scala.Option.apply(dam_url)
+            damIngestionUrl = jvm.scala.Option.apply(kensu_ingestion_url)
             t2 = jvm.scala.Tuple2
             providerClassName = t2("dam.activity.spark.environnement.provider", "io.kensu.dam.lineage.spark.lineage.DefaultSparkEnvironnementProvider")
 
@@ -615,8 +615,6 @@ def init_kensu_spark(
             code_version_value = code_version or os.environ.get("DAM_CODE_VERSION", notebook_name + "::" + str(d))
             version = t2("dam.activity.code.version", code_version_value)
 
-            global dam_version
-            dam_version = code_version_value
             user = t2("dam.activity.user", user_name)
 
             organization = t2("dam.activity.organization", "Unknown")  # TODO this is not used by Scala side
@@ -648,7 +646,7 @@ def init_kensu_spark(
                 properties.add(t2("dam.spark.data_stats.enabled", compute_stats))
             if compute_input_stats is not None:
                 properties.add(t2("dam.spark.data_stats.input.enabled", compute_input_stats))
-            if compute_input_stats is not None:
+            if compute_output_stats is not None:
                 properties.add(t2("dam.spark.data_stats.output.enabled", compute_input_stats))
             if input_stats_for_only_used_columns:
                 properties.add(t2("dam.spark.data_stats.input.only_used_in_lineage", input_stats_for_only_used_columns))
@@ -809,8 +807,8 @@ def init_kensu_spark(
                                   debug_stdout_enabled=True,
                                   create_virtual_training_datasource=h2o_create_virtual_training_datasource)
 
-
         except Exception as e:
-            logging.info("Error when initializing DAM tracker:")
             import traceback
-            logging.info(traceback.format_exc())
+            logging.error("Error when initializing Kensu tracking: " + traceback.format_exc())
+    else:
+        logging.info("Tracking by Kensu is disabled")
