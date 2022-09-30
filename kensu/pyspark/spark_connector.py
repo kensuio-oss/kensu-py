@@ -435,18 +435,18 @@ def init_kensu_spark(
         code_version=None,
         user_name=None,
         enable_entity_compaction=None,
-        api_verify_ssl=None,
+        kensu_api_verify_ssl=None,
         compute_stats=None,
         compute_input_stats=None,
         compute_output_stats=None,
         input_stats_for_only_used_columns=None,
         input_stats_keep_filters=None,
         input_stats_compute_quantiles=None,
-        input_stats_cache_bypath=None,
+        input_stats_cache_by_path=None,
         input_stats_coalesce_enabled=None,
         input_stats_coalesce_workers=None,
         output_stats_compute_quantiles=None,
-        output_stats_cache_bypath=None,
+        output_stats_cache_by_path=None,
         output_stats_coalesce_enabled=None,
         output_stats_coalesce_workers=None,
         cache_output_for_stats=None,
@@ -496,7 +496,7 @@ def init_kensu_spark(
         offline_file_name = extract_config_property('offline_file_name', 'kensu-offline.log', offline_file_name, kw=kwargs, conf=kensu_conf)
 
         shutdown_timeout_sec = extract_config_property('shutdown_timeout_sec', 10 * 60, shutdown_timeout_sec, kw=kwargs, conf=kensu_conf, tpe=int)
-        api_verify_ssl = extract_config_property('api_verify_ssl', False, api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
+        kensu_api_verify_ssl = extract_config_property('api_verify_ssl', True, kensu_api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
         enable_debugging = extract_config_property('enable_debugging', False, enable_debugging, kw=kwargs, conf=kensu_conf, tpe=bool)
         debugging_log_level = extract_config_property('debugging_log_level', 'INFO', debugging_log_level, kw=kwargs, conf=kensu_conf)
         debugging_include_spark_logs = extract_config_property('debugging_include_spark_logs', False, debugging_include_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -517,11 +517,11 @@ def init_kensu_spark(
         input_stats_for_only_used_columns = extract_config_property('input_stats_for_only_used_columns',True,input_stats_for_only_used_columns, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_keep_filters = extract_config_property('input_stats_keep_filters',True,input_stats_keep_filters, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_compute_quantiles = extract_config_property('input_stats_compute_quantiles',False,input_stats_compute_quantiles, kw=kwargs, conf=kensu_conf, tpe=bool)
-        input_stats_cache_bypath = extract_config_property('input_stats_cache_bypath',True,input_stats_cache_bypath, kw=kwargs, conf=kensu_conf, tpe=bool)
+        input_stats_cache_by_path = extract_config_property('input_stats_cache_by_path', True, input_stats_cache_by_path, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_coalesce_enabled = extract_config_property('input_stats_coalesce_enabled',True,input_stats_coalesce_enabled, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_coalesce_workers = extract_config_property('input_stats_coalesce_workers',1,input_stats_coalesce_workers, kw=kwargs, conf=kensu_conf, tpe=int)
         output_stats_compute_quantiles = extract_config_property('output_stats_compute_quantiles',False,output_stats_compute_quantiles, kw=kwargs, conf=kensu_conf, tpe=bool)
-        output_stats_cache_bypath = extract_config_property('output_stats_cache_bypath',False,output_stats_cache_bypath, kw=kwargs, conf=kensu_conf, tpe=bool)
+        output_stats_cache_by_path = extract_config_property('output_stats_cache_by_path', False, output_stats_cache_by_path, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_coalesce_enabled = extract_config_property('output_stats_coalesce_enabled',False,output_stats_coalesce_enabled, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_coalesce_workers = extract_config_property('output_stats_coalesce_workers',100,output_stats_coalesce_workers, kw=kwargs, conf=kensu_conf, tpe=int)
         cache_output_for_stats = extract_config_property('cache_output_for_stats', False, cache_output_for_stats, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -600,24 +600,22 @@ def init_kensu_spark(
             ### Configuration for tracker
             damIngestionUrl = jvm.scala.Option.apply(kensu_ingestion_url)
             t2 = jvm.scala.Tuple2
-            providerClassName = t2("dam.activity.spark.environnement.provider", "io.kensu.dam.lineage.spark.lineage.DefaultSparkEnvironnementProvider")
+            providerClassName = t2("spark_environment_provider", "io.kensu.dam.lineage.spark.lineage.DefaultSparkEnvironnementProvider")
 
             ### How to get GIT info here?
             #         explicit_code_repo=None,
             #         explicit_code_version=None,
             #         explicit_code_maintainers=None,
             #         explicit_lauched_by_user=None,
-            code_repo_name = code_location or os.environ.get("DAM_CODE_REPOSITORY", "Jupyter-Notebook:spark-" + spark_session.version + "::" + notebooks_path)
-            repository = t2("dam.activity.code.repository", code_repo_name)
+            code_repo_name = code_location or "Jupyter-Notebook:spark-" + spark_session.version + "::" + notebooks_path
+            repository = t2("code_location", code_repo_name)
             from datetime import datetime
             d = datetime.now()
 
-            code_version_value = code_version or os.environ.get("DAM_CODE_VERSION", notebook_name + "::" + str(d))
-            version = t2("dam.activity.code.version", code_version_value)
+            code_version_value = code_version or notebook_name + "::" + str(d)
+            version = t2("code_version", code_version_value)
 
-            user = t2("dam.activity.user", user_name)
-
-            organization = t2("dam.activity.organization", "Unknown")  # TODO this is not used by Scala side
+            user = t2("user_name", user_name)
 
             properties = jvm.scala.collection.mutable.HashSet()
 
@@ -629,37 +627,37 @@ def init_kensu_spark(
             properties.add(repository)
             properties.add(version)
             properties.add(user)
-            properties.add(organization)
             if kensu_ingestion_token:
-                properties.add(t2("dam.ingestion.auth.token", kensu_ingestion_token))
+                properties.add(t2("kensu_ingestion_token", kensu_ingestion_token))
             if report_to_file is not None:
-                properties.add(t2("dam.ingestion.is_offline", report_to_file))
+                properties.add(t2("report_to_file", report_to_file))
             if offline_file_name:
-                properties.add(t2("dam.ingestion.offline.file", join_paths(logs_dir_path, offline_file_name)))
-            if api_verify_ssl is not None:
+                properties.add(t2("logs_dir_path", logs_dir_path))
+                properties.add(t2("offline_file_name", join_paths(logs_dir_path, offline_file_name)))
+            if kensu_api_verify_ssl is not None:
                 # renamed (and aligned from other places) from allow_invalid_ssl_certificates
-                properties.add(t2("dam.ingestion.ignore.ssl.cert", not api_verify_ssl))
+                properties.add(t2("kensu_api_verify_ssl", not kensu_api_verify_ssl))
             if enable_entity_compaction is not None:
-                properties.add(t2("dam.ingestion.entity.compaction", enable_entity_compaction))
+                properties.add(t2("enable_entity_compaction", enable_entity_compaction))
 
             if compute_stats is not None:
-                properties.add(t2("dam.spark.data_stats.enabled", compute_stats))
+                properties.add(t2("compute_stats", compute_stats))
             if compute_input_stats is not None:
                 properties.add(t2("dam.spark.data_stats.input.enabled", compute_input_stats))
             if compute_output_stats is not None:
-                properties.add(t2("dam.spark.data_stats.output.enabled", compute_input_stats))
+                properties.add(t2("compute_output_stats", compute_output_stats))
             if input_stats_for_only_used_columns:
-                properties.add(t2("dam.spark.data_stats.input.only_used_in_lineage", input_stats_for_only_used_columns))
+                properties.add(t2("input_stats_for_only_used_columns", input_stats_for_only_used_columns))
             if input_stats_keep_filters is not None:
-                properties.add(t2("dam.spark.data_stats.input.keep_filters", input_stats_keep_filters))
+                properties.add(t2("input_stats_keep_filters", input_stats_keep_filters))
 
             add_prop("dam.spark.data_stats.input.computeQuantiles", input_stats_compute_quantiles)
-            add_prop("dam.spark.data_stats.input.cachePerPath", input_stats_cache_bypath)
+            add_prop("dam.spark.data_stats.input.cachePerPath", input_stats_cache_by_path)
             add_prop("dam.spark.data_stats.input.coalesceEnabled", input_stats_coalesce_enabled)
             add_prop("dam.spark.data_stats.input.coalesceWorkers", input_stats_coalesce_workers)
 
             add_prop("dam.spark.data_stats.output.computeQuantiles", output_stats_compute_quantiles)
-            add_prop("dam.spark.data_stats.output.cachePerPath", output_stats_cache_bypath)
+            add_prop("dam.spark.data_stats.output.cachePerPath", output_stats_cache_by_path)
             add_prop("dam.spark.data_stats.output.coalesceEnabled", output_stats_coalesce_enabled)
             add_prop("dam.spark.data_stats.output.coalesceWorkers", output_stats_coalesce_workers)
 
