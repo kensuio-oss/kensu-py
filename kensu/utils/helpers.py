@@ -207,12 +207,17 @@ def extract_short_json_schema(result, result_ds):
 def extract_config_property(key, default, arg=None, kw=None, conf=None, tpe=None):
     """
     Looks for a property value following this precedence:
-      arg > kwargs > conf > env_var > default
+      env_var > arg > kwargs > conf > default
     The default value is used to determine the type of the conf value (it can be overridden by tpe).
     The environment variable will be looked up based on the pattern of `KSU_<upper-key>`.
     """
 
-    if arg is not None:
+    if os.environ.get("KSU_" + key.upper()) is not None:
+        env_var = os.environ.get(key)
+        if tpe is not None:
+            env_var = tpe(env_var)
+        return env_var
+    elif arg is not None:
         return arg
     elif key in kw and kw[key] is not None:
         return kw[key]
@@ -227,11 +232,6 @@ def extract_config_property(key, default, arg=None, kw=None, conf=None, tpe=None
         elif tpe is not None:
             r = tpe(r)
         return r
-    elif os.environ.get("KSU_" + key.upper()) is not None:
-        env_var = os.environ.get(key)
-        if tpe is not None:
-            env_var = tpe(env_var)
-        return env_var
     else:
         return default
 
