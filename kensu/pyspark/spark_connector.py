@@ -632,7 +632,7 @@ def init_kensu_spark(
             if report_to_file is not None:
                 properties.add(t2("report_to_file", report_to_file))
             if offline_file_name:
-                properties.add(t2("logs_dir_path", logs_dir_path))
+                properties.add(t2("offline_report_dir_path", logs_dir_path))
                 properties.add(t2("offline_file_name", join_paths(logs_dir_path, offline_file_name)))
             if kensu_api_verify_ssl is not None:
                 # renamed (and aligned from other places) from allow_invalid_ssl_certificates
@@ -643,7 +643,7 @@ def init_kensu_spark(
             if compute_stats is not None:
                 properties.add(t2("compute_stats", compute_stats))
             if compute_input_stats is not None:
-                properties.add(t2("dam.spark.data_stats.input.enabled", compute_input_stats))
+                properties.add(t2("compute_input_stats", compute_input_stats))
             if compute_output_stats is not None:
                 properties.add(t2("compute_output_stats", compute_output_stats))
             if input_stats_for_only_used_columns:
@@ -651,52 +651,52 @@ def init_kensu_spark(
             if input_stats_keep_filters is not None:
                 properties.add(t2("input_stats_keep_filters", input_stats_keep_filters))
 
-            add_prop("dam.spark.data_stats.input.computeQuantiles", input_stats_compute_quantiles)
-            add_prop("dam.spark.data_stats.input.cachePerPath", input_stats_cache_by_path)
-            add_prop("dam.spark.data_stats.input.coalesceEnabled", input_stats_coalesce_enabled)
-            add_prop("dam.spark.data_stats.input.coalesceWorkers", input_stats_coalesce_workers)
+            add_prop("input_stats_compute_quantiles", input_stats_compute_quantiles)
+            add_prop("input_stats_cache_by_path", input_stats_cache_by_path)
+            add_prop("input_stats_coalesce_enabled", input_stats_coalesce_enabled)
+            add_prop("input_stats_coalesce_workers", input_stats_coalesce_workers)
 
-            add_prop("dam.spark.data_stats.output.computeQuantiles", output_stats_compute_quantiles)
-            add_prop("dam.spark.data_stats.output.cachePerPath", output_stats_cache_by_path)
-            add_prop("dam.spark.data_stats.output.coalesceEnabled", output_stats_coalesce_enabled)
-            add_prop("dam.spark.data_stats.output.coalesceWorkers", output_stats_coalesce_workers)
+            add_prop("output_stats_compute_quantiles", output_stats_compute_quantiles)
+            add_prop("output_stats_cache_by_path", output_stats_cache_by_path)
+            add_prop("output_stats_coalesce_enabled", output_stats_coalesce_enabled)
+            add_prop("output_stats_coalesce_workers", output_stats_coalesce_workers)
 
             if shutdown_timeout_sec is not None:
-                properties.add(t2("dam.spark.shutdown_timeout", shutdown_timeout_sec))
+                properties.add(t2("shutdown_timeout_sec", shutdown_timeout_sec))
             if enable_debugging:
                 debug_level = debugging_log_level or "INFO"
                 if process_name is not None:
-                    dam_debug_filename = join_paths(logs_dir_path, process_name + ".kensu-collector-debug.log")
+                    kensu_debug_filename = join_paths(logs_dir_path, process_name + ".kensu-collector.log")
                 else:
                     notebook_file_name = notebook_name.split('/')[-1].split('\\')[-1]  # remove path from notebook name
-                    dam_debug_filename = join_paths(logs_dir_path, notebook_file_name + ".kensu-collector-debug.log")
-                properties.add(t2("dam.spark.file_debug.level", debug_level))
-                properties.add(t2("dam.spark.file_debug.file_name", dam_debug_filename))
+                    kensu_debug_filename = join_paths(logs_dir_path, notebook_file_name + ".kensu-collector.log")
+                properties.add(t2("debugging_log_level", debug_level))
+                properties.add(t2("debugging_file_path", kensu_debug_filename))
                 properties.add(t2("dam.spark.file_debug.capture_spark_logs", debugging_include_spark_logs))
-                logging.info("Will write dam DAM log to file:" + dam_debug_filename)
+                logging.info("Will write dam DAM log to file: " + kensu_debug_filename)
             if shorten_data_source_names is not None:
-                properties.add(t2("dam.datasources.short.name", shorten_data_source_names))
+                properties.add(t2("shorten_data_source_names", shorten_data_source_names))
 
             if data_source_naming_strategy_rules is not None:
                 data_source_naming_strategy = 'PathBasedRule'
                 converted_rules = convert_naming_rules(data_source_naming_strategy_rules)
-                properties.add(t2("dam.datasources.path_rules.short.naming_strategy", converted_rules))
+                properties.add(t2("data_source_naming_strategy_rules", converted_rules))
             if logical_data_source_naming_strategy_rules is not None:
                 logical_data_source_naming_strategy = 'PathBasedRule'
                 converted_rules = convert_naming_rules(logical_data_source_naming_strategy_rules)
-                properties.add(t2("dam.logical.datasources.path_rules.naming_strategy", converted_rules))
+                properties.add(t2("logical_data_source_naming_strategy_rules", converted_rules))
 
             if missing_column_lineage_strategy is not None:
-                properties.add(t2('dam.spark.lineage.column_lineage_fallback_strategy', missing_column_lineage_strategy))
+                properties.add(t2('missing_column_lineage_strategy', missing_column_lineage_strategy))
 
             if data_source_naming_strategy is not None:
-                properties.add(t2("dam.datasources.short.naming_strategy", data_source_naming_strategy))
+                properties.add(t2("data_source_naming_strategy", data_source_naming_strategy))
             if logical_data_source_naming_strategy is not None:
-                properties.add(t2("dam.logical.datasources.naming_strategy", logical_data_source_naming_strategy))
+                properties.add(t2("logical_data_source_naming_strategy", logical_data_source_naming_strategy))
             if environment is not None:
-                properties.add(t2("dam.activity.environment", environment))
+                properties.add(t2("environment", environment))
             if project_name is not None:
-                properties.add(t2("dam.activity.projects", project_name))
+                properties.add(t2("project_name", project_name))
 
             process_name = None
             if process_name is not None:
@@ -704,16 +704,16 @@ def init_kensu_spark(
             elif notebook_name != 'Unknown pyspark filename':
                 process_name = notebook_name
             if process_name is not None:
-                properties.add(t2("dam.activity.explicit.process.name", process_name))
+                properties.add(t2("process_name", process_name))
 
             if process_run_name is not None:
-                properties.add(t2("dam.activity.explicit.process_run.name", process_name))
+                properties.add(t2("process_run_name", process_run_name))
 
             maybe_fake_timestamp = execution_timestamp
             if maybe_fake_timestamp is not None:
                 set_fake_timestamp(spark_session, maybe_fake_timestamp)
-            maybe_ds_path_sanitizer_search = os.environ.get('DAM_DS_PATH_SANITIZER_SEARCH')
-            maybe_ds_path_sanitizer_replace = os.environ.get('DAM_DS_PATH_SANITIZER_REPLACE')
+            maybe_ds_path_sanitizer_search = os.environ.get('KSU_DS_PATH_SANITIZER_SEARCH')
+            maybe_ds_path_sanitizer_replace = os.environ.get('KSU_DS_PATH_SANITIZER_REPLACE')
             if (maybe_ds_path_sanitizer_search is not None) and (maybe_ds_path_sanitizer_replace is not None):
                 add_ds_path_sanitizer(spark_session, maybe_ds_path_sanitizer_search, maybe_ds_path_sanitizer_replace)
 
