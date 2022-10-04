@@ -118,7 +118,7 @@ class Kensu(object):
         execution_timestamp = get_property("execution_timestamp", None, tpe=int)
         logical_data_source_naming_strategy = get_property("logical_data_source_naming_strategy", None)
 
-        report_in_mem = get_property("report_in_mem", False)  # TODO dismiss, set default
+        report_in_mem = False
 
         #  Required to be always on. Config dropped since 2.0.0
         mapping = True
