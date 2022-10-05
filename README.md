@@ -46,8 +46,6 @@ Otherwise, the `CONF_FILE` environment variable can point to another one.
 
 ### Configuration keys
 
-https://kensu.atlassian.net/wiki/spaces/EN/pages/1109000195/Agent+-+Spark+-+Configuration
-
 #### General
 Connect to API
 - kensu_ingestion_url
@@ -61,8 +59,8 @@ Meta information about the python application
 - code_location
 
 Behavior of the data observability features
-- do_report: if False, no data observability information are reporterd
-- logical_data_source_naming_strategy: - explain data source grouping strategies such as File, ...
+- do_report: if False, no data observability information are reported
+- logical_data_source_naming_strategy: **TODO** - explain data source grouping strategies such as File, ...
 
 Extra libraries support (TODO: to be extracted in different modules)
 - pandas_support: Boolean

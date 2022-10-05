@@ -401,7 +401,7 @@ Allowed values for parameters:
   * 'LastFolderAndFile' - b/c.ext
   * 'LastFolder' - b
   * 'PathBasedRule' - use data_source_naming_strategy_rules
-- logical_data_source_naming_strategy_rules:
+- logical_data_source_naming_strategy:
   * None (default) - do not set logical datasource
   * 'File' - c.ext
   * 'LastTwoFoldersAndFile' - a/b/c.ext
@@ -489,14 +489,14 @@ def init_kensu_spark(
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
 
-        kensu_ingestion_url = extract_config_property('ingestion_url', None, kensu_ingestion_url, kw=kwargs, conf=kensu_conf)
-        kensu_ingestion_token = extract_config_property('ingestion_token', None, kensu_ingestion_token, kw=kwargs, conf=kensu_conf)
+        kensu_ingestion_url = extract_config_property('kensu_ingestion_url', None, kensu_ingestion_url, kw=kwargs, conf=kensu_conf)
+        kensu_ingestion_token = extract_config_property('kensu_ingestion_token', None, kensu_ingestion_token, kw=kwargs, conf=kensu_conf)
         report_to_file = extract_config_property('report_to_file', False, report_to_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         logs_dir_path = extract_config_property('logs_dir_path', None, logs_dir_path, kw=kwargs, conf=kensu_conf)
         offline_file_name = extract_config_property('offline_file_name', 'kensu-offline.log', offline_file_name, kw=kwargs, conf=kensu_conf)
 
         shutdown_timeout_sec = extract_config_property('shutdown_timeout_sec', 10 * 60, shutdown_timeout_sec, kw=kwargs, conf=kensu_conf, tpe=int)
-        kensu_api_verify_ssl = extract_config_property('api_verify_ssl', True, kensu_api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
+        kensu_api_verify_ssl = extract_config_property('kensu_api_verify_ssl', True, kensu_api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
         enable_debugging = extract_config_property('enable_debugging', False, enable_debugging, kw=kwargs, conf=kensu_conf, tpe=bool)
         debugging_log_level = extract_config_property('debugging_log_level', 'INFO', debugging_log_level, kw=kwargs, conf=kensu_conf)
         debugging_include_spark_logs = extract_config_property('debugging_include_spark_logs', False, debugging_include_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -635,8 +635,7 @@ def init_kensu_spark(
                 properties.add(t2("offline_report_dir_path", logs_dir_path))
                 properties.add(t2("offline_file_name", join_paths(logs_dir_path, offline_file_name)))
             if kensu_api_verify_ssl is not None:
-                # renamed (and aligned from other places) from allow_invalid_ssl_certificates
-                properties.add(t2("kensu_api_verify_ssl", not kensu_api_verify_ssl))
+                properties.add(t2("kensu_api_verify_ssl", kensu_api_verify_ssl))
             if enable_entity_compaction is not None:
                 properties.add(t2("enable_entity_compaction", enable_entity_compaction))
 
