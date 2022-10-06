@@ -442,24 +442,28 @@ def init_kensu_spark(
         input_stats_for_only_used_columns=None,
         input_stats_keep_filters=None,
         input_stats_compute_quantiles=None,
+        input_stats_compute_simple_num=None,
+        input_stats_compute_std_dev=None,
         input_stats_cache_by_path=None,
         input_stats_coalesce_enabled=None,
         input_stats_coalesce_workers=None,
         output_stats_compute_quantiles=None,
+        output_stats_compute_simple_num=None,
+        output_stats_compute_std_dev=None,
         output_stats_cache_by_path=None,
         output_stats_coalesce_enabled=None,
         output_stats_coalesce_workers=None,
         cache_output_for_stats=None,
         shorten_data_source_names=None,
         shutdown_timeout_sec=None,
-        enable_debugging=None,
-        debugging_log_level=None,
+        enable_collector_log_file=None,
+        collector_log_level=None,
+        collector_log_include_spark_logs=None,
         data_source_naming_strategy=None,
         data_source_naming_strategy_rules=None,
         logical_data_source_naming_strategy=None,
         logical_data_source_naming_strategy_rules=None,
         missing_column_lineage_strategy=None,
-        debugging_include_spark_logs=None,
         patch_spark_data_frame=None,
         disable_spark_writes=None,
         environment=None,
@@ -470,6 +474,7 @@ def init_kensu_spark(
         patch_pandas_conversions=None,
         pandas_to_spark_df_via_tmp_file=None,
         pandas_to_spark_tmp_dir=None,
+        use_api_client=None,
         **kwargs
 ):
     import os
@@ -489,6 +494,8 @@ def init_kensu_spark(
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
 
+        use_api_client = extract_config_property('use_api_client', False, use_api_client, kw=kwargs, conf=kensu_conf, tpe=bool)
+
         kensu_ingestion_url = extract_config_property('kensu_ingestion_url', None, kensu_ingestion_url, kw=kwargs, conf=kensu_conf)
         kensu_ingestion_token = extract_config_property('kensu_ingestion_token', None, kensu_ingestion_token, kw=kwargs, conf=kensu_conf)
         report_to_file = extract_config_property('report_to_file', False, report_to_file, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -497,9 +504,9 @@ def init_kensu_spark(
 
         shutdown_timeout_sec = extract_config_property('shutdown_timeout_sec', 10 * 60, shutdown_timeout_sec, kw=kwargs, conf=kensu_conf, tpe=int)
         kensu_api_verify_ssl = extract_config_property('kensu_api_verify_ssl', True, kensu_api_verify_ssl, kw=kwargs, conf=kensu_conf, tpe=bool)
-        enable_debugging = extract_config_property('enable_debugging', False, enable_debugging, kw=kwargs, conf=kensu_conf, tpe=bool)
-        debugging_log_level = extract_config_property('debugging_log_level', 'INFO', debugging_log_level, kw=kwargs, conf=kensu_conf)
-        debugging_include_spark_logs = extract_config_property('debugging_include_spark_logs', False, debugging_include_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
+        enable_collector_log_file = extract_config_property('enable_collector_log_file', False, enable_collector_log_file, kw=kwargs, conf=kensu_conf, tpe=bool)
+        collector_log_level = extract_config_property('collector_log_level', 'INFO', collector_log_level, kw=kwargs, conf=kensu_conf)
+        collector_log_include_spark_logs = extract_config_property('collector_log_include_spark_logs', False, collector_log_include_spark_logs, kw=kwargs, conf=kensu_conf, tpe=bool)
 
         process_name = extract_config_property('process_name', None, process_name, kw=kwargs, conf=kensu_conf)
         process_run_name = extract_config_property('process_run_name', None, process_run_name, kw=kwargs, conf=kensu_conf)
@@ -517,10 +524,14 @@ def init_kensu_spark(
         input_stats_for_only_used_columns = extract_config_property('input_stats_for_only_used_columns',True,input_stats_for_only_used_columns, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_keep_filters = extract_config_property('input_stats_keep_filters',True,input_stats_keep_filters, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_compute_quantiles = extract_config_property('input_stats_compute_quantiles',False,input_stats_compute_quantiles, kw=kwargs, conf=kensu_conf, tpe=bool)
+        input_stats_compute_simple_num = extract_config_property('input_stats_compute_simple_num',None,input_stats_compute_simple_num, kw=kwargs, conf=kensu_conf, tpe=bool)
+        input_stats_compute_std_dev = extract_config_property('input_stats_compute_std_dev',None,input_stats_compute_std_dev, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_cache_by_path = extract_config_property('input_stats_cache_by_path', True, input_stats_cache_by_path, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_coalesce_enabled = extract_config_property('input_stats_coalesce_enabled',True,input_stats_coalesce_enabled, kw=kwargs, conf=kensu_conf, tpe=bool)
         input_stats_coalesce_workers = extract_config_property('input_stats_coalesce_workers',1,input_stats_coalesce_workers, kw=kwargs, conf=kensu_conf, tpe=int)
         output_stats_compute_quantiles = extract_config_property('output_stats_compute_quantiles',False,output_stats_compute_quantiles, kw=kwargs, conf=kensu_conf, tpe=bool)
+        output_stats_compute_simple_num = extract_config_property('output_stats_compute_simple_num',None,output_stats_compute_simple_num, kw=kwargs, conf=kensu_conf, tpe=bool)
+        output_stats_compute_std_dev = extract_config_property('output_stats_compute_std_dev',None,output_stats_compute_std_dev, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_cache_by_path = extract_config_property('output_stats_cache_by_path', False, output_stats_cache_by_path, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_coalesce_enabled = extract_config_property('output_stats_coalesce_enabled',False,output_stats_coalesce_enabled, kw=kwargs, conf=kensu_conf, tpe=bool)
         output_stats_coalesce_workers = extract_config_property('output_stats_coalesce_workers',100,output_stats_coalesce_workers, kw=kwargs, conf=kensu_conf, tpe=int)
@@ -651,27 +662,31 @@ def init_kensu_spark(
                 properties.add(t2("input_stats_keep_filters", input_stats_keep_filters))
 
             add_prop("input_stats_compute_quantiles", input_stats_compute_quantiles)
+            add_prop("input_stats_compute_simple_num", input_stats_compute_simple_num)
+            add_prop("input_stats_compute_std_dev", input_stats_compute_std_dev)
             add_prop("input_stats_cache_by_path", input_stats_cache_by_path)
             add_prop("input_stats_coalesce_enabled", input_stats_coalesce_enabled)
             add_prop("input_stats_coalesce_workers", input_stats_coalesce_workers)
 
             add_prop("output_stats_compute_quantiles", output_stats_compute_quantiles)
+            add_prop("output_stats_compute_simple_num", output_stats_compute_simple_num)
+            add_prop("output_stats_compute_std_dev", output_stats_compute_std_dev)
             add_prop("output_stats_cache_by_path", output_stats_cache_by_path)
             add_prop("output_stats_coalesce_enabled", output_stats_coalesce_enabled)
             add_prop("output_stats_coalesce_workers", output_stats_coalesce_workers)
 
             if shutdown_timeout_sec is not None:
                 properties.add(t2("shutdown_timeout_sec", shutdown_timeout_sec))
-            if enable_debugging:
-                debug_level = debugging_log_level or "INFO"
+            if enable_collector_log_file:
+                debug_level = collector_log_level or "INFO"
                 if process_name is not None:
                     kensu_debug_filename = join_paths(logs_dir_path, process_name + ".kensu-collector.log")
                 else:
                     notebook_file_name = notebook_name.split('/')[-1].split('\\')[-1]  # remove path from notebook name
                     kensu_debug_filename = join_paths(logs_dir_path, notebook_file_name + ".kensu-collector.log")
-                properties.add(t2("debugging_log_level", debug_level))
-                properties.add(t2("debugging_file_path", kensu_debug_filename))
-                properties.add(t2("dam.spark.file_debug.capture_spark_logs", debugging_include_spark_logs))
+                properties.add(t2("collector_log_level", debug_level))
+                properties.add(t2("collector_log_file_path", kensu_debug_filename))
+                properties.add(t2("collector_log_include_spark_logs", collector_log_include_spark_logs))
                 logging.info("Will write dam DAM log to file: " + kensu_debug_filename)
             if shorten_data_source_names is not None:
                 properties.add(t2("shorten_data_source_names", shorten_data_source_names))
@@ -780,11 +795,9 @@ def init_kensu_spark(
                     import traceback
                     logging.info("unexpected issue when adding spark.executorEnv.KSU_DISABLE_PY_COLLECTOR: {}".format(traceback.format_exc()))
 
-
-            if 'kensu_py_client' in kwargs:
-                if kwargs['kensu_py_client']:
-                    from kensu.utils.kensu_provider import KensuProvider as K
-                    K().initKensu(do_report=False)
+            if use_api_client:
+                from kensu.utils.kensu_provider import KensuProvider as K
+                K().initKensu(do_report=False)
 
             if h2o_support:
                 # needed to support both ways of importing: from local file or dam-client-python package
