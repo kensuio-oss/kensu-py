@@ -18,13 +18,11 @@ def airflow_init_kensu(
         airflow_operator=None,  # type: BaseOperator
         project_names=None,
         process_name=None,
-        api_url=None,
-        auth_token=None,
 ):
     if airflow_operator is not None:
         if project_names is None:
             from airflow.models import Variable
-            project_names = [Variable.get("KENSU_PROJECT", default_var='Airflow :: ' + airflow_operator.dag_id)]
+            project_names = [Variable.get("KSU_PROJECT_NAME", default_var='Airflow :: ' + airflow_operator.dag_id)]
         if process_name is None:
             process_name = airflow_operator.task_id
     # This must be called at each dag Operation, as Airflow operations may run on different Hosts
@@ -34,17 +32,15 @@ def airflow_init_kensu(
     # it seems GCP Composer's env variables are actually not passed (at least to some of the Airflow Operators)
     # so we set the important/sensitive settings explicitly from Airflow (secured) variables
     from airflow.models import Variable
-    api_url = Variable.get("KENSU_API_URL", default_var=None)
-    auth_token = Variable.get("KENSU_API_TOKEN", default_var=None)
+    api_url = Variable.get("KSU_KENSU_INGESTION_URL", default_var=None)
+    auth_token = Variable.get("KSU_KENSU_INGESTION_TOKEN", default_var=None)
 
     KensuProvider().initKensu(
-        api_url=api_url,
-        auth_token=auth_token,
+        kensu_ingestion_url=api_url,
+        kensu_ingestion_token=auth_token,
         init_context=True,
-        project_names=project_names,
+        project_name=project_names,
         process_name=process_name,
-        mapping=True,
-        report_in_mem=False,
         bigquery_support=True)
 
 

@@ -20,8 +20,8 @@ def setup_kensu_tracker(
         **kwargs
 ):
     offline = True
-    api_url = os.environ.get('KSU_API_URL') or ''
-    auth_token = os.environ.get('KSU_API_TOKEN') or ''
+    api_url = os.environ.get('KSU_KENSU_INGESTION_URL') or ''
+    auth_token = os.environ.get('KSU_KENSU_INGESTION_TOKEN') or ''
     if test_cls:
         test_name = test_cls.__class__.__name__
         if out_file is None:
@@ -35,8 +35,8 @@ def setup_kensu_tracker(
     KensuProvider().initKensu(
         init_context=True,
         allow_reinit=True,
-        api_url=api_url,
-        auth_token=auth_token,
+        kensu_ingestion_url=api_url,
+        kensu_ingestion_token=auth_token,
         report_to_file=offline,
         project_names=project_names,
         offline_file_name=out_file,

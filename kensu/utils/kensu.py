@@ -1,19 +1,16 @@
 import datetime
 import getpass
-import json
-import logging
-import os
-import time
 import jwt
+import os
+
 
 from kensu.client import *
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
-from kensu.utils.helpers import to_hash_key
+from kensu.utils.helpers import extract_config_property, get_conf_path, to_hash_key
 from kensu.utils.injection import Injection
-from kensu.pandas import DataFrame,Series
 from kensu.utils.reporters import *
 from kensu.utils.rule_engine import create_kensu_nrows_consistency
 from kensu import sdk
@@ -64,28 +61,22 @@ class Kensu(object):
         return code_version
 
     @staticmethod
-    def get_conf_path(self, default = "conf.ini"):
-        return os.environ["CONF_FILE"] if "CONF_FILE" in os.environ else default
-
-    @staticmethod
     def build_conf():
         """
         Returns configparser.ConfigParser
         """
         from configparser import ConfigParser, ExtendedInterpolation
         config = ConfigParser(interpolation=ExtendedInterpolation())
-        conf_path = Kensu.get_conf_path("conf.ini")
+        conf_path = get_conf_path("conf.ini")
         try:
             config.read(conf_path)
         except:
             logging.warning(f"Cannot load config from file `%s`" % (conf_path))
         return config
 
-    def __init__(self, api_url=None, auth_token=None, process_name=None,
-                 user_name=None, code_location=None, init_context=True, 
-                 do_report=None, report_to_file=None, offline_file_name=None, 
-                 compute_stats=True, 
-                 config=None, **kwargs):
+    def __init__(self, kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None,
+                 user_name=None, code_location=None, do_report=None, report_to_file=None, offline_file_name=None,
+                 compute_stats=True, config=None, **kwargs):
         """
         config: : configparser.ConfigParser if None `build_conf` will be tried
         """
@@ -95,92 +86,81 @@ class Kensu(object):
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
         self.conf = kensu_conf
 
-        kensu_host = self.get_kensu_host(api_url)
-        if kensu_host is None:
-            kensu_host = kensu_conf.get("api_url")
-        if auth_token is None:
-            kensu_auth_token = os.environ.get('KENSU_API_TOKEN') or kensu_conf.get("api_token")
-        else:
-            kensu_auth_token = auth_token
+        def get_property(key, default, arg=None, kw=kwargs, conf=kensu_conf, tpe=None):
+            return extract_config_property(key, default, arg, kw, conf, tpe)
 
-        # returns a value following this precedence:
-        #   kwargs = arg > conf > default
-        # default is used to determine the type of the conf value (it can be overriden by tpe)
-        def kwargs_or_conf_or_default(key, default, arg=None, kw=kwargs, conf=kensu_conf, tpe=None):
-            if arg is not None:
-                return arg
-            elif key in kw and kw[key] is not None:
-                return kw[key]
-            elif key in conf and conf.get(key) is not None:
-                if default is not None and tpe is None:
-                    tpe = type(default)
-                r = conf.get(key)
-                if tpe is list:
-                    r = r.split(",")
-                elif tpe is bool:
-                    r = conf.getboolean(key)
-                elif tpe is not None:
-                    r = tpe(r)
-                return r
-            else:
-                return default
+        kensu_host = get_property("kensu_ingestion_url", None, kensu_ingestion_url)
+        kensu_auth_token = get_property("kensu_ingestion_token", None, kensu_ingestion_token)
+
         self.extractors = Extractors()
-        pandas_support = kwargs_or_conf_or_default("pandas_support", True)
-        sklearn_support = kwargs_or_conf_or_default("sklearn_support", False)
-        bigquery_support = kwargs_or_conf_or_default("bigquery_support", False)
-        tensorflow_support = kwargs_or_conf_or_default("tensorflow_support", False)
-        matplotlib_support = kwargs_or_conf_or_default("matplotlib_support", False)
 
-        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,bigquery_support=bigquery_support,tensorflow_support=tensorflow_support, matplotlib_support = matplotlib_support)
+        pandas_support = get_property("pandas_support", True)
 
-        bigquery_headers = kwargs_or_conf_or_default("bigquery_headers", None)
+        sklearn_support = get_property("sklearn_support", False)
+
+        bigquery_support = get_property("bigquery_support", False)
+        bigquery_headers = get_property("bigquery_headers", None)
         if bigquery_headers:
             self.bigquery_headers = bigquery_headers
 
-        project_names = kwargs_or_conf_or_default("project_names", [])
-        environment = kwargs_or_conf_or_default("environment", None)
-        timestamp = kwargs_or_conf_or_default("timestamp", None, tpe=int)
-        logical_naming = kwargs_or_conf_or_default("logical_naming", None)
-        mapping = kwargs_or_conf_or_default("mapping", None)
-        report_in_mem = kwargs_or_conf_or_default("report_in_mem", False)
-        sql_util_url = kwargs_or_conf_or_default("sql_util_url", None)
+        tensorflow_support = get_property("tensorflow_support", False)
+
+        matplotlib_support = get_property("matplotlib_support", False)
+
+        self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,
+                                             bigquery_support=bigquery_support, tensorflow_support=tensorflow_support,
+                                             matplotlib_support=matplotlib_support)
+
+        # Due to backward compatibility supports comma separated values,
+        # but only one project name (first) is allowed on ingestion side
+        project_name = get_property("project_name", [])
+        environment = get_property("environment", None)
+        execution_timestamp = get_property("execution_timestamp", None, tpe=int)
+        logical_data_source_naming_strategy = get_property("logical_data_source_naming_strategy", None)
+
+        report_in_mem = False
+
+        #  Required to be always on. Config dropped since 2.0.0
+        mapping = True
+
+        kensu_sql_parser_url = get_property("kensu_sql_parser_url", None)
 
         if "get_code_version" in kwargs and kwargs["get_code_version"] is not None:
             get_code_version = kwargs["get_code_version"]
         else:
             get_code_version = Kensu.discover_code_version
 
-        process_name = kwargs_or_conf_or_default("process_name", "Missing Application Name", process_name)
-        user_name = kwargs_or_conf_or_default("user_name", "Missing User Name", user_name)
-        code_location = kwargs_or_conf_or_default("code_location", None, code_location)
+        process_name = get_property("process_name", "Missing Application Name", process_name)
+        user_name = get_property("user_name", "Missing User Name", user_name)
+        code_location = get_property("code_location", None, code_location)
 
-        reporter = kwargs_or_conf_or_default('reporter', None)
-        do_report = kwargs_or_conf_or_default("do_report", True, do_report)
-        report_to_file = kwargs_or_conf_or_default("report_to_file", False, report_to_file)
-        offline_file_name = kwargs_or_conf_or_default("offline_file_name", None, offline_file_name)
-        compute_stats = kwargs_or_conf_or_default("compute_stats", True, compute_stats)
-        input_stats = kwargs_or_conf_or_default("input_stats", True)
-        compute_delta = kwargs_or_conf_or_default("compute_delta",False)
-        if compute_delta and not input_stats:
-            logging.warning("delta nrows stats (compute_delta=True) will not work without setting input_stats=True")
-        raise_on_check_failure = kwargs_or_conf_or_default("raise_on_check_failure", False)
+        reporter = get_property('reporter', None)
+        do_report = get_property("do_report", True, do_report)
+        report_to_file = get_property("report_to_file", False, report_to_file)
+        offline_file_name = get_property("offline_file_name", None, offline_file_name)
+
+        compute_stats = get_property("compute_stats", True, compute_stats)
+        compute_input_stats = get_property("compute_input_stats", True)
+        compute_delta = get_property("compute_delta_stats", False)
+        if compute_delta and not compute_input_stats:
+            logging.warning("delta nrows stats (compute_delta=True) will not work without setting compute_input_stats=True")
+        raise_on_check_failure = get_property("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
         self.kensu_api.api_client.host = kensu_host
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
-        self.api_url = kwargs_or_conf_or_default("api_url", None)
+        self.api_url = kensu_host
         self.report_to_file = report_to_file
 
-        sdk_pat = os.environ.get('KENSU_SDK_PAT') or kwargs_or_conf_or_default("PAT", None)
-        sdk_url = os.environ.get('KENSU_SDK_URL') or kwargs_or_conf_or_default("sdk_url", None)
-        sdk_verify_ssl = kwargs_or_conf_or_default("sdk_verify_ssl", True)
+        sdk_pat = get_property("kensu_api_token", None)
+        sdk_url = get_property("kensu_api_url", None)
+        sdk_verify_ssl = get_property("kensu_api_verify_ssl", True)
         if sdk_pat is None:
             self.sdk = sdk.DoNothingSDK()
         else:
             if sdk_url is None:
                 sdk_url = self.api_url.replace('-api', '')                
             self.sdk = sdk.SDK(sdk_url, sdk_pat, verify_ssl=sdk_verify_ssl)
-
 
         # add function to Kensu entities
         injection = Injection()
@@ -195,29 +175,21 @@ class Kensu(object):
         injection.set_do_report(do_report, offline_file_name=offline_file_name, report_to_file=report_to_file)
         injection.set_kensu_api(self.kensu_api)
 
-        self.logical_naming = logical_naming
+        self.logical_naming = logical_data_source_naming_strategy
         self.mapping = mapping
         self.report_in_mem = report_in_mem
         self.compute_stats = compute_stats
         self.compute_delta = compute_delta
+        self.input_stats = compute_input_stats
         self.raise_on_check_failure = raise_on_check_failure
         self.offline_file_name = offline_file_name
-        self.sql_util_url = sql_util_url
-        self.input_stats = input_stats
+        self.kensu_sql_parser_url = kensu_sql_parser_url
 
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
-                          get_code_version=get_code_version, project_names=project_names, environment=environment, timestamp=timestamp)
-
-    # sets the api url using host if passed, otherwise gets KENSU_API_URL
-    def get_kensu_host(self, host=None):
-        if host is None:
-                kensu_host = os.environ.get("KENSU_API_URL")
-        else:
-            kensu_host = host
-
-        return kensu_host
+                          get_code_version=get_code_version, project_names=project_name, environment=environment,
+                          timestamp=execution_timestamp)
 
     def register_schema_name(self, ds, schema):
         name = ds.name
