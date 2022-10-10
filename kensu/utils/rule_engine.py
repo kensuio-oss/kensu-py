@@ -20,7 +20,7 @@ def add_not_null_rule(
         null_suffix='nullrows'
 ):
     try:
-        logging.info(f"Adding a Kensu rule: NOT_NULL({non_null_col}) on LDS={lds_name}")
+        logging.info(f"KENSU: Adding a Kensu rule: NOT_NULL({non_null_col}) on LDS={lds_name}")
         lds_context = "LOGICAL_DATA_SOURCE"
         add_rule(data_source=lds_name,
                  field=f'{non_null_col}.{null_suffix}',
@@ -63,7 +63,7 @@ def add_frequency_rule(data_source, hours=None, days=None, weeks=None, months=No
         timeLapseUnit = 'Months'
         timeLapse = months
     else:
-        print("add_frequency_rule failed: no time unit specified")
+        logging.info("KENSU: add_frequency_rule failed: no time unit specified")
         return None
 
     add_rule(data_source,
@@ -98,7 +98,7 @@ def check_format_consistency(data_source):
         if bool:
             pass
         else:
-            print("The format of the datasource {} is not consistent, expected {}, got {}".format(data_source,previous_format, checked_format))
+            logging.warning("KENSU: The format of the datasource {} is not consistent, expected {}, got {}".format(data_source,previous_format, checked_format))
 
 
 def check_schema_consistency(data_source):
@@ -110,11 +110,11 @@ def check_schema_consistency(data_source):
         # Check of field changes
         missing_keys = previous_schema.keys() - checked_schema.keys()
         if missing_keys:
-            print("The following key(s) are missing from {} : {}".format(data_source,list(missing_keys)))
+            logging.warning("KENSU: The following key(s) are missing from {} : {}".format(data_source,list(missing_keys)))
 
         new_keys =  checked_schema.keys() - previous_schema.keys()
         if new_keys:
-            print("The following key(s) are new in {} : {}".format(data_source,list(new_keys)))
+            logging.warning("KENSU: The following key(s) are new in {} : {}".format(data_source,list(new_keys)))
 
         all_changed_fields = list(missing_keys)+list(new_keys)
 
@@ -124,7 +124,7 @@ def check_schema_consistency(data_source):
                 del type_diff[x]
         if type_diff:
             for y in type_diff.keys():
-                print("The following field in {} has a wrong type: {} Expected {}, got {}".format(data_source,y,previous_schema[y],checked_schema[y]))
+                logging.warning("KENSU: The following field in {} has a wrong type: {} Expected {}, got {}".format(data_source,y,previous_schema[y],checked_schema[y]))
 
 
 # TODO WIP check nrows

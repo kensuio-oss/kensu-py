@@ -18,28 +18,28 @@ def ref_scala_object(jvm, object_name):
         o = getattr(o, p)
       return o
 
-def wait_for_dam_completion(spark, dam_wait_timeout_secs):
+
+def wait_for_spark_completion(spark, wait_timeout_secs):
     sc = spark.sparkContext
     jvm = sc._jvm
-    # call DamClientActorSystem.destroyActorSystem(actorSysTimeout: Duration = actorSysTimeout, futuresTimeout: Duration = futuresTimeout)
-    dam_client_class = ref_scala_object(jvm, "io.kensu.third.integration.spline.DamClientActorSystem")
+    client_class = ref_scala_object(jvm, "io.kensu.sparkcollector.KensuSparkCollector")
     duration_class = ref_scala_object(jvm, "scala.concurrent.duration.Duration")
     duration_30s = duration_class.apply(30, "second")
-    duration_wait_timeout = duration_class.apply(dam_wait_timeout_secs, "second")
-    return dam_client_class.destroyActorSystem(duration_30s, duration_wait_timeout)
+    duration_wait_timeout = duration_class.apply(wait_timeout_secs, "second")
+    return client_class.shutdown(duration_30s, duration_wait_timeout)
 
 
-def patched_spark_stop(wrapped, dam_wait_timeout_secs):
+def patched_spark_stop(wrapped, wait_timeout_secs):
     def wrapper(self):
         try:
-            logging.info('DAM: in spark.stop, waiting for DAM reporting to finish')
-            wait_for_dam_completion(self, dam_wait_timeout_secs)
-            logging.info('DAM: in spark.stop, waiting for DAM done, stopping spark context')
+            logging.info('KENSU: in spark.stop, waiting for Kensu Spark-Collector reporting to finish')
+            wait_for_spark_completion(self, wait_timeout_secs)
+            logging.info('KENSU: in spark.stop, waiting for Kensu Spark-Collector done, stopping spark context')
         except:
             import traceback
-            logging.info("unexpected DAM issue: {}".format(traceback.format_exc()))
+            logging.info("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         result = wrapped(self)
-        logging.info('DAM: in spark.stop, spark context stopped')
+        logging.info('KENSU: in spark.stop, spark context stopped')
         return result
 
     wrapper.__doc__ = wrapped.__doc__
@@ -64,10 +64,9 @@ def ensure_dir_exists(path):
 def patched_spark_createDataFrame_pandas(wrapped, pandas_to_spark_df_via_tmp_file, tmp_dir=None):
     def wrapper(self, data, *args, **kwargs):
         try:
-            logging.info('Kensu: before calling spark.createDataFrame')
             from kensu import pandas as ksu_pandas
             if isinstance(data, ksu_pandas.data_frame.DataFrame):
-                logging.info('Kensu: replacing kensu.pandas.data_frame.DataFrame wrapper into a original pandas...')
+                logging.info('KENSU: replacing kensu.pandas.data_frame.DataFrame wrapper into a original pandas...')
                 if not pandas_to_spark_df_via_tmp_file:
                     #  just unwrap the Kensu wrapper, so spark at least works
                     data = data.get_df() # type: pandas.DataFrame
@@ -88,20 +87,20 @@ def patched_spark_createDataFrame_pandas(wrapped, pandas_to_spark_df_via_tmp_fil
                     tmp_file_path = os.path.join(final_tmp_dir, tmp_file_name + '.parquet')
                     # write to a temp file locally with pandas, using Kensu wrapper to capture the lineage
                     abs_tmp_file_name = os.path.abspath(tmp_file_path)
-                    logging.info('Kensu: spark.createDataFrame(pandas_df): Kensu will write pandas_df to a temp file - '+ abs_tmp_file_name)
+                    logging.info('KENSU: spark.createDataFrame(pandas_df): Kensu will write pandas_df to a temp file - '+ abs_tmp_file_name)
                     data.to_parquet(abs_tmp_file_name, index=False)
                     # here do not call the Spark's original implementation of spark.createDataFrame(),
                     # and just read tmp file with spark, so we'd have the lineage
                     spark_temp_file_path = 'file:' + abs_tmp_file_name
-                    logging.info('Kensu: spark.createDataFrame(pandas_df): Kensu will read to a temp file in spark - ' + spark_temp_file_path)
+                    logging.info('KENSU: spark.createDataFrame(pandas_df): Kensu will read to a temp file in spark - ' + spark_temp_file_path)
                     spark_df = self.read.parquet(spark_temp_file_path)
                     return spark_df
-            logging.info('Kensu: done modifying arguments to spark.createDataFrame')
+            logging.info('KENSU: done modifying arguments to spark.createDataFrame')
         except:
             import traceback
-            logging.info("unexpected DAM issue: {}".format(traceback.format_exc()))
+            logging.info("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         result = wrapped(self, data, *args, **kwargs)
-        logging.info('Kensu: end of spark.createDataFrame')
+        logging.info('KENSU: end of spark.createDataFrame')
         return result
 
     wrapper.__doc__ = wrapped.__doc__
@@ -111,13 +110,13 @@ def patched_spark_createDataFrame_pandas(wrapped, pandas_to_spark_df_via_tmp_fil
 def patched_dataframe_write(wrapped):
     def wrapper(self):
         try:
-            logging.info('DAM: in patched DataFrame.write, marking DataFrame as cached')
+            logging.info('KENSU: in patched DataFrame.write, marking DataFrame as cached')
             from pyspark.sql import DataFrameWriter
             result = DataFrameWriter(self.cache())
-            logging.info('DAM: in patched DataFrame.write, returning result')
+            logging.info('KENSU: in patched DataFrame.write, returning result')
         except:
             import traceback
-            logging.info("DAM: unexpected issue in DataFrame.write: {}".format(traceback.format_exc()))
+            logging.info("KENSU: unexpected issue in DataFrame.write: {}".format(traceback.format_exc()))
             from pyspark.sql import DataFrameWriter
             result = DataFrameWriter(self.cache())
         return result
@@ -128,12 +127,12 @@ def patched_dataframe_write(wrapped):
 def patched_dataframe_toPandas(wrapped):
     def wrapper(self):
         try:
-            logging.info('DAM: in patched DataFrame.toPandas()')
+            logging.info('KENSU: in patched DataFrame.toPandas()')
             result = wrapped(self)
-            logging.info('DAM: in patched DataFrame.toPandas(), returning result')
+            logging.info('KENSU: in patched DataFrame.toPandas(), returning result')
         except:
             import traceback
-            logging.info("DAM: unexpected issue in DataFrame.toPandas(): {}".format(traceback.format_exc()))
+            logging.info("KENSU: unexpected issue in DataFrame.toPandas(): {}".format(traceback.format_exc()))
             result = wrapped(self)
         return result
 
@@ -147,88 +146,85 @@ def get_jvm_from_df(dataframe, # type: DataFrame
     return spark.sparkContext._jvm
 
 
-def call_df_as_dam_datasource(df,  # type: DataFrame
-                              location, datasource_type,
-                              name=None, # type: str
-                              logical_name=None # type: str
-                             ):
+def call_df_as_kensu_datasource(df,  # type: DataFrame
+                                location, datasource_type,
+                                name=None,  # type: str
+                                logical_name=None  # type: str
+                                ):
     jvm = get_jvm_from_df(df)
-    w = jvm.io.kensu.dam.lineage.spark.lineage.Implicits.SparkDataFrameDAMWrapper(df._jdf)
-    return w.reportAsDamDatasource(location, datasource_type, jvm.scala.Option.apply(name), jvm.scala.Option.apply(logical_name))
+    w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkDataFrame(df._jdf)
+    return w.reportAsKensuDatasource(location, datasource_type, jvm.scala.Option.apply(name), jvm.scala.Option.apply(logical_name))
 
 
-def call_df_as_dam_jdbc_datasource(df,  # type: DataFrame
-                                  dbType,  # type: str
-                                  schemaName, # type: str
-                                  tableName, # type: str
-                                  maybeDatabaseName, # type: str
-                                  name=None, # type: str
-                                  logical_name=None # type: str
-                                  ):
+def call_df_as_kensu_jdbc_datasource(df,  # type: DataFrame
+                                     dbType,  # type: str
+                                     schemaName,  # type: str
+                                     tableName,  # type: str
+                                     maybeDatabaseName,  # type: str
+                                     name=None,  # type: str
+                                     logical_name=None  # type: str
+                                     ):
     jvm = get_jvm_from_df(df)
-    w = jvm.io.kensu.dam.lineage.spark.lineage.Implicits.SparkDataFrameDAMWrapper(df._jdf)
-    return w.reportAsDamJdbcDatasource(dbType, schemaName, tableName, jvm.scala.Option.apply(maybeDatabaseName), jvm.scala.Option.apply(name), jvm.scala.Option.apply(logical_name))
+    w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkDataFrame(df._jdf)
+    return w.reportAsKensuJdbcDatasource(dbType, schemaName, tableName, jvm.scala.Option.apply(maybeDatabaseName), jvm.scala.Option.apply(name), jvm.scala.Option.apply(logical_name))
 
 
 def do_disable_spark_writes(spark):
     """
-    Disables spark writes, but keeps DAM reporting.
+    Disables spark writes, but keeps Kensu Spark-Collector reporting.
     Affects only the writes which use DataFrameWriter - dataFrame.write.someMethod(), including .csv(), .save(), .saveAsTable().
 
     Note: This function MUST be run before first spark write, otherwise spark writes will not be disabled!
     """
-    logging.info('DAM disabling df.write')
+    logging.info('KENSU: disabling df.write')
     sc = spark.sparkContext
     jvm = sc._jvm
-    spark_writes_disabler = ref_scala_object(jvm, "io.kensu.third.integration.spark.nowrites.SparkWritesDisabler")
+    spark_writes_disabler = ref_scala_object(jvm, "io.kensu.sparkcollector.spark.nowrites.SparkWritesDisabler")
     spark_writes_disabler.disableSparkWrites()
-    logging.info('DAM disabling df.write done')
+    logging.info('KENSU: disabling df.write done')
 
 
 def set_fake_timestamp(spark, mocked_timestamp):
     """
-    Sets a fake timestamp to be reported to DAM
+    Sets a fake timestamp to be reported to Kensu Spark-Collector
     """
-    logging.info('KENSU overriding execution_timestamp starting')
+    logging.info('KENSU: overriding execution_timestamp starting')
     sc = spark.sparkContext
     jvm = sc._jvm
-    spark_writes_disabler = ref_scala_object(jvm, "io.kensu.third.integration.TimeUtils")
+    clazz = ref_scala_object(jvm, "io.kensu.sparkcollector.utils.TimeUtils")
     force_override = False
-    spark_writes_disabler.setMockedTime(int(mocked_timestamp), force_override)
-    logging.info('KENSU overriding execution_timestamp done')
+    clazz.setMockedTime(int(mocked_timestamp), force_override)
+    logging.info('KENSU: overriding execution_timestamp done')
 
 
 def add_ds_path_sanitizer(spark, search_str, replacement_str):
-    """
-    Sets a fake timestamp to be reported to DAM
-    """
-    logging.info('DAM add_ds_path_sanitizer starting')
+    logging.info('KENSU: add_ds_path_sanitizer starting')
     sc = spark.sparkContext
     jvm = sc._jvm
-    spark_writes_disabler = ref_scala_object(jvm, "io.kensu.third.integration.DataSourceConv")
-    spark_writes_disabler.addDsPathSanitizer(search_str, replacement_str)
-    logging.info('DAM add_ds_path_sanitizer done')
+    clazz = ref_scala_object(jvm, "io.kensu.sparkcollector.datasources.DataSourceConverters")
+    clazz.addDsPathSanitizer(search_str, replacement_str)
+    logging.info('KENSU: add_ds_path_sanitizer done')
 
-def report_df_as_dam_datasource():
-    def report_as_dam_datasource(self, # type: DataFrame
+def report_df_as_kensu_datasource():
+    def report_as_kensu_datasource(self, # type: DataFrame
                                  location, # type: str
                                  datasource_type=None, # type: str
                                  name=None, # type: str
                                  logical_name=None # type: str
                                  ):
         try:
-            logging.info('DAM: in df.report_as_dam_datasource')
-            call_df_as_dam_datasource(self, location, datasource_type or 'in-memory-dataframe', name, logical_name)
-            logging.info('DAM: df.report_as_dam_datasource started in background')
+            logging.info('KENSU: in df.report_as_kensu_datasource')
+            call_df_as_kensu_datasource(self, location, datasource_type or 'in-memory-dataframe', name, logical_name)
+            logging.info('KENSU: df.report_as_kensu_datasource started in background')
         except:
             import traceback
-            logging.info("unexpected DAM issue: {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
-    return report_as_dam_datasource
+    return report_as_kensu_datasource
 
 
-def report_df_as_dam_jdbc_datasource():
-    def report_as_dam_jdbc_datasource(self,  # type: DataFrame
+def report_df_as_kensu_jdbc_datasource():
+    def report_as_kensu_jdbc_datasource(self,  # type: DataFrame
                                       db_type,  # type: str
                                       schema_name,  # type: str
                                       table_name,  # type: str
@@ -237,14 +233,14 @@ def report_df_as_dam_jdbc_datasource():
                                       logical_name=None # type: str
                                       ):
         try:
-            logging.info('DAM: in df.report_as_dam_jdbc_datasource')
-            call_df_as_dam_jdbc_datasource(self, db_type, schema_name, table_name, maybe_db_name, name, logical_name)
-            logging.info('DAM: df.report_as_dam_jdbc_datasource started in background')
+            logging.info('KENSU: in df.report_as_kensu_jdbc_datasource')
+            call_df_as_kensu_jdbc_datasource(self, db_type, schema_name, table_name, maybe_db_name, name, logical_name)
+            logging.info('KENSU: df.report_as_kensu_jdbc_datasource started in background')
         except:
             import traceback
-            logging.info("unexpected DAM issue: {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
-    return report_as_dam_jdbc_datasource
+    return report_as_kensu_jdbc_datasource
 
 
 def report_df_as_kpi():
@@ -254,43 +250,43 @@ def report_df_as_kpi():
                       datasource_type="Business metric (KPI)" # type: str
                       ):
         try:
-            logging.info('DAM: in df.report_as_kpi')
+            logging.info('KENSU: in df.report_as_kpi')
             jvm = get_jvm_from_df(self)
-            w = jvm.io.kensu.dam.lineage.spark.lineage.Implicits.SparkDataFrameDAMWrapper(self._jdf)
+            w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkDataFrame(self._jdf)
             w.reportAsKPI(name, logical_name or name, datasource_type)
-            logging.info('DAM: df.report_as_kpi started in background')
+            logging.error('KENSU: df.report_as_kpi started in background')
         except:
             import traceback
-            logging.info("unexpected DAM issue: {}".format(traceback.format_exc()))
+            logging.info("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
     return report_as_kpi
 
 
-def patch_dam_df_helpers():
+def patch_kensu_df_helpers():
     try:
-        logging.info('Adding DataFrame.report_as_dam_datasource')
+        logging.info('KENSU: Adding DataFrame.report_as_kensu_datasource')
         from pyspark.sql import DataFrame
-        DataFrame.report_as_dam_datasource = report_df_as_dam_datasource()
-        logging.info('done adding DataFrame.report_as_dam_datasource')
+        DataFrame.report_as_kensu_datasource = report_df_as_kensu_datasource()
+        logging.info('KENSU: done adding DataFrame.report_as_kensu_datasource')
     except:
         import traceback
-        logging.info("unexpected issue when patching DataFrame.report_as_dam_datasource: {}".format(traceback.format_exc()))
+        logging.error("KENSU: unexpected issue when patching DataFrame.report_as_kensu_datasource: {}".format(traceback.format_exc()))
     try:
-        logging.info('Adding DataFrame.report_as_dam_jdbc_datasource')
+        logging.info('KENSU: Adding DataFrame.report_as_kensu_jdbc_datasource')
         from pyspark.sql import DataFrame
-        DataFrame.report_as_dam_jdbc_datasource = report_df_as_dam_jdbc_datasource()
-        logging.info('done adding DataFrame.report_as_dam_jdbc_datasource')
+        DataFrame.report_as_kensu_jdbc_datasource = report_df_as_kensu_jdbc_datasource()
+        logging.info('KENSU: done adding DataFrame.report_as_kensu_jdbc_datasource')
     except:
         import traceback
-        logging.info("unexpected issue when patching DataFrame.report_as_dam_jdbc_datasource: {}".format(traceback.format_exc()))
+        logging.error("KENSU: unexpected issue when patching DataFrame.report_as_kensu_jdbc_datasource: {}".format(traceback.format_exc()))
     try:
-        logging.info('Adding DataFrame.report_as_kpi')
+        logging.info('KENSU: Adding DataFrame.report_as_kpi')
         from pyspark.sql import DataFrame
         DataFrame.report_as_kpi = report_df_as_kpi()
-        logging.info('done adding DataFrame.report_as_kpi')
+        logging.info('KENSU: done adding DataFrame.report_as_kpi')
     except:
         import traceback
-        logging.info("unexpected issue when patching DataFrame.report_as_kpi: {}".format(traceback.format_exc()))
+        logging.error("KENSU: unexpected issue when patching DataFrame.report_as_kpi: {}".format(traceback.format_exc()))
 
 
 def join_paths(maybe_directory, # type: str
@@ -305,14 +301,14 @@ def join_paths(maybe_directory, # type: str
 
 def convert_naming_rules(rules # type: list[str]
                          ):
-    # a rule looks like this: dam-spline-persistence/hive-query-results->>File
+    # a rule looks like this: kensu-spark-collector/hive-query-results->>File
     return list(["{}->>{}".format(matcher, formatter) for (matcher, formatter) in rules])
 
 
-def scala_ds_and_schema_to_py(dam, ds, schema):
+def scala_ds_and_schema_to_py(kensu_instance, ds, schema):
     from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
     from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
-    pl_ref = dam.UNKNOWN_PHYSICAL_LOCATION.to_ref()
+    pl_ref = kensu_instance.UNKNOWN_PHYSICAL_LOCATION.to_ref()
     py_ds = DataSource(name=ds.name(),
                        format=ds.format(),
                        categories=list(ds.categories()),
@@ -347,7 +343,7 @@ def j2py_dict_of_lists(jdict):
     return r
 
 
-def get_inputs_lineage_fn(dam, df):
+def get_inputs_lineage_fn(kensu_instance, df):
     jvm = get_jvm_from_df(df)
     # call def fetchToPandasReport(
     #     df: DataFrame,
@@ -356,13 +352,13 @@ def get_inputs_lineage_fn(dam, df):
     #     datasourceType: String = InternalDatasourceTags.TAG_INPUT_LINEAGE_ONLY,
     #     timeout: Duration
     #   )
-    dam_client_class = ref_scala_object(jvm, "io.kensu.third.integration.dataconversions.SparkToPandasConvTracker")
+    client_class = ref_scala_object(jvm, "io.kensu.third.integration.dataconversions.SparkToPandasConvTracker")
     duration_300s =  ref_scala_object(jvm, "scala.concurrent.duration.Duration").apply(300, "second")
     # FIXME: it should NOT wait for datasts -> check
     import uuid
     virtual_ds_name = str(uuid.uuid1())
     no_logical_name = jvm.scala.Option.apply(None)
-    lineage_from_scala = dam_client_class.fetchToPandasReport(
+    lineage_from_scala = client_class.fetchToPandasReport(
         df._jdf,
         virtual_ds_name,
         no_logical_name,
@@ -383,11 +379,11 @@ def get_inputs_lineage_fn(dam, df):
     # )
     lineage_info = [
         ExtDependencyEntry(
-            input_ds=scala_ds_and_schema_to_py(dam, e.ds(), e.schema()),
+            input_ds=scala_ds_and_schema_to_py(kensu_instance, e.ds(), e.schema()),
             lineage=j2py_dict_of_lists(e.lineage())
         ) for e in lineage_from_scala.lineage()
     ]
-    logging.info('lineage_info:', lineage_info)
+    logging.info('KENSU: lineage_info:', lineage_info)
     return GenericComputedInMemDs(inputs=list([x.input_ds for x in lineage_info]), lineage=lineage_info)
 
 
@@ -468,7 +464,7 @@ def init_kensu_spark(
         disable_spark_writes=None,
         environment=None,
         execution_timestamp=None,
-        project_name=None,  # type: list[str]
+        project_name=None,
         h2o_support=None,
         h2o_create_virtual_training_datasource=None,
         patch_pandas_conversions=None,
@@ -515,7 +511,7 @@ def init_kensu_spark(
         user_name = extract_config_property('user_name', None, user_name, kw=kwargs, conf=kensu_conf)
         enable_entity_compaction = extract_config_property('enable_entity_compaction',True,enable_entity_compaction, kw=kwargs, conf=kensu_conf, tpe=bool)
         environment = extract_config_property('environment',None,environment, kw=kwargs, conf=kensu_conf)
-        project_name = extract_config_property('project_name', None, project_name, kw=kwargs, conf=kensu_conf, tpe=list)  # type: list[str]
+        project_name = extract_config_property('project_name', None, project_name, kw=kwargs, conf=kensu_conf)
         execution_timestamp = extract_config_property('execution_timestamp', None, execution_timestamp, kw=kwargs, conf=kensu_conf, tpe=int)
 
         compute_stats = extract_config_property('compute_stats', True, compute_stats, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -557,8 +553,6 @@ def init_kensu_spark(
         pandas_to_spark_tmp_dir = extract_config_property('pandas_to_spark_tmp_dir','/tmp/spark-to-pandas-tmp',pandas_to_spark_tmp_dir, kw=kwargs, conf=kensu_conf)
 
         try:
-            # Not initializing ML trackers yet
-            # injected_classes = jvm.io.kensu.third.integration.spark.model.DamModelPublisher.activate().toString()
             ###  Get notebook name ...
             #### see https://github.com/jupyter/notebook/issues/1000#issuecomment-359875246
             import json
@@ -609,9 +603,9 @@ def init_kensu_spark(
             logging.info("Notebook name " + notebook_name)
 
             ### Configuration for tracker
-            damIngestionUrl = jvm.scala.Option.apply(kensu_ingestion_url)
+            ingestion_url = jvm.scala.Option.apply(kensu_ingestion_url)
             t2 = jvm.scala.Tuple2
-            providerClassName = t2("spark_environment_provider", "io.kensu.dam.lineage.spark.lineage.DefaultSparkEnvironnementProvider")
+            provider_class_name = t2("spark_environment_provider", "io.kensu.sparkcollector.system.DefaultSparkEnvironmentProvider")
 
             ### How to get GIT info here?
             #         explicit_code_repo=None,
@@ -634,7 +628,7 @@ def init_kensu_spark(
                 if value is not None:
                     properties.add(t2(name, value))
 
-            properties.add(providerClassName)
+            properties.add(provider_class_name)
             properties.add(repository)
             properties.add(version)
             properties.add(user)
@@ -687,7 +681,7 @@ def init_kensu_spark(
                 properties.add(t2("collector_log_level", debug_level))
                 properties.add(t2("collector_log_file_path", kensu_debug_filename))
                 properties.add(t2("collector_log_include_spark_logs", collector_log_include_spark_logs))
-                logging.info("Will write dam DAM log to file: " + kensu_debug_filename)
+                logging.info("KENSU: Will write Kensu Spark Collector logs to file: " + kensu_debug_filename)
             if shorten_data_source_names is not None:
                 properties.add(t2("shorten_data_source_names", shorten_data_source_names))
 
@@ -731,69 +725,68 @@ def init_kensu_spark(
             if (maybe_ds_path_sanitizer_search is not None) and (maybe_ds_path_sanitizer_replace is not None):
                 add_ds_path_sanitizer(spark_session, maybe_ds_path_sanitizer_search, maybe_ds_path_sanitizer_replace)
 
-            w = jvm.io.kensu.dam.lineage.spark.lineage.Implicits.SparkSessionDAMWrapper(spark_session._jsparkSession)
-            w.track(damIngestionUrl, jvm.scala.Option.empty(), properties.toSeq())
+            w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkSession(spark_session._jsparkSession)
+            w.track(ingestion_url, jvm.scala.Option.empty(), properties.toSeq())
 
             if (shutdown_timeout_sec is not None) and (shutdown_timeout_sec > 0):
-                logging.info('patching spark.stop to wait for DAM reporting to finish')
+                logging.info('KENSU: patching spark.stop to wait for Kensu Spark-Collector reporting to finish')
                 from pyspark.sql import SparkSession
                 SparkSession.stop = patched_spark_stop(SparkSession.stop, shutdown_timeout_sec)
-                logging.info('patching spark.stop done')
+                logging.info('KENSU: patching spark.stop done')
 
             if disable_spark_writes:
                 try:
                     do_disable_spark_writes(spark_session)
                 except:
                     import traceback
-                    logging.info("unexpected issue when disabling df.write {}".format(traceback.format_exc()))
+                    logging.error("KENSU: unexpected issue when disabling df.write {}".format(traceback.format_exc()))
 
             if cache_output_for_stats and compute_stats:
                 try:
-                    logging.info('patching DataFrame.write to cache/persist the results to speedup data-stats computation')
+                    logging.info('KENSU: patching DataFrame.write to cache/persist the results to speedup data-stats computation')
                     from pyspark.sql import DataFrame
                     DataFrame.write = patched_dataframe_write(DataFrame.write)
-                    logging.info('done patching DataFrame.write')
+                    logging.info('KENSU: done patching DataFrame.write')
                 except:
                     import traceback
-                    logging.info("unexpected issue when patching DataFrame.write: {}".format(traceback.format_exc()))
+                    logging.error("KENSU: unexpected issue when patching DataFrame.write: {}".format(traceback.format_exc()))
 
             if patch_spark_data_frame:
-                patch_dam_df_helpers()
+                patch_kensu_df_helpers()
 
             if patch_pandas_conversions:
                 try:
-                    logging.info('patching DataFrame.toPandas')
+                    logging.info('KENSU: patching DataFrame.toPandas')
                     from pyspark.sql import DataFrame
                     import kensu.pandas as pd
                     DataFrame.toPandas = pd.data_frame.wrap_external_to_pandas_transformation(
                         DataFrame.toPandas,
                         get_inputs_lineage_fn
                     )
-                    logging.info('done patching DataFrame.toPandas')
+                    logging.info('KENSU: done patching DataFrame.toPandas')
                 except:
                     import traceback
-                    logging.info("unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                    logging.error("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
                 try:
-                    logging.info('patching spark.createDataFrame to work with pandas dataframes')
+                    logging.info('KENSU: patching spark.createDataFrame to work with pandas dataframes')
                     from pyspark.sql import SparkSession
                     SparkSession.createDataFrame = patched_spark_createDataFrame_pandas(
                         SparkSession.createDataFrame,
                         pandas_to_spark_df_via_tmp_file=pandas_to_spark_df_via_tmp_file,
                         tmp_dir=pandas_to_spark_tmp_dir
                     )
-                    logging.info('patching  spark.createDataFrame done')
+                    logging.info('KENSU: patching  spark.createDataFrame done')
                 except:
                     import traceback
-                    logging.info("unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                    logging.error("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
                 try:
-                    logging.info('adding spark env var spark.executorEnv.KSU_DISABLE_PY_COLLECTOR=true'
-                                 ' to disable kensu-py collector on executor nodes')
-                    spark_session.conf.set("spark.executorEnv.KSU_DISABLE_PY_COLLECTOR", 'true')
+                    logging.info('KENSU: adding spark env var KSU_DISABLE_PY_COLLECTOR=true to disable kensu-py collector on executor nodes')
+                    spark_session.conf.set("KSU_DISABLE_PY_COLLECTOR", 'true')
                     spark_session.sparkContext.environment['KSU_DISABLE_PY_COLLECTOR'] = 'true'
-                    logging.info('done adding spark.executorEnv.KSU_DISABLE_PY_COLLECTOR')
+                    logging.info('KENSU: done adding KSU_DISABLE_PY_COLLECTOR')
                 except:
                     import traceback
-                    logging.info("unexpected issue when adding spark.executorEnv.KSU_DISABLE_PY_COLLECTOR: {}".format(traceback.format_exc()))
+                    logging.error("KENSU: unexpected issue when adding spark.executorEnv.KSU_DISABLE_PY_COLLECTOR: {}".format(traceback.format_exc()))
 
             if use_api_client:
                 from kensu.utils.kensu_provider import KensuProvider as K

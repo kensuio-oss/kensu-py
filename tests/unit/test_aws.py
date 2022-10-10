@@ -12,9 +12,8 @@ if __name__ == '__main__':
                                       kensu_ingestion_url=api_url,
                                       kensu_ingestion_token=auth_token,
                                       report_to_file=offline,
-                                      project_names=['aws s3'],
-                                      offline_file_name='kensu-offline-to-aws-s3-test.jsonl',
-                                      mapping=True, report_in_mem=False)
+                                      project_name='aws s3',
+                                      offline_file_name='kensu-offline-to-aws-s3-test.jsonl')
     #### end of kensu setup
 
     response = requests.get(url="http://api.open-notify.org/astros.json")

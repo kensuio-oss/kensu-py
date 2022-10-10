@@ -34,7 +34,7 @@ def savefig(*args, **kwargs):
     location = get_absolute_path(args[0])
 
     fig_ds = kensu.extractors.extract_data_source(fig, kensu.default_physical_location_ref,
-                                                  logical_naming=kensu.logical_naming, location=location)._report()
+                                                  logical_data_source_naming_strategy=kensu.logical_data_source_naming_strategy, location=location)._report()
     fig_sc = kensu.extractors.extract_schema(fig_ds,fig)._report()
 
     kensu.real_schema_df[fig_sc.to_guid()] = fig
@@ -44,7 +44,7 @@ def savefig(*args, **kwargs):
             for element in ax.inheritance:
                 orig_ds = eventually_report_in_mem(
                     kensu.extractors.extract_data_source(element, kensu.default_physical_location_ref,
-                                                         logical_naming=kensu.logical_naming))
+                                                         logical_data_source_naming_strategy=kensu.logical_data_source_naming_strategy))
 
                 orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, element))
 

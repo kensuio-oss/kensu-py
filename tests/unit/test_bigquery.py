@@ -23,7 +23,6 @@ class TestBigQuery(unittest.TestCase):
         setup_logging()
         setup_kensu_tracker(test_cls=self,
                             bigquery_support=True,
-                            report_in_mem=False,
                             compute_stats=False  # FIXME: stats testing disabled for now... :(
                             )
         from kensu.google.cloud import bigquery as kensu_bigquery

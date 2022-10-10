@@ -7,7 +7,7 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 
 
 @singleton
-class GenericDatasourceInfoSupport(ExtractorSupport):  # should extends some DamSupport class
+class GenericDatasourceInfoSupport(ExtractorSupport):
 
     def is_supporting(self, df):
         return isinstance(df, KensuDatasourceAndSchema)
