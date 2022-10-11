@@ -211,9 +211,9 @@ def extract_config_property(key, default, arg=None, kw=None, conf=None, tpe=None
     The default value is used to determine the type of the conf value (it can be overridden by tpe).
     The environment variable will be looked up based on the pattern of `KSU_<upper-key>`.
     """
-
-    if os.environ.get("KSU_" + key.upper()) is not None:
-        env_var = os.environ.get(key)
+    env_var_key = "KSU_" + key.upper()
+    if os.environ.get(env_var_key) is not None:
+        env_var = os.environ.get(env_var_key)
         if tpe is not None:
             env_var = tpe(env_var)
         return env_var
