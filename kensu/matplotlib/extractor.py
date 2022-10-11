@@ -46,7 +46,7 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
 
     def extract_data_source(self, fig, pl, **kwargs):
 
-        logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
+        logical_data_source_naming_strategy = kwargs["logical_data_source_naming_strategy"] if "logical_data_source_naming_strategy" in kwargs else None
         location = kwargs["location"] if "location" in kwargs else None
         fmt = 'matplotlib image'
 
@@ -60,7 +60,7 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
 
         name = ('/').join(location.split('/')[-2:])
 
-        ds=to_datasource(ds_pk, fmt, location, logical_naming, name)
+        ds=to_datasource(ds_pk, fmt, location, logical_data_source_naming_strategy, name)
         return ds
 
     def extract_schema(self, data_source, fig):

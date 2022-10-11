@@ -276,7 +276,7 @@ class KensuPandasDelegator(object):
 
                         right_ds = eventually_report_in_mem(
                             kensu.extractors.extract_data_source(right_df, kensu.default_physical_location_ref,
-                                                               logical_naming=kensu.logical_naming))
+                                                               logical_data_source_naming_strategy=kensu.logical_naming))
                         right_sc = eventually_report_in_mem(kensu.extractors.extract_schema(right_ds, right_df))
 
 
@@ -399,7 +399,7 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             data = data.get_nd()
             orig_ds = eventually_report_in_mem(
                 kensu.extractors.extract_data_source(orig_data, kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming))
+                                                     logical_data_source_naming_strategy=kensu.logical_naming))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, orig_data))
 
             df = pd.DataFrame(data,index,columns,dtype,copy)
@@ -471,7 +471,7 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
     def k_to_format(self, result_regex, *args, **kwargs):
         kensu = KensuProvider().instance()
-        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(self.get_df(), kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(self.get_df(), kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
         orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, self.get_df()))
 
         # the regex for this method has a group to get the read format
@@ -508,7 +508,7 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             df = self.get_df()
 
             #FIXME generify for written target ds (BigQuery, mysql, postgre...), same for location and format
-            ds = kensu.extractors.extract_data_source(self.get_df(), kensu.default_physical_location_ref, location=location, format=fmt,logical_naming=kensu.logical_naming)._report()
+            ds = kensu.extractors.extract_data_source(self.get_df(), kensu.default_physical_location_ref, location=location, format=fmt,logical_data_source_naming_strategy=kensu.logical_naming)._report()
             if fmt == 'BigQuery Table':
                 sc = kensu.extractors.extract_schema(ds, table)._report()
             else:
@@ -593,7 +593,7 @@ class KensuSeriesDelegator(object):
         result = Series.using(wrapped_fn(other_series))
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
-                                                 logical_naming=kensu.logical_naming))
+                                                 logical_data_source_naming_strategy=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
         inputs = [self,other_input]
@@ -601,7 +601,7 @@ class KensuSeriesDelegator(object):
             if isinstance(input,Series):
                 input_ds = eventually_report_in_mem(
                     kensu.extractors.extract_data_source(input, kensu.default_physical_location_ref,
-                                                         logical_naming=kensu.logical_naming))
+                                                         logical_data_source_naming_strategy=kensu.logical_naming))
                 input_sc = eventually_report_in_mem(kensu.extractors.extract_schema(input_ds, input))
                 result_col = [k.name for k in result_sc.pk.fields][0]
                 orig_col = [k.name for k in input_sc.pk.fields][0]
@@ -917,7 +917,7 @@ class Series(KensuSeriesDelegator, pd.Series):
 
         orig_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(self.get_s(), kensu.default_physical_location_ref,
-                                               logical_naming=kensu.logical_naming))
+                                               logical_data_source_naming_strategy=kensu.logical_naming))
 
         orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, self.get_s()))
         '''
@@ -936,7 +936,7 @@ class Series(KensuSeriesDelegator, pd.Series):
     def k_to_format(self, result_regex, *args, **kwargs):
         kensu = KensuProvider().instance()
 
-        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(self.get_s(), kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(self.get_s(), kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
 
         orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, self.get_s()))
 
@@ -956,7 +956,7 @@ class Series(KensuSeriesDelegator, pd.Series):
         if location is not None and fmt is not None:
             s = self.get_s()
 
-            ds = kensu.extractors.extract_data_source(self.get_s(), kensu.default_physical_location_ref, location=location, format=fmt,logical_naming=kensu.logical_naming)._report()
+            ds = kensu.extractors.extract_data_source(self.get_s(), kensu.default_physical_location_ref, location=location, format=fmt,logical_data_source_naming_strategy=kensu.logical_naming)._report()
 
             sc = kensu.extractors.extract_schema(ds, self.get_s())._report()
 
@@ -1019,7 +1019,7 @@ def wrap_pandas_reader(reader):
             fmt = "unknown"
 
         df = reader(*args, **kwargs)
-        read_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        read_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
         read_sc = eventually_report_in_mem(kensu.extractors.extract_schema(read_ds, df))
 
 
@@ -1035,7 +1035,7 @@ def wrap_pandas_reader(reader):
 
         df_kensu = DataFrame.using(df)
 
-        ds = kensu.extractors.extract_data_source(df_kensu, kensu.default_physical_location_ref, location=location, format=fmt,logical_naming=kensu.logical_naming)._report()
+        ds = kensu.extractors.extract_data_source(df_kensu, kensu.default_physical_location_ref, location=location, format=fmt,logical_data_source_naming_strategy=kensu.logical_naming)._report()
 
         sc = kensu.extractors.extract_schema(ds, df_kensu)._report()
         kensu.real_schema_df[sc.to_guid()] = df
@@ -1057,10 +1057,10 @@ def wrap_pandas_get_dummies(method):
         df_result = method(*args, **kwargs)
         df = args[0] # see get_dummies definition (first arg is `data`)
 
-        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
         orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, df))
 
-        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
 
 
@@ -1133,17 +1133,17 @@ def wrap_merge(method):
         right_df = right.get_df()
 
         left_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(left_df, kensu.default_physical_location_ref,
-                                                                              logical_naming=kensu.logical_naming))
+                                                                              logical_data_source_naming_strategy=kensu.logical_naming))
         left_sc = eventually_report_in_mem(kensu.extractors.extract_schema(left_ds, left_df))
 
         right_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(right_df, kensu.default_physical_location_ref,
-                                                                              logical_naming=kensu.logical_naming))
+                                                                              logical_data_source_naming_strategy=kensu.logical_naming))
         right_sc = eventually_report_in_mem(kensu.extractors.extract_schema(right_ds, right_df))
 
 
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,
-                                               logical_naming=kensu.logical_naming))
+                                               logical_data_source_naming_strategy=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
 
         df_result_kensu = DataFrame.using(df_result)
@@ -1241,13 +1241,13 @@ def wrap_to_datetime(method):
 
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,
-                                               logical_naming=kensu.logical_naming))
+                                               logical_data_source_naming_strategy=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
 
         for orig_df in args:
             orig_ds = eventually_report_in_mem(
                 kensu.extractors.extract_data_source(orig_df, kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming))
+                                                     logical_data_source_naming_strategy=kensu.logical_naming))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, orig_df))
 
             for col in [k.name for k in orig_sc.pk.fields]:
@@ -1264,13 +1264,13 @@ def wrap_concat(method):
     def wrapper(*args, **kwargs):
         kensu = KensuProvider().instance()
         df_result = method(*args, **kwargs)
-        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
 
         col_dest = [k.name for k in result_sc.pk.fields]
 
         for df in args[0]:
-            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_naming=kensu.logical_naming))
+            orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, df))
             col_orig = [k.name for k in orig_sc.pk.fields]
             for col in col_dest:

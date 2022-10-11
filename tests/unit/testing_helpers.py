@@ -15,8 +15,7 @@ def setup_kensu_tracker(
         test_cls=None,
         out_file=None,
         offline=True,
-        project_names=None,
-        report_in_mem=False,
+        project_name=None,
         **kwargs
 ):
     offline = True
@@ -26,8 +25,6 @@ def setup_kensu_tracker(
         test_name = test_cls.__class__.__name__
         if out_file is None:
             out_file = test_name + '.jsonl'
-        if project_names is None:
-            project_names =[test_name]
     try:
         os.remove(out_file)
     except:
@@ -38,10 +35,8 @@ def setup_kensu_tracker(
         kensu_ingestion_url=api_url,
         kensu_ingestion_token=auth_token,
         report_to_file=offline,
-        project_names=project_names,
+        project_name=project_name,
         offline_file_name=out_file,
-        mapping=True,
-        report_in_mem=report_in_mem,
        **kwargs)
 
 

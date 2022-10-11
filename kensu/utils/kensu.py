@@ -33,10 +33,10 @@ class Kensu(object):
                 git_repo = git.Repo(cur_dir, search_parent_directories=True)
                 return git_repo
             except git.GitError as e:
-                logging.warning("kensu-py was unable to identify a git repo. The working dir is not a git repo?")
+                logging.warning("KENSU: kensu-py was unable to identify a git repo. The working dir is not a git repo?")
                 pass
         except ImportError as e:
-            logging.warning("Install GitPython for a maximum context about the GIT code repo if any")
+            logging.warning("KENSU: Install GitPython for a maximum context about the GIT code repo if any")
             pass
 
     @staticmethod
@@ -71,7 +71,7 @@ class Kensu(object):
         try:
             config.read(conf_path)
         except:
-            logging.warning(f"Cannot load config from file `%s`" % (conf_path))
+            logging.warning(f"KENSU: Cannot load config from file `%s`" % (conf_path))
         return config
 
     def __init__(self, kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None,
@@ -111,9 +111,7 @@ class Kensu(object):
                                              bigquery_support=bigquery_support, tensorflow_support=tensorflow_support,
                                              matplotlib_support=matplotlib_support)
 
-        # Due to backward compatibility supports comma separated values,
-        # but only one project name (first) is allowed on ingestion side
-        project_name = get_property("project_name", [])
+        project_name = get_property("project_name", None)
         environment = get_property("environment", None)
         execution_timestamp = get_property("execution_timestamp", None, tpe=int)
         logical_data_source_naming_strategy = get_property("logical_data_source_naming_strategy", None)
@@ -143,7 +141,7 @@ class Kensu(object):
         compute_input_stats = get_property("compute_input_stats", True)
         compute_delta = get_property("compute_delta_stats", False)
         if compute_delta and not compute_input_stats:
-            logging.warning("delta nrows stats (compute_delta=True) will not work without setting compute_input_stats=True")
+            logging.warning("KENSU: delta nrows stats (compute_delta=True) will not work without setting compute_input_stats=True")
         raise_on_check_failure = get_property("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
@@ -188,7 +186,7 @@ class Kensu(object):
         self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
-                          get_code_version=get_code_version, project_names=project_name, environment=environment,
+                          get_code_version=get_code_version, project_name=project_name, environment=environment,
                           timestamp=execution_timestamp)
 
     def register_schema_name(self, ds, schema):
@@ -208,7 +206,7 @@ class Kensu(object):
     def to_schema_names(self, s_guids):
         return list(set([self.to_schema_name(s_guid) for s_guid in s_guids]))
 
-    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_names=None,environment=None,timestamp=None):
+    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_name=None, environment=None, timestamp=None):
         # list of triples i, o, mapping strategy
         # i and o are either one or a list of triples (object, DS, SC)
         self.dependencies = []
@@ -254,10 +252,10 @@ class Kensu(object):
             else:
                 raise Exception("Can't determine `process_name`, maybe is this running from a Notebook?")
         self.process = Process(pk=ProcessPK(qualified_name=process_name))._report()
-        if project_names is None:
+        if project_name is None:
             self.project_refs = []
         else:
-            self.project_refs = [Project(pk=ProjectPK(name=n))._report().to_ref() for n in project_names]
+            self.project_refs = [Project(pk=ProjectPK(name=project_name))._report().to_ref()]
         process_run_name = process_name + "@" + datetime.datetime.now().isoformat()
         self.process_run = ProcessRun(
             pk=ProcessRunPK(process_ref=self.process.to_ref(), qualified_name=process_run_name)
@@ -309,7 +307,7 @@ class Kensu(object):
         try:
             stats = self.extractors.extract_stats(stats_df)
         except Exception as e:
-            logging.warning(f'stats extraction from {type(stats_df)} failed', e)
+            logging.warning(f'KENSU: stats extraction from {type(stats_df)} failed', e)
             if isinstance(stats_df, dict):
                 # FIXME: this is weird logic here... we'd post the actual data instead of stats!
                 stats = stats_df

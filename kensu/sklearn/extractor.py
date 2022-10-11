@@ -48,7 +48,7 @@ class KensuSKLearnSupport(ExtractorSupport):
 
 
     def extract_data_source(self, model, pl, **kwargs):
-        logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
+        logical_naming = kwargs["logical_data_source_naming_strategy"] if "logical_data_source_naming_strategy" in kwargs else None
 
         location = self.extract_location(model, kwargs.get("location"))
         fmt = kwargs["format"] if 'format' in kwargs else 'Model'
@@ -60,7 +60,7 @@ class KensuSKLearnSupport(ExtractorSupport):
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-3:])
-        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
+        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_data_source_naming_strategy=logical_naming, name=name)
 
 
     # FIXME

@@ -52,14 +52,14 @@ def get_absolute_path(path):
 
 def maybe_report(o, report):
     from kensu.utils.kensu_provider import KensuProvider
-    dam = KensuProvider().instance()
+    kensu = KensuProvider().instance()
     if report:
         o._report()
     return o
 
 
 def extract_ksu_ds_schema(kensu, orig_variable, report=False, register_orig_data=False):
-    ds = kensu.extractors.extract_data_source(orig_variable, kensu.default_physical_location_ref, logical_naming=kensu.logical_naming)
+    ds = kensu.extractors.extract_data_source(orig_variable, kensu.default_physical_location_ref, logical_data_source_naming_strategy=kensu.logical_naming)
     schema = kensu.extractors.extract_schema(ds, orig_variable)
     maybe_report(ds, report=report)
     maybe_report(schema, report=report)
@@ -102,7 +102,7 @@ def report_simple_copy_with_guessed_schema(input_uri,  # type: str
         if read_schema_from_filename.endswith('.csv'):
             try:
                 import kensu.pandas as pd
-                # FIXME: how to handle multiple posibilities for CSV separators? e.g. sep=";"
+                # FIXME: how to handle multiple possibilities for CSV separators? e.g. sep=";"
                 maybe_pandas_df = pd.read_csv(read_schema_from_filename)
                 from kensu.utils.kensu_provider import KensuProvider
                 ksu = KensuProvider().instance()
@@ -145,29 +145,29 @@ def logical_naming_batch(string):
     return ''.join(chain.from_iterable("<number>" if k else g for k,g in grouped))
 
 
-def to_datasource(ds_pk, format, location, logical_naming, name):
-    if logical_naming == 'File':
+def to_datasource(ds_pk, format, location, logical_data_source_naming_strategy, name):
+    if logical_data_source_naming_strategy == 'File':
         logical_category = location.split('/')[-1]
         ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
 
-    elif logical_naming == 'Folder':
+    elif logical_data_source_naming_strategy == 'Folder':
         logical_category = location.split('/')[-2]
         ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
 
-    elif logical_naming == 'AnteFolder':
+    elif logical_data_source_naming_strategy == 'AnteFolder':
         logical_category = location.split('/')[-3]
         ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
 
-    elif logical_naming == 'ReplaceNumbers':
+    elif logical_data_source_naming_strategy == 'ReplaceNumbers':
         logical_category = logical_naming_batch(name)
         ds = DataSource(name=name, format=format, categories=['logical::' + logical_category], pk=ds_pk)
 
-    elif callable(logical_naming):
+    elif callable(logical_data_source_naming_strategy):
         # TODO create to_datasource for all extractors - limited to pandas DataFrame and BigQuery for now
         try:
-            logical_category = logical_naming(location)
+            logical_category = logical_data_source_naming_strategy(location)
         except Exception as e:
-            logging.warning("data source logical_naming function passed to initKensu or KensuProvider instance"
+            logging.warning("data source logical_data_source_naming_strategy function passed to initKensu or KensuProvider instance"
                             " returned an exception, "
                             "using default data source naming convention. \n {}".format(e))
             logical_category = location.split('/')[-1]
