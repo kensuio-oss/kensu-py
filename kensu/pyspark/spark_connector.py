@@ -636,8 +636,9 @@ def init_kensu_spark(
                 properties.add(t2("kensu_ingestion_token", kensu_ingestion_token))
             if report_to_file is not None:
                 properties.add(t2("report_to_file", report_to_file))
-            if offline_file_name:
+            if logs_dir_path:
                 properties.add(t2("offline_report_dir_path", logs_dir_path))
+            if offline_file_name:
                 properties.add(t2("offline_file_name", offline_file_name))
             if kensu_api_verify_ssl is not None:
                 properties.add(t2("kensu_api_verify_ssl", kensu_api_verify_ssl))
