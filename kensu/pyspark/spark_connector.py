@@ -302,7 +302,9 @@ def join_paths(maybe_directory, # type: str
 def convert_naming_rules(rules # type: list[str]
                          ):
     # a rule looks like this: kensu-spark-collector/hive-query-results->>File
-    return list(["{}->>{}".format(matcher, formatter) for (matcher, formatter) in rules])
+    rules_list = list(["{}->>{}".format(matcher, formatter) for (matcher, formatter) in rules])
+    # FIXME: allow passing a list in spark-collector
+    return ";".join(rules_list)
 
 
 def scala_ds_and_schema_to_py(kensu_instance, ds, schema):
