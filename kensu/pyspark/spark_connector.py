@@ -37,7 +37,7 @@ def patched_spark_stop(wrapped, wait_timeout_secs):
             logging.info('KENSU: in spark.stop, waiting for Kensu Spark-Collector done, stopping spark context')
         except:
             import traceback
-            logging.info("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         result = wrapped(self)
         logging.info('KENSU: in spark.stop, spark context stopped')
         return result
@@ -98,7 +98,7 @@ def patched_spark_createDataFrame_pandas(wrapped, pandas_to_spark_df_via_tmp_fil
             logging.info('KENSU: done modifying arguments to spark.createDataFrame')
         except:
             import traceback
-            logging.info("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         result = wrapped(self, data, *args, **kwargs)
         logging.info('KENSU: end of spark.createDataFrame')
         return result
@@ -116,7 +116,7 @@ def patched_dataframe_write(wrapped):
             logging.info('KENSU: in patched DataFrame.write, returning result')
         except:
             import traceback
-            logging.info("KENSU: unexpected issue in DataFrame.write: {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue in DataFrame.write: {}".format(traceback.format_exc()))
             from pyspark.sql import DataFrameWriter
             result = DataFrameWriter(self.cache())
         return result
@@ -132,7 +132,7 @@ def patched_dataframe_toPandas(wrapped):
             logging.info('KENSU: in patched DataFrame.toPandas(), returning result')
         except:
             import traceback
-            logging.info("KENSU: unexpected issue in DataFrame.toPandas(): {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue in DataFrame.toPandas(): {}".format(traceback.format_exc()))
             result = wrapped(self)
         return result
 
@@ -254,10 +254,10 @@ def report_df_as_kpi():
             jvm = get_jvm_from_df(self)
             w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkDataFrame(self._jdf)
             w.reportAsKPI(name, logical_name or name, datasource_type)
-            logging.error('KENSU: df.report_as_kpi started in background')
+            logging.info('KENSU: df.report_as_kpi started in background')
         except:
             import traceback
-            logging.info("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
     return report_as_kpi
 
@@ -488,7 +488,7 @@ def init_kensu_spark(
         try:
             config.read(conf_path)
         except:
-            logging.warning(f"Cannot load config from file `%s`" % (conf_path))
+            logging.error(f"Cannot load config from file `%s`" % (conf_path))
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
 
