@@ -60,4 +60,4 @@ class KensuProvider(object):
             KensuProvider().setKensu(_kensu)
             return _kensu
         else:
-            logging.error("Kensu default is already set kensu={}".format(str(ksu_provided_inst)))
+            logging.warning("Kensu default is already set kensu={}".format(str(ksu_provided_inst)))

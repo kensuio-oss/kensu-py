@@ -37,7 +37,7 @@ def patched_spark_stop(wrapped, wait_timeout_secs):
             logging.info('KENSU: in spark.stop, waiting for Kensu Spark-Collector done, stopping spark context')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         result = wrapped(self)
         logging.info('KENSU: in spark.stop, spark context stopped')
         return result
@@ -98,7 +98,7 @@ def patched_spark_createDataFrame_pandas(wrapped, pandas_to_spark_df_via_tmp_fil
             logging.info('KENSU: done modifying arguments to spark.createDataFrame')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         result = wrapped(self, data, *args, **kwargs)
         logging.info('KENSU: end of spark.createDataFrame')
         return result
@@ -116,7 +116,7 @@ def patched_dataframe_write(wrapped):
             logging.info('KENSU: in patched DataFrame.write, returning result')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue in DataFrame.write: {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue in DataFrame.write: {}".format(traceback.format_exc()))
             from pyspark.sql import DataFrameWriter
             result = DataFrameWriter(self.cache())
         return result
@@ -132,7 +132,7 @@ def patched_dataframe_toPandas(wrapped):
             logging.info('KENSU: in patched DataFrame.toPandas(), returning result')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue in DataFrame.toPandas(): {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue in DataFrame.toPandas(): {}".format(traceback.format_exc()))
             result = wrapped(self)
         return result
 
@@ -218,7 +218,7 @@ def report_df_as_kensu_datasource():
             logging.info('KENSU: df.report_as_kensu_datasource started in background')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
     return report_as_kensu_datasource
 
@@ -238,7 +238,7 @@ def report_df_as_kensu_jdbc_datasource():
             logging.info('KENSU: df.report_as_kensu_jdbc_datasource started in background')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
     return report_as_kensu_jdbc_datasource
 
@@ -257,7 +257,7 @@ def report_df_as_kpi():
             logging.info('KENSU: df.report_as_kpi started in background')
         except:
             import traceback
-            logging.error("KENSU: unexpected issue: {}".format(traceback.format_exc()))
+            logging.warning("KENSU: unexpected issue: {}".format(traceback.format_exc()))
         return self
     return report_as_kpi
 
@@ -270,7 +270,7 @@ def patch_kensu_df_helpers():
         logging.info('KENSU: done adding DataFrame.report_as_kensu_datasource')
     except:
         import traceback
-        logging.error("KENSU: unexpected issue when patching DataFrame.report_as_kensu_datasource: {}".format(traceback.format_exc()))
+        logging.warning("KENSU: unexpected issue when patching DataFrame.report_as_kensu_datasource: {}".format(traceback.format_exc()))
     try:
         logging.info('KENSU: Adding DataFrame.report_as_kensu_jdbc_datasource')
         from pyspark.sql import DataFrame
@@ -278,7 +278,7 @@ def patch_kensu_df_helpers():
         logging.info('KENSU: done adding DataFrame.report_as_kensu_jdbc_datasource')
     except:
         import traceback
-        logging.error("KENSU: unexpected issue when patching DataFrame.report_as_kensu_jdbc_datasource: {}".format(traceback.format_exc()))
+        logging.warning("KENSU: unexpected issue when patching DataFrame.report_as_kensu_jdbc_datasource: {}".format(traceback.format_exc()))
     try:
         logging.info('KENSU: Adding DataFrame.report_as_kpi')
         from pyspark.sql import DataFrame
@@ -286,7 +286,7 @@ def patch_kensu_df_helpers():
         logging.info('KENSU: done adding DataFrame.report_as_kpi')
     except:
         import traceback
-        logging.error("KENSU: unexpected issue when patching DataFrame.report_as_kpi: {}".format(traceback.format_exc()))
+        logging.warning("KENSU: unexpected issue when patching DataFrame.report_as_kpi: {}".format(traceback.format_exc()))
 
 
 def join_paths(maybe_directory, # type: str
@@ -488,7 +488,7 @@ def init_kensu_spark(
         try:
             config.read(conf_path)
         except:
-            logging.error(f"Cannot load config from file `%s`" % (conf_path))
+            logging.warning(f"Cannot load config from file `%s`" % (conf_path))
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
 
@@ -742,7 +742,7 @@ def init_kensu_spark(
                     do_disable_spark_writes(spark_session)
                 except:
                     import traceback
-                    logging.error("KENSU: unexpected issue when disabling df.write {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when disabling df.write {}".format(traceback.format_exc()))
 
             if cache_output_for_stats and compute_stats:
                 try:
@@ -752,7 +752,7 @@ def init_kensu_spark(
                     logging.info('KENSU: done patching DataFrame.write')
                 except:
                     import traceback
-                    logging.error("KENSU: unexpected issue when patching DataFrame.write: {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when patching DataFrame.write: {}".format(traceback.format_exc()))
 
             if patch_spark_data_frame:
                 patch_kensu_df_helpers()
@@ -769,7 +769,7 @@ def init_kensu_spark(
                     logging.info('KENSU: done patching DataFrame.toPandas')
                 except:
                     import traceback
-                    logging.error("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
                 try:
                     logging.info('KENSU: patching spark.createDataFrame to work with pandas dataframes')
                     from pyspark.sql import SparkSession
@@ -781,7 +781,7 @@ def init_kensu_spark(
                     logging.info('KENSU: patching  spark.createDataFrame done')
                 except:
                     import traceback
-                    logging.error("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
                 try:
                     logging.info('KENSU: adding spark env var KSU_DISABLE_PY_COLLECTOR=true to disable kensu-py collector on executor nodes')
                     spark_session.conf.set("KSU_DISABLE_PY_COLLECTOR", 'true')
@@ -789,7 +789,7 @@ def init_kensu_spark(
                     logging.info('KENSU: done adding KSU_DISABLE_PY_COLLECTOR')
                 except:
                     import traceback
-                    logging.error("KENSU: unexpected issue when adding spark.executorEnv.KSU_DISABLE_PY_COLLECTOR: {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when adding spark.executorEnv.KSU_DISABLE_PY_COLLECTOR: {}".format(traceback.format_exc()))
 
             if use_api_client:
                 from kensu.utils.kensu_provider import KensuProvider as K
@@ -815,6 +815,6 @@ def init_kensu_spark(
 
         except Exception as e:
             import traceback
-            logging.error("Error when initializing Kensu tracking: " + traceback.format_exc())
+            logging.warning("Error when initializing Kensu tracking: " + traceback.format_exc())
     else:
         logging.info("Tracking by Kensu is disabled")

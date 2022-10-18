@@ -29,7 +29,7 @@ def add_not_null_rule(
                  context=lds_context)
         ksu.send_rules()
     except Exception as e:
-        logging.error(f"Error while adding a Kensu rule  NOT_NULL({non_null_col}.{null_suffix})", e)
+        logging.warning(f"Error while adding a Kensu rule  NOT_NULL({non_null_col}.{null_suffix})", e)
 
 
 def add_min_max(data_source, field, min = None, max = None, context="DATA_STATS"):
