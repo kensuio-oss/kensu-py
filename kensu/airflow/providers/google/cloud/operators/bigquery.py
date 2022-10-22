@@ -91,7 +91,7 @@ class BigQueryCreateExternalTableOperator(gcp_bigquery.BigQueryCreateExternalTab
             ksu = KensuProvider().instance()
             if self.table_resource:
                 bq_hook = BigQueryHook(
-                    gcp_conn_id=self.bigquery_conn_id,
+                    gcp_conn_id=self.bigquery_conn_id if hasattr(self, "bigquery_conn_id") else self.gcp_conn_id,
                     delegate_to=self.delegate_to,
                     location=self.location,
                     impersonation_chain=self.impersonation_chain,
