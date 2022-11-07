@@ -14,7 +14,7 @@ class BqKensuHelpers:
         kensu = KensuProvider().instance()
         # note: there should be no report here!
         ds = kensu.extractors.extract_data_source(table, kensu.default_physical_location_ref,
-                                                  logical_naming=kensu.logical_naming)
+                                                  logical_data_source_naming_strategy=kensu.logical_naming)
         sc = kensu.extractors.extract_schema(ds, table)
         return ds, sc
 

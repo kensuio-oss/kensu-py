@@ -9,7 +9,9 @@ NAME = "kensu"
 
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
-VERSION = "1.9.3.4" + BUILD_FLAVOR + BUILD_NUMBER
+# https://semver.org/
+VERSION = "2.0.0" + BUILD_FLAVOR + BUILD_NUMBER
+
 
 
 

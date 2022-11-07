@@ -23,7 +23,7 @@ class RepresentableBlockPredictor(pred.RepresentableBlockPredictor):
         for element in dep_fields:
             orig_ds = eventually_report_in_mem(
                 kensu.extractors.extract_data_source(element, kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming))
+                                                     logical_data_source_naming_strategy=kensu.logical_naming))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, element))
             deps.append(orig_sc)
 

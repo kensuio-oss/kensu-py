@@ -11,7 +11,7 @@ numpy>=1.19.5:                      pandas, sklearn
 scikit-learn>=0.24.2:               sklearn
 gluonts==0.6.5:                     gluon
 boto3:                              boto
-psycopg2-binary==2.8.4:             pg
+psycopg2-binary==2.9.3:             pg
 pglast==v3.4:                       pg
 google-cloud-bigquery>=2.26.0:      gbq
 sqlparse >= 0.4.2:                  pg, gbq

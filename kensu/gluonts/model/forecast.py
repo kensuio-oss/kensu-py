@@ -14,7 +14,7 @@ class SampleForecast(spf.SampleForecast):
 
             result_ds = eventually_report_in_mem(
                 kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming))
+                                                     logical_data_source_naming_strategy=kensu.logical_naming))
             result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
             for result_col in [k.name for k in result_sc.pk.fields]:

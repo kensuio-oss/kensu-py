@@ -14,7 +14,7 @@ def wrap_pandas_gbq_write(method):
         df = args[0]  # see get_dummies definition (first arg is `data`)
 
         orig_ds = kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming)
+                                                     logical_data_source_naming_strategy=kensu.logical_naming)
         orig_sc = kensu.extractors.extract_schema(orig_ds, df)
 
         from google.cloud import bigquery
@@ -22,7 +22,7 @@ def wrap_pandas_gbq_write(method):
         df_table = client.get_table(args[1])
 
         result_ds = kensu.extractors.extract_data_source(df_table, kensu.default_physical_location_ref,
-                                                       logical_naming=kensu.logical_naming)._report()
+                                                       logical_data_source_naming_strategy=kensu.logical_naming)._report()
         result_sc = kensu.extractors.extract_schema(result_ds, df_table)._report()
 
 

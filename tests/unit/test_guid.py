@@ -29,7 +29,7 @@ class TestRawEvents(unittest.TestCase):
         , "MODEL_METRICS": "ModelMetrics"
     }
 
-    kensu = Kensu(api_url = "http://example.com", init_context = False, reporter = "DoNothingReporter")
+    kensu = Kensu(kensu_ingestion_url="http://example.com", init_context = False, reporter ="DoNothingReporter")
 
     def setUp(self):
         self.data = {}

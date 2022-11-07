@@ -30,12 +30,12 @@ def wrap_dump(method):
 
 
         orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(model.attr[0], kensu.default_physical_location_ref,
-                                                     logical_naming=kensu.logical_naming,format=fmt))
+                                                     logical_data_source_naming_strategy=kensu.logical_naming,format=fmt))
         orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, model.attr[0]))
 
 
         result_ds = kensu.extractors.extract_data_source(model.attr[0], kensu.default_physical_location_ref, location = location,
-                                                       logical_naming=kensu.logical_naming,format=fmt)._report()
+                                                       logical_data_source_naming_strategy=kensu.logical_naming,format=fmt)._report()
         result_sc = kensu.extractors.extract_schema(result_ds, model.attr[0])._report()
 
         kensu.real_schema_df[result_sc.to_guid()] = model
@@ -73,12 +73,12 @@ def wrap_load(method):
             fmt = 'Unknown'
 
         orig_ds = (kensu.extractors.extract_data_source(model.attr[0], kensu.default_physical_location_ref,
-                                                                              location=location, logical_naming=kensu.logical_naming,format=fmt))._report()
+                                                                              location=location, logical_data_source_naming_strategy=kensu.logical_naming,format=fmt))._report()
         orig_sc = (kensu.extractors.extract_schema(orig_ds, model.attr[0]))._report()
 
 
         result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(model.attr[0], kensu.default_physical_location_ref,
-                                                       logical_naming=kensu.logical_naming,format=fmt))
+                                                       logical_data_source_naming_strategy=kensu.logical_naming,format=fmt))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, model.attr[0]))
 
         kensu.real_schema_df[orig_sc.to_guid()] = result
