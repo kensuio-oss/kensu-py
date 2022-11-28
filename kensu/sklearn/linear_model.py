@@ -46,7 +46,12 @@ class LogisticRegression(lm.LogisticRegression):
 
     def predict(self, X):
         if 'kensu' in str(X.__class__):
-            X_test = X.get_df()
+            if hasattr(X, "get_df"):
+                X_test = X.get_df()
+            elif hasattr(X, "get_nd"): 
+                 X_test = X.get_nd()
+            else:
+                raise Exception("Unkwown Kensu wrapper: " + X.__class__)
         else:
             X_test = X
 
