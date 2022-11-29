@@ -1038,7 +1038,8 @@ def wrap_pandas_reader(reader):
         ds = kensu.extractors.extract_data_source(df_kensu, kensu.default_physical_location_ref, location=location, format=fmt,logical_naming=kensu.logical_naming)._report()
 
         sc = kensu.extractors.extract_schema(ds, df_kensu)._report()
-        kensu.real_schema_df[sc.to_guid()] = df
+        import copy
+        kensu.real_schema_df[sc.to_guid()] = copy.deepcopy(df)
         if kensu.mapping == True:
             for col in df:
                 kensu.add_dependencies_mapping(read_sc.to_guid(), str(col), sc.to_guid(), str(col),
