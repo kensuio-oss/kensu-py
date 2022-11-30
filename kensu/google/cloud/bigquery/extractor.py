@@ -104,7 +104,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     def extract_data_source(self, df, pl, **kwargs):
         # FIXME: is this not used?
         df=self.skip_wr(df)
-        logical_naming = kwargs["logical_naming"] if "logical_naming" in kwargs else None
+        logical_naming = kwargs["logical_data_source_naming_strategy"] if "logical_data_source_naming_strategy" in kwargs else None
 
         location = self.extract_location(df, kwargs.get("location"))
         fmt = self.extract_format(df, kwargs.get("format"))
@@ -115,7 +115,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-2:])
-        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_naming=logical_naming, name=name)
+        return to_datasource(ds_pk=ds_pk, format=fmt, location=location, logical_data_source_naming_strategy=logical_naming, name=name)
 
 
     def extract_schema(self, data_source, df):

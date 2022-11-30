@@ -90,12 +90,21 @@ class BigQueryCreateExternalTableOperator(gcp_bigquery.BigQueryCreateExternalTab
             airflow_init_kensu(airflow_operator=self)
             ksu = KensuProvider().instance()
             if self.table_resource:
-                bq_hook = BigQueryHook(
-                    gcp_conn_id=self.bigquery_conn_id,
-                    delegate_to=self.delegate_to,
-                    location=self.location,
-                    impersonation_chain=self.impersonation_chain,
-                )
+                # bigquery_conn_id is deprecated sin 2.3.+
+                if hasattr(self, "bigquery_conn_id"):
+                    bq_hook = BigQueryHook(
+                        bigquery_conn_id=self.bigquery_conn_id,
+                        delegate_to=self.delegate_to,
+                        location=self.location,
+                        impersonation_chain=self.impersonation_chain,
+                    )
+                else:
+                    bq_hook = BigQueryHook(
+                        gcp_conn_id=self.gcp_conn_id,
+                        delegate_to=self.delegate_to,
+                        location=self.location,
+                        impersonation_chain=self.impersonation_chain,
+                    )
                 #  e.g. table_resource: {
                 #             "externalDataConfiguration": {
                 #                 "sourceFormat": "PARQUET",

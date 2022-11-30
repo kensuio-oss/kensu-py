@@ -243,12 +243,12 @@ else:
                 location = get_absolute_path(loc)
 
                 orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
-                                                             logical_naming=kensu.logical_naming))
+                                                             logical_data_source_naming_strategy=kensu.logical_naming))
                 orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, df))
 
 
                 result_ds = kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref, location = location,
-                                                               logical_naming=kensu.logical_naming)._report()
+                                                               logical_data_source_naming_strategy=kensu.logical_naming)._report()
                 result_sc = kensu.extractors.extract_schema(result_ds,df)._report()
 
                 kensu.real_schema_df[result_sc.to_guid()] = result
@@ -292,14 +292,14 @@ else:
 
             # Note: must pass a kensu wrapped result
             result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(kensu_result, kensu.default_physical_location_ref,
-                                                           logical_naming=kensu.logical_naming))
+                                                           logical_data_source_naming_strategy=kensu.logical_naming))
             result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, kensu_result))
 
             for element in origins:
                 df = element.get_s()
 
                 orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,
-                                                                                      logical_naming=kensu.logical_naming))
+                                                                                      logical_data_source_naming_strategy=kensu.logical_naming))
                 orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, df))
 
                 if kensu.mapping == True:
@@ -418,7 +418,7 @@ else:
     def extract_sc(kensu, nd):
         try:
             orig_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(nd, kensu.default_physical_location_ref,
-                                                                                logical_naming=kensu.logical_naming))
+                                                                                logical_data_source_naming_strategy=kensu.logical_naming))
             orig_sc = eventually_report_in_mem(kensu.extractors.extract_schema(orig_ds, nd))
         except Exception:  # thrown by default extract_data_source/extract_schema
             msg = "Kensu numpy.array got an unexpected argument which can not be fully tracked (yet): " + str(type(nd))
@@ -451,7 +451,7 @@ else:
 
         result_ds = eventually_report_in_mem(
             kensu.extractors.extract_data_source(result, kensu.default_physical_location_ref,
-                                                 logical_naming=kensu.logical_naming))
+                                                 logical_data_source_naming_strategy=kensu.logical_naming))
         result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, result))
 
         if kensu.mapping:
