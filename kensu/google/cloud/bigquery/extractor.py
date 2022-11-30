@@ -79,7 +79,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
     def extract_location(self, df, location):
         # FIXME => what to do for RowIterator?
         if isinstance(df, google.cloud.bigquery.table.Table):
-            return "bigquery:/" + df.path
+            return "bigquery://" + df.path
         else:
             return location
 
@@ -105,6 +105,11 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
         # FIXME: is this not used?
         df=self.skip_wr(df)
         logical_naming = kwargs["logical_data_source_naming_strategy"] if "logical_data_source_naming_strategy" in kwargs else None
+        if logical_naming is not None:
+          logging.warning(f'BigQuery logical naming stategy {logical_naming} not supported, overwritten with BigQuery specific one')
+        #Fetching ProjectID, DataSetID and Table from location 'bigquery:///project/.../dataset/.../table/...'
+
+        logical_naming = lambda location : '.'.join(map(location[len('bigquery:///'):].split('/').__getitem__,[1,3,5]))
 
         location = self.extract_location(df, kwargs.get("location"))
         fmt = self.extract_format(df, kwargs.get("format"))
