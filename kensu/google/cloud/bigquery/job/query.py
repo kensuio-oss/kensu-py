@@ -113,7 +113,6 @@ class QueryJob(bqj.QueryJob):
                 table_id_to_bqtable=table_id_to_bqtable)
         except:
             logger.warning("Error in BigQuery collector, using fallback implementation")
-            traceback.print_exc()
             bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
         QueryJob.report_ddl_write_with_stats(
             result=result,
@@ -134,6 +133,9 @@ class QueryJob(bqj.QueryJob):
             operation_type=None
     ):
         kensu = KensuProvider().instance()
+
+        if isinstance(ddl_target_table,bq.TableReference):
+          ddl_target_table = client.get_table(ddl_target_table)
         if kensu.compute_stats and is_ddl_write and isinstance(ddl_target_table, bq.Table):
             # for DDL writes, stats can be computed by just reading the whole table
             # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
