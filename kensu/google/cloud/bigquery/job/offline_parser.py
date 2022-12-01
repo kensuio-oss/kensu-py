@@ -153,7 +153,7 @@ class BqOfflineParser:
                 ds_path=input_ds.pk.location,
                 ds_name=input_ds.name,
                 format='BigQuery table',
-                categories=None,
+                categories=input_ds.categories,
                 maybe_schema=[(f.name, f.field_type) for f in input_sc.pk.fields],
                 # FIXME: hmm, are stats not implemented for fallback mode? also needs input filters
                 f_get_stats=lambda: None
