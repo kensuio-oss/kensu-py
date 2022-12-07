@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 import json
 import logging
 import re
@@ -55,6 +56,8 @@ class Reporter(object):
             reporter = KafkaReporter(config)
         elif name == "MultiReporter":
             reporter = MultiReporter(config)
+        elif name == "DictReporter":
+            reporter = DictReporter(config)
         return reporter
 
 
@@ -102,6 +105,16 @@ class LoggingReporter(Reporter):
         json = self.entity_to_json_event(obj, kensu_api)
         if self.log:
             res = self.log(obj)
+        return obj
+
+
+class DictReporter(Reporter):
+    def __init__(self, config, level=None):
+        super().__init__(config)
+        self.entities = defaultdict(list)
+
+    def apply(self, obj, kensu_api, method):
+        self.entities[obj.__class__].append(obj)
         return obj
 
 
