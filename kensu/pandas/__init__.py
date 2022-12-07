@@ -8,7 +8,7 @@ else:
 
     from .data_frame import DataFrame
     from .data_frame import Series
-    from .data_frame import wrap_pandas_reader, wrap_pandas_get_dummies, wrap_merge, wrap_to_datetime, wrap_concat
+    from .data_frame import wrap_pandas_reader, wrap_pandas_get_dummies, wrap_merge, wrap_to_datetime, wrap_concat, wrap_json_normalize
     from .extractor import KensuPandasSupport
 
     if hasattr(pd, "read_clipboard"):
@@ -49,3 +49,5 @@ else:
         to_datetime = wrap_to_datetime(pd.to_datetime)
     if hasattr(pd, 'concat'):
         concat = wrap_concat(pd.concat)
+    if hasattr(pd, 'json_normalize'):
+        json_normalize = wrap_json_normalize(pd.json_normalize)

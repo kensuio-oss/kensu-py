@@ -307,7 +307,7 @@ class Kensu(object):
         try:
             stats = self.extractors.extract_stats(stats_df)
         except Exception as e:
-            logging.warning(f'KENSU: stats extraction from {type(stats_df)} failed', e)
+            logging.debug(f'KENSU: stats extraction from {type(stats_df)} failed', e)
             if isinstance(stats_df, dict):
                 # FIXME: this is weird logic here... we'd post the actual data instead of stats!
                 stats = stats_df
