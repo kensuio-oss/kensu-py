@@ -1038,7 +1038,8 @@ def wrap_pandas_reader(reader):
         ds = kensu.extractors.extract_data_source(df_kensu, kensu.default_physical_location_ref, location=location, format=fmt,logical_data_source_naming_strategy=kensu.logical_naming)._report()
 
         sc = kensu.extractors.extract_schema(ds, df_kensu)._report()
-        kensu.real_schema_df[sc.to_guid()] = df
+        import copy
+        kensu.real_schema_df[sc.to_guid()] = copy.deepcopy(df)
         if kensu.mapping == True:
             for col in df:
                 kensu.add_dependencies_mapping(read_sc.to_guid(), str(col), sc.to_guid(), str(col),
@@ -1277,6 +1278,36 @@ def wrap_concat(method):
                 if col in col_orig:
                     kensu.add_dependencies_mapping(result_sc.to_guid(), str(col), orig_sc.to_guid(), str(col),
                                            "concat")
+        df_result_kensu = DataFrame.using(df_result)
+        return df_result_kensu
+
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+
+def wrap_json_normalize(method):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+        df_result = method(*args, **kwargs)
+        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
+
+        col_dest = [k.name for k in result_sc.pk.fields]
+
+        data = args[0]
+
+        if hasattr(data,'ksu_metadata'):
+            ksu_metadata = data.ksu_metadata
+
+            orig_sc = data.ksu_metadata['short_schema']._report()
+
+            col_orig= [k.name for k in ksu_metadata['short_schema'].pk.fields]
+
+            for col_d in col_dest:
+                for col_i in col_orig:
+                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col_d), orig_sc.to_guid(), str(col_i),
+                                           "json_normalize")
+        kensu.real_schema_df[orig_sc.to_guid()] = ksu_metadata['stats']
         df_result_kensu = DataFrame.using(df_result)
         return df_result_kensu
 
