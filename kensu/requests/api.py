@@ -5,6 +5,8 @@ from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.helpers import eventually_report_in_mem, flatten, extract_short_json_schema
 from kensu.requests.models import Response
 
+import os
+
 import requests as req
 
 def wrap_get(method):
@@ -22,7 +24,7 @@ def wrap_get(method):
             except:
                 params = None
 
-            if params is not None:
+            if params is not None and os.environ.get('REQUESTS_INCLUDE_URL_PARAMS', '0') == '1':
                 location = url + '?' + ('&').join([e+'={}' for e in params.keys()])
             else:
                 location = url
