@@ -20,6 +20,7 @@ def wrap_loads(method):
         data = args[0]
         if isinstance(result,dict):
             result = ksu_dict(result)
+            result.ksu_metadata = data.metadata
         elif isinstance(result,list):
             result = kensu_list(result)
             result.ksu_metadata = data.metadata

@@ -31,7 +31,7 @@ def wrap_get(method):
 
             result_pk = DataSourcePK(location=location,
                                      physical_location_ref=kensu.default_physical_location_ref)
-            result_ds = DataSource(name=location, format='API',
+            result_ds = DataSource(name=location, format='JSON',
                                    pk=result_pk)._report()
 
             # Construct the real schema
