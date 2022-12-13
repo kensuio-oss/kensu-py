@@ -3,6 +3,7 @@ from boto3 import *
 
 from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
 from kensu.requests.models import ksu_str
+from kensu.itertools import kensu_list
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.helpers import logical_naming_batch
 
@@ -12,6 +13,21 @@ class ksu_dict(dict):
     @property
     def __class__(self):
         return dict
+
+    def __getitem__(self, item):
+        result = super(ksu_dict, self).__getitem__(item)
+        if isinstance(result,str):
+            ksu_result = ksu_str(result)
+        elif isinstance(result,list):
+            ksu_result = kensu_list(result)
+        elif isinstance(result,dict):
+            ksu_result = ksu_dict(result)
+        else:
+            ksu_result = result
+
+        if hasattr(ksu_result,'ksu_metadata'):
+            ksu_result.ksu_metadata = self.ksu_metadata
+        return ksu_result
 
 
 def kensu_put(event_params, event_ctx, **kwargs):
