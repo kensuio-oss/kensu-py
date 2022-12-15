@@ -45,7 +45,6 @@ def wrap_get(method):
 
             real_sc = Schema(name="schema:" + result_ds.name, pk=sc_pk)
 
-
             #Construct the concise schema
             result_sc = extract_short_json_schema(result_json, result_ds)._report()
 
@@ -63,6 +62,9 @@ def wrap_get(method):
                 stats = None
             kensu.real_schema_df[result_sc.to_guid()] = None
             result.ksu_stats = stats
+
+            if kensu.degraded_mode:
+                kensu.inputs_degraded.append(result_sc)
         except:
             pass
 
