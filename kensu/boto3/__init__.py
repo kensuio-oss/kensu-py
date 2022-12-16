@@ -248,7 +248,7 @@ def measures_schema(rec):
         return [(v.get('Name'), v.get('Type'))
                 for v in values]
     else:
-        return [n, data_type]
+        return [(n, data_type)]
 
 
 # returns a dict: {fieldName -> fieldType}
