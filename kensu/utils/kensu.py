@@ -151,6 +151,7 @@ class Kensu(object):
         self.api_url = kensu_host
         self.report_to_file = report_to_file
         self.degraded_mode = kensu_degraded_mode
+        self.degraded_sent = False
 
         sdk_pat = get_property("kensu_api_token", None)
         sdk_url = get_property("kensu_api_url", None)
@@ -320,8 +321,15 @@ class Kensu(object):
                 stats = None
         return stats
 
+    def register_input_degraded_mode(self,sc):
+        if self.degraded_sent == True:
+            self.degraded_sent = False
+            self.inputs_degraded = []
+        self.inputs_degraded.append(sc)
+
 
     def report_without_mapping(self):
+        self.degraded_sent = True
         for output in self.outputs_degraded:
             output_sc = output.to_guid()
             output_col = [k.name for k in output.pk.fields]

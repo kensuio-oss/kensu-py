@@ -81,6 +81,32 @@ def kensu_put(event_params, event_ctx, **kwargs):
             kensu.add_dependencies_mapping(short_result_sc.to_guid(),str(col),input_schema_pk,str(col),'s3_put')
         kensu.report_with_mapping()
 
+def kensu_write_records(event_params):
+    database = event_params['DatabaseName']
+    table = event_params['TableName']
+    records = list(event_params['Records'])
+
+    kensu = KensuProvider().instance()
+    # Creation of the output datasource (stored in S3)
+    location = 'aws::TimeStream::' + database + '.' + table
+    name = database + '.' + table
+
+    result_pk = DataSourcePK(location=location,
+                             physical_location_ref=kensu.default_physical_location_ref)
+    result_ds = DataSource(name=name, categories=['logical::'+name],format='TimeStream',
+                           pk=result_pk)._report()
+
+    from kensu.utils.helpers import extract_short_json_schema
+    schema = extract_short_json_schema(records[0],result_ds)._report()
+
+    #TODO: Create Stats
+
+    if kensu.degraded_mode:
+        kensu.outputs_degraded.append(schema)
+        kensu.real_schema_df[schema.to_guid()]=None
+        kensu.report_without_mapping()
+
+
 
 
 def add_custom_method(class_attributes, **kwargs):
@@ -137,6 +163,8 @@ def kensu_tracker(*class_attributes, **kwargs):
     event_ctx = kwargs.get('context')
     if event_name == 'provide-client-params.s3.PutObject' and event_params:
         kensu_put(event_params=event_params, event_ctx=event_ctx, **kwargs)
+    if event_name == 'provide-client-params.timestream-write.WriteRecords' and event_params:
+        kensu_write_records(event_params)
 
 #boto3._get_default_session().events.register('creating-resource-class.s3.ServiceResource',kensu_tracker)
 #boto3._get_default_session().events.register('before-send.s3.PutObject', kensu_tracker)
@@ -147,3 +175,9 @@ boto3._get_default_session().events.register('provide-client-params.s3.PutObject
 #event_system = S3.meta.client.meta.events
 #event_system.register("*",kensu_tracker)
 #event_system.register('creating-resource-class.s3.*', prt)
+
+
+boto3._get_default_session().events.register('provide-client-params.timestream-write.WriteRecords', kensu_tracker)
+
+
+#'provide-client-params.timestream-write.WriteRecords':
