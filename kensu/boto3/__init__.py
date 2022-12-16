@@ -100,8 +100,14 @@ def kensu_put(event_params, event_ctx, **kwargs):
 def fmt_timestream_uri(db, table):
     return f"aws::TimeStream://{db}.{table}"
 
+
 def fmt_timestream_name(db, table):
     return f"TimeStream://{db}.{table}"
+
+
+def fmt_timestream_lds_name(db, table):
+    return fmt_timestream_name(db, table)
+
 
 def fmt_timesteam_lds_names(db, table):
     # FIXME: for now DS name and LDS name (and LDS location) must match (need to update write_reconds otherwise)
