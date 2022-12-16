@@ -32,6 +32,19 @@ class ksu_dict(dict):
         return ksu_result
 
 
+def create_timestream_ds_schema(db, table, schema_dict):
+    from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
+    ksu = KensuProvider().instance()
+    ds_name = fmt_timestream_name(db, table)
+    return KensuDatasourceAndSchema.for_path_with_opt_schema(
+        ksu=ksu,
+        ds_path=fmt_timestream_uri(db, table),
+        format="TimeStream table",
+        categories=fmt_timesteam_lds_names(db,table),
+        maybe_schema=schema_dict.items(),
+        ds_name=ds_name,
+    )
+
 def kensu_put(event_params, event_ctx, **kwargs):
     if isinstance(event_params.get('Body'), ksu_str):
         kensu = KensuProvider().instance()
@@ -90,8 +103,8 @@ def fmt_timestream_uri(db, table):
 def fmt_timestream_name(db, table):
     return f"TimeStream://{db}.{table}"
 
-
 def fmt_timesteam_lds_names(db, table):
+    # FIXME: for now DS name and LDS name (and LDS location) must match (need to update write_reconds otherwise)
     return ['logical::' + fmt_timestream_name(db, table),
             # 'logicalLocation::' + fmt_timestream_uri(db, table),
             ]
@@ -191,15 +204,7 @@ def kensu_timestream_query(event_params):
     from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema
     ksu = KensuProvider().instance()
     for ((db, table), schema_dict) in validated_input_columns.items():
-        ds_name = fmt_timestream_name(db, table)
-        ds = KensuDatasourceAndSchema.for_path_with_opt_schema(
-            ksu=ksu,
-            ds_path=fmt_timestream_uri(db, table),
-            format="TimeStream table",
-            categories=fmt_timesteam_lds_names(db,table),
-            maybe_schema=schema_dict.items(),
-            ds_name=ds_name,
-        )
+        ds = create_timestream_ds_schema(db, table, schema_dict)
         if ksu.degraded_mode:
             ds.ksu_ds._report()
             ds.ksu_schema._report()
@@ -209,6 +214,50 @@ def kensu_timestream_query(event_params):
             logging.warning("Timestream-query.query() kensu tracking is supported only in degraded_mode")
 
 
+def dim_to_schema(dim):
+    return (dim.get('Name'), dim.get('DimensionValueType', 'unknown'))
+
+
+# FIXME: infer datatypes for measures and dimensions
+
+def dimensions_schema(rec):
+    return [dim_to_schema(d)
+            for d in rec.get('Dimensions', [])]
+# e.g.:
+# ---
+#     'MeasureName': 'IoTMulti-stats',
+#     'MeasureValues': [
+#             {'Name': 'load', 'Value': '12.3', 'Type': 'DOUBLE'},
+#             #{'Name': 'fuel-reading	', 'Value': '13.4', 'Type': 'DOUBLE'},
+#         ],
+#     'MeasureValueType': 'MULTI',
+def measures_schema(rec):
+    n = rec.get('MeasureName')
+    data_type = rec.get('MeasureValueType', 'DOUBLE')
+    # FIXME: special case if MULTI
+    if not n:
+        return []
+    elif data_type == 'MULTI':
+        values = rec.get('MeasureValues', [])
+        return [(v.get('Name'), v.get('Type'))
+                for v in values]
+    else:
+        return [n, data_type]
+
+
+# returns a dict: {fieldName -> fieldType}
+def extract_timestream_write_schema(records, common_attributes):
+    # FIXME: take into account CommonAttributes
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-write.html#TimestreamWrite.Client.write_records
+    if len(records) == 0:
+        return {}
+    else:
+        rec = records[0]
+        schema = dimensions_schema(rec) + measures_schema(rec) + [('time', 'timestamp')]
+        if common_attributes:
+            schema = schema + dimensions_schema(common_attributes) + measures_schema(common_attributes)
+        return dict([(n.lower(), data_type.lower())
+                     for (n, data_type) in schema])
 
 def kensu_write_records(event_params):
     database = event_params['DatabaseName']
@@ -217,23 +266,17 @@ def kensu_write_records(event_params):
 
     kensu = KensuProvider().instance()
     # Creation of the output datasource (stored in S3)
-    location = fmt_timestream_uri(database, table)
-    name = fmt_timestream_name(database, table)
+    schema_dict = extract_timestream_write_schema(records, event_params.get('CommonAttributes'))
+    ds = create_timestream_ds_schema(database, table, schema_dict)
+    ds.ksu_ds._report()
+    schema = ds.ksu_schema._report()
 
-    result_pk = DataSourcePK(location=location,
-                             physical_location_ref=kensu.default_physical_location_ref)
-    result_ds = DataSource(name=name, categories=fmt_timesteam_lds_names(database, table),format='TimeStream',
-                           pk=result_pk)._report()
-
-    from kensu.utils.helpers import extract_short_json_schema
-    schema = extract_short_json_schema(records[0],result_ds)._report()
-
-    #TODO: Create Stats
+    # TODO: Create Stats
 
     if kensu.degraded_mode:
         kensu.outputs_degraded.append(schema)
-        if name in kensu.ds_name_stats:
-            stats_json = kensu.ds_name_stats[name]
+        if ds.ksu_ds.name in kensu.ds_name_stats:
+            stats_json = kensu.ds_name_stats[ds.ksu_ds.name]
         else:
             stats_json = None
         kensu.real_schema_df[schema.to_guid()]= stats_json
