@@ -103,7 +103,11 @@ def kensu_write_records(event_params):
 
     if kensu.degraded_mode:
         kensu.outputs_degraded.append(schema)
-        kensu.real_schema_df[schema.to_guid()]=None
+        if name in kensu.ds_name_stats:
+            stats_json = kensu.ds_name_stats[name]
+        else:
+            stats_json = None
+        kensu.real_schema_df[schema.to_guid()]= stats_json
         kensu.report_without_mapping()
 
 

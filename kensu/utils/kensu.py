@@ -231,6 +231,7 @@ class Kensu(object):
         self.rules = []
         self.check_rules = []
         self.schema_stats = {}
+        self.ds_name_stats = {}
         self.stats_to_send={}
         self.inputs_degraded = []
         self.outputs_degraded = []
@@ -810,5 +811,7 @@ class Kensu(object):
                                 else:
                                     logging.warning(e)
 
+    def register_custom_stats(self, ds_name, stats_json):
+        self.ds_name_stats[ds_name] = stats_json
 
 
