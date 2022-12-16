@@ -211,13 +211,13 @@ def kensu_timestream_query(event_params):
     ksu = KensuProvider().instance()
     for ((db, table), schema_dict) in validated_input_columns.items():
         ds = create_timestream_ds_schema(db, table, schema_dict)
-        if ksu.degraded_mode:
+        if ksu.lean_mode:
             ds.ksu_ds._report()
             ds.ksu_schema._report()
             ksu.real_schema_df[ds.ksu_schema.to_guid()] = None  # is this one needed?
-            ksu.register_input_degraded_mode(ds.ksu_schema)
+            ksu.register_input_lean_mode(ds.ksu_schema)
         else:
-            logging.warning("Timestream-query.query() kensu tracking is supported only in degraded_mode")
+            logging.warning("Timestream-query.query() kensu tracking is supported only in kensu_lean_mode=True")
 
 
 def dim_to_schema(dim):
@@ -279,8 +279,8 @@ def kensu_write_records(event_params):
 
     # TODO: Create Stats
 
-    if kensu.degraded_mode:
-        kensu.outputs_degraded.append(schema)
+    if kensu.lean_mode:
+        kensu.outputs_lean.append(schema)
         if ds.ksu_ds.name in kensu.ds_name_stats:
             stats_json = kensu.ds_name_stats[ds.ksu_ds.name]
         else:
