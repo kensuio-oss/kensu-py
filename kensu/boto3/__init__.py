@@ -116,7 +116,7 @@ def fmt_timesteam_lds_names(db, table):
             ]
 
 def kensu_timestream_query(event_params):
-    logging.warning('KENSU: handler of timestream_query.query...')
+    logging.info('KENSU: handler of timestream_query.query...')
     # if true, we'll report all columns found in the table, doesn't matter what columns were actually referred
     # FIXME: do we care about exact columns which were referred?
     ALWAYS_REPORT_ALL_COLUMNS = True
