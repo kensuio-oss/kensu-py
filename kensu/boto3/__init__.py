@@ -3,6 +3,7 @@ from boto3 import *
 
 from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
 from kensu.requests.models import ksu_str
+from kensu.itertools import kensu_list
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.helpers import logical_naming_batch
 
@@ -12,6 +13,21 @@ class ksu_dict(dict):
     @property
     def __class__(self):
         return dict
+
+    def __getitem__(self, item):
+        result = super(ksu_dict, self).__getitem__(item)
+        if isinstance(result,str):
+            ksu_result = ksu_str(result)
+        elif isinstance(result,list):
+            ksu_result = kensu_list(result)
+        elif isinstance(result,dict):
+            ksu_result = ksu_dict(result)
+        else:
+            ksu_result = result
+
+        if hasattr(ksu_result,'ksu_metadata'):
+            ksu_result.ksu_metadata = self.ksu_metadata
+        return ksu_result
 
 
 def kensu_put(event_params, event_ctx, **kwargs):
@@ -64,6 +80,36 @@ def kensu_put(event_params, event_ctx, **kwargs):
         for col in input_fields:
             kensu.add_dependencies_mapping(short_result_sc.to_guid(),str(col),input_schema_pk,str(col),'s3_put')
         kensu.report_with_mapping()
+
+def kensu_write_records(event_params):
+    database = event_params['DatabaseName']
+    table = event_params['TableName']
+    records = list(event_params['Records'])
+
+    kensu = KensuProvider().instance()
+    # Creation of the output datasource (stored in S3)
+    location = 'aws::TimeStream::' + database + '.' + table
+    name = database + '.' + table
+
+    result_pk = DataSourcePK(location=location,
+                             physical_location_ref=kensu.default_physical_location_ref)
+    result_ds = DataSource(name=name, categories=['logical::'+name],format='TimeStream',
+                           pk=result_pk)._report()
+
+    from kensu.utils.helpers import extract_short_json_schema
+    schema = extract_short_json_schema(records[0],result_ds)._report()
+
+    #TODO: Create Stats
+
+    if kensu.degraded_mode:
+        kensu.outputs_degraded.append(schema)
+        if name in kensu.ds_name_stats:
+            stats_json = kensu.ds_name_stats[name]
+        else:
+            stats_json = None
+        kensu.real_schema_df[schema.to_guid()]= stats_json
+        kensu.report_without_mapping()
+
 
 
 
@@ -121,6 +167,8 @@ def kensu_tracker(*class_attributes, **kwargs):
     event_ctx = kwargs.get('context')
     if event_name == 'provide-client-params.s3.PutObject' and event_params:
         kensu_put(event_params=event_params, event_ctx=event_ctx, **kwargs)
+    if event_name == 'provide-client-params.timestream-write.WriteRecords' and event_params:
+        kensu_write_records(event_params)
 
 #boto3._get_default_session().events.register('creating-resource-class.s3.ServiceResource',kensu_tracker)
 #boto3._get_default_session().events.register('before-send.s3.PutObject', kensu_tracker)
@@ -131,3 +179,9 @@ boto3._get_default_session().events.register('provide-client-params.s3.PutObject
 #event_system = S3.meta.client.meta.events
 #event_system.register("*",kensu_tracker)
 #event_system.register('creating-resource-class.s3.*', prt)
+
+
+boto3._get_default_session().events.register('provide-client-params.timestream-write.WriteRecords', kensu_tracker)
+
+
+#'provide-client-params.timestream-write.WriteRecords':

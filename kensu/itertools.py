@@ -1,4 +1,9 @@
 import itertools
+
+from kensu.requests.models import ksu_str
+
+
+
 from kensu.numpy import ndarray
 from kensu.utils.kensu_provider import KensuProvider
 from kensu.utils.helpers import eventually_report_in_mem
@@ -39,3 +44,19 @@ class kensu_list(list):
             if isinstance(self[-1][0],Schema):
                 self.deps = self[-1]
                 del self[-1]
+
+    def __getitem__(self, item):
+        from kensu.boto3 import ksu_dict
+        result = super(kensu_list, self).__getitem__(item)
+        if isinstance(result,str):
+            ksu_result = ksu_str(result)
+        elif isinstance(result,list):
+            ksu_result = kensu_list(result)
+        elif isinstance(result,dict):
+            ksu_result = ksu_dict(result)
+        else:
+            ksu_result = result
+
+        if hasattr(ksu_result,'ksu_metadata'):
+            ksu_result.ksu_metadata = self.ksu_metadata
+        return ksu_result

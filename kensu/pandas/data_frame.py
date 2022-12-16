@@ -487,6 +487,8 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
         table = None
         if fmt == 'gbq' or isinstance(args[0],str) == False:
             return None
+        if fmt == 'dict':
+            return None
         if fmt == 'sql':
             from sqlalchemy.engine.base import Engine
             engine = None
@@ -523,7 +525,12 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
             else:
                 kensu.add_dependency((df, orig_ds, orig_sc), (df, ds, sc), mapping_strategy=mapping_strategies.DIRECT)
 
-            if kensu.mapping:
+
+
+            if kensu.degraded_mode:
+                kensu.outputs_degraded.append(sc)
+                kensu.report_without_mapping()
+            elif kensu.mapping:
                 kensu.report_with_mapping()
 
             else:
@@ -1196,7 +1203,6 @@ def wrap_merge(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-
 def wrap_external_to_pandas_transformation(method, get_inputs_lineage_fn):
     def wrapper(*args, **kwargs):
         kensu = KensuProvider().instance()
@@ -1284,7 +1290,6 @@ def wrap_concat(method):
     wrapper.__doc__ = method.__doc__
     return wrapper
 
-
 def wrap_json_normalize(method):
     def wrapper(*args, **kwargs):
         kensu = KensuProvider().instance()
@@ -1294,22 +1299,42 @@ def wrap_json_normalize(method):
 
         col_dest = [k.name for k in result_sc.pk.fields]
 
-        data = args[0]
+        if not kensu.degraded_mode:
+            data = args[0]
 
-        if hasattr(data,'ksu_metadata'):
-            ksu_metadata = data.ksu_metadata
+            if hasattr(data,'ksu_metadata'):
+                ksu_metadata = data.ksu_metadata
 
-            orig_sc = data.ksu_metadata['short_schema']._report()
+                orig_sc = data.ksu_metadata['short_schema']._report()
 
-            col_orig= [k.name for k in ksu_metadata['short_schema'].pk.fields]
+                col_orig= [k.name for k in ksu_metadata['short_schema'].pk.fields]
 
-            for col_d in col_dest:
-                for col_i in col_orig:
-                    kensu.add_dependencies_mapping(result_sc.to_guid(), str(col_d), orig_sc.to_guid(), str(col_i),
-                                           "json_normalize")
-        kensu.real_schema_df[orig_sc.to_guid()] = ksu_metadata['stats']
+                for col_d in col_dest:
+                    for col_i in col_orig:
+                        kensu.add_dependencies_mapping(result_sc.to_guid(), str(col_d), orig_sc.to_guid(), str(col_i),
+                                               "json_normalize")
+            kensu.real_schema_df[orig_sc.to_guid()] = ksu_metadata['stats']
         df_result_kensu = DataFrame.using(df_result)
         return df_result_kensu
 
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+def wrap_all_function(method):
+    def wrapper(*args, **kwargs):
+        kensu = KensuProvider().instance()
+        df_result = method(*args, **kwargs)
+        result_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df_result, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
+        result_sc = eventually_report_in_mem(kensu.extractors.extract_schema(result_ds, df_result))
+
+        if isinstance(df_result,pd.DataFrame):
+            df_result_kensu = DataFrame.using(df_result)
+
+        elif isinstance(df_result,pd.Series):
+            df_result_kensu = Series.using(df_result)
+
+        else:
+            df_result_kensu = df_result
+        return df_result_kensu
     wrapper.__doc__ = method.__doc__
     return wrapper

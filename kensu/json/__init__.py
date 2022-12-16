@@ -18,34 +18,36 @@ def wrap_loads(method):
         kensu = KensuProvider().instance()
 
         data = args[0]
-        if isinstance(result,dict):
-            result = ksu_dict(result)
-            result.ksu_metadata = data.metadata
-        elif isinstance(result,list):
-            result = kensu_list(result)
-            result.ksu_metadata = data.metadata
-        if isinstance(data,ksu_bytes):
-            result.ksu_metadata = data.ksu_metadata
+        if hasattr(data, 'ksu_metadata'):
+            if isinstance(result, dict):
+                result = ksu_dict(result)
+                result.ksu_metadata = data.ksu_metadata
+            elif isinstance(result, list):
+                result = kensu_list(result)
+                result.ksu_metadata = data.ksu_metadata
+            if isinstance(data, ksu_bytes):
+                result.ksu_metadata = data.ksu_metadata
 
-            origin_location = result.ksu_metadata['origin_location']
-            origin_name = result.ksu_metadata['origin_name']
+                origin_location = result.ksu_metadata['origin_location']
+                origin_name = result.ksu_metadata['origin_name']
 
-            if kensu.logical_naming == 'ReplaceNumbers':
-                logical = logical_naming_batch(origin_name)
-            else:
-                logical = origin_name
+                if kensu.logical_naming == 'ReplaceNumbers':
+                    logical = logical_naming_batch(origin_name)
+                else:
+                    logical = origin_name
 
-            #FIXME we should put this in extractors
-            result_pk = DataSourcePK(location=origin_location,
-                                     physical_location_ref=kensu.default_physical_location_ref)
-            result_ds = DataSource(name=origin_name, categories=['logical::' + logical], format=origin_name.split('.')[-1],
-                                   pk=result_pk)._report()
+                # FIXME we should put this in extractors
+                result_pk = DataSourcePK(location=origin_location,
+                                         physical_location_ref=kensu.default_physical_location_ref)
+                result_ds = DataSource(name=origin_name, categories=['logical::' + logical],
+                                       format=origin_name.split('.')[-1],
+                                       pk=result_pk)._report()
 
-            short_result_sc = extract_short_json_schema(result, result_ds)._report()
+                short_result_sc = extract_short_json_schema(result, result_ds)._report()
 
-            kensu.real_schema_df[short_result_sc.to_guid()] = None
+                kensu.real_schema_df[short_result_sc.to_guid()] = None
 
-            kensu.add_input_ref(KensuDatasourceAndSchema(ksu_ds=result_ds, ksu_schema=short_result_sc))
+                kensu.add_input_ref(KensuDatasourceAndSchema(ksu_ds=result_ds, ksu_schema=short_result_sc))
 
         return result
 

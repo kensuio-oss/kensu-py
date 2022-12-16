@@ -45,14 +45,14 @@ def wrap_get(method):
 
             real_sc = Schema(name="schema:" + result_ds.name, pk=sc_pk)
 
-
             #Construct the concise schema
             result_sc = extract_short_json_schema(result_json, result_ds)._report()
 
-            result.__class__ = Response
-            result.ksu_short_schema = result_sc
-            result.ksu_schema = real_sc
-            result.ds_location = result.url
+            if not kensu.degraded_mode:
+                result.__class__ = Response
+                result.ksu_short_schema = result_sc
+                result.ksu_schema = real_sc
+                result.ds_location = result.url
             try:
                 import json
                 d = json.loads(result.text)
@@ -63,6 +63,9 @@ def wrap_get(method):
                 stats = None
             kensu.real_schema_df[result_sc.to_guid()] = None
             result.ksu_stats = stats
+
+            if kensu.degraded_mode:
+                kensu.register_input_degraded_mode(result_sc)
         except:
             pass
 
