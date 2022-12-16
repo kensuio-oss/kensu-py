@@ -93,7 +93,7 @@ def fmt_timestream_name(db, table):
 
 def fmt_timesteam_lds_names(db, table):
     return ['logical::' + fmt_timestream_name(db, table),
-            'logicalLocation::' + fmt_timestream_uri(db, table),
+            # 'logicalLocation::' + fmt_timestream_uri(db, table),
             ]
 
 def kensu_timestream_query(event_params):
