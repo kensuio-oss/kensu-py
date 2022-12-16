@@ -24,8 +24,12 @@ def wrap_get(method):
             except:
                 params = None
 
-            if params is not None and os.environ.get('REQUESTS_INCLUDE_URL_PARAMS', '0') == '1':
+            include_url_params = os.environ.get('REQUESTS_INCLUDE_URL_PARAMS', '0') == '1'
+            if params is not None and include_url_params:
                 location = url + '?' + ('&').join([e+'={}' for e in params.keys()])
+            elif not include_url_params:
+                # remove url params in case provided hardcoded in url string and not in params
+                location = url.split("?")[0]
             else:
                 location = url
 
