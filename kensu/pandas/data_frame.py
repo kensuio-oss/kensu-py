@@ -527,8 +527,8 @@ class DataFrame(KensuPandasDelegator, pd.DataFrame):
 
 
 
-            if kensu.degraded_mode:
-                kensu.outputs_degraded.append(sc)
+            if kensu.lean_mode:
+                kensu.outputs_lean.append(sc)
                 kensu.report_without_mapping()
             elif kensu.mapping:
                 kensu.report_with_mapping()
@@ -1299,7 +1299,7 @@ def wrap_json_normalize(method):
 
         col_dest = [k.name for k in result_sc.pk.fields]
 
-        if not kensu.degraded_mode:
+        if not kensu.lean_mode:
             data = args[0]
 
             if hasattr(data,'ksu_metadata'):

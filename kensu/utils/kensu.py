@@ -136,7 +136,7 @@ class Kensu(object):
         do_report = get_property("do_report", True, do_report)
         report_to_file = get_property("report_to_file", False, report_to_file)
         offline_file_name = get_property("offline_file_name", None, offline_file_name)
-        kensu_degraded_mode = get_property("kensu_degraded_mode", False)
+        kensu_lean_mode = get_property("kensu_lean_mode", False)
 
         compute_stats = get_property("compute_stats", True, compute_stats)
         compute_input_stats = get_property("compute_input_stats", True)
@@ -150,8 +150,8 @@ class Kensu(object):
         self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
         self.api_url = kensu_host
         self.report_to_file = report_to_file
-        self.degraded_mode = kensu_degraded_mode
-        self.degraded_sent = False
+        self.lean_mode = kensu_lean_mode
+        self.lean_mode_sent = False
 
         sdk_pat = get_property("kensu_api_token", None)
         sdk_url = get_property("kensu_api_url", None)
@@ -233,8 +233,8 @@ class Kensu(object):
         self.schema_stats = {}
         self.ds_name_stats = {}
         self.stats_to_send={}
-        self.inputs_degraded = []
-        self.outputs_degraded = []
+        self.inputs_lean = []
+        self.outputs_lean = []
 
         if user_name is None:
             user_name = Kensu.discover_user_name()
@@ -322,20 +322,20 @@ class Kensu(object):
                 stats = None
         return stats
 
-    def register_input_degraded_mode(self,sc):
-        if self.degraded_sent == True:
-            self.degraded_sent = False
-            self.inputs_degraded = []
-        self.inputs_degraded.append(sc)
+    def register_input_lean_mode(self,sc):
+        if self.lean_mode_sent == True:
+            self.lean_mode_sent = False
+            self.inputs_lean = []
+        self.inputs_lean.append(sc)
 
 
     def report_without_mapping(self):
-        self.degraded_sent = True
-        for output in self.outputs_degraded:
+        self.lean_mode_sent = True
+        for output in self.outputs_lean:
             output_sc = output.to_guid()
             output_col = [k.name for k in output.pk.fields]
             dataflow = []
-            for input in self.inputs_degraded:
+            for input in self.inputs_lean:
                 data={}
                 input_sc = input.to_guid()
                 input_col = [k.name for k in input.pk.fields]
@@ -375,7 +375,7 @@ class Kensu(object):
                             self.stats_to_send[lineage_run.to_guid()][schema_guid] = stats
 
 
-                    for schema in self.inputs_degraded:
+                    for schema in self.inputs_lean:
                         if self.input_stats:
                             create_stats(schema.to_guid())
                     create_stats(output_sc)
@@ -387,7 +387,7 @@ class Kensu(object):
                     if lineage_run_id in self.stats_to_send:
                         del self.stats_to_send[lineage_run_id]
 
-        self.outputs_degraded = []
+        self.outputs_lean = []
 
     def report_with_mapping(self):
         self.set_reinit()

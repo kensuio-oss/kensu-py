@@ -48,7 +48,7 @@ def wrap_get(method):
             #Construct the concise schema
             result_sc = extract_short_json_schema(result_json, result_ds)._report()
 
-            if not kensu.degraded_mode:
+            if not kensu.lean_mode:
                 result.__class__ = Response
                 result.ksu_short_schema = result_sc
                 result.ksu_schema = real_sc
@@ -64,8 +64,8 @@ def wrap_get(method):
             kensu.real_schema_df[result_sc.to_guid()] = None
             result.ksu_stats = stats
 
-            if kensu.degraded_mode:
-                kensu.register_input_degraded_mode(result_sc)
+            if kensu.lean_mode:
+                kensu.register_input_lean_mode(result_sc)
         except:
             pass
 
