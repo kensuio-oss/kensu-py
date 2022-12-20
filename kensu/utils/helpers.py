@@ -130,7 +130,7 @@ def flatten(d, parent_key='', sep='.'):
             new_key = parent_key + sep + k if parent_key else k
             if isinstance(v, dict):
                 items.extend(flatten(v, new_key, sep=sep).items())
-            elif isinstance(v, list):
+            elif isinstance(v, list) and v:
                 if isinstance(v[0], dict):
                     new_key = new_key + '[]'
                     for i in v:
