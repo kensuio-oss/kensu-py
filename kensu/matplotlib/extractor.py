@@ -38,7 +38,8 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
             source_num = 0
             for df in ax.inheritance:
                 #TODO : extract ax name if any instead of generic number
-                inherited_stats = {'Ax'+str(ax_num)+'.Source'+str(source_num)+'.'+key : value for key,value in kensu.extractors.extract_stats(df).items()}
+                inherited_stats = {'Ax'+str(ax_num)+'.Source'+str(source_num)+'.'+key : value
+                                   for key, value in kensu.extractors.extract_stats(df).items()}
                 stats = {**stats,**inherited_stats}
                 source_num+=1
             ax_num += 1

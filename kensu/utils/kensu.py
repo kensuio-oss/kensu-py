@@ -74,6 +74,11 @@ class Kensu(object):
             logging.warning(f"KENSU: Cannot load config from file `%s`" % (conf_path))
         return config
 
+    @staticmethod
+    def _configure_api(api, kensu_host, kensu_auth_token):
+        api.api_client.host = kensu_host
+        api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
+
     def __init__(self, kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None,
                  user_name=None, code_location=None, do_report=None, report_to_file=None, offline_file_name=None,
                  compute_stats=True, config=None, **kwargs):
@@ -146,8 +151,8 @@ class Kensu(object):
         raise_on_check_failure = get_property("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
-        self.kensu_api.api_client.host = kensu_host
-        self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
+        self._configure_api(self.kensu_api, kensu_host, kensu_auth_token)
+
         self.api_url = kensu_host
         self.report_to_file = report_to_file
         self.lean_mode = kensu_lean_mode
@@ -162,6 +167,10 @@ class Kensu(object):
             if sdk_url is None:
                 sdk_url = self.api_url.replace('-api', '')                
             self.sdk = sdk.SDK(sdk_url, sdk_pat, verify_ssl=sdk_verify_ssl)
+
+        # FIXME: what if we want to disable Remote Conf?
+        self.kensu_remote_conf_api = KensuRemoteAgentConfApi()
+        self._configure_api(self.kensu_api, sdk_url, kensu_auth_token)
 
         # add function to Kensu entities
         injection = Injection()

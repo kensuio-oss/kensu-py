@@ -16,6 +16,7 @@ from __future__ import absolute_import
 # import ApiClient
 from .api_client import ApiClient
 from .apis.kensu_entities_api import KensuEntitiesApi
+from .apis.kensu_remote_agent_conf_api import KensuRemoteAgentConfApi
 # import apis into sdk package
 from .configuration import Configuration
 # import models into sdk package
