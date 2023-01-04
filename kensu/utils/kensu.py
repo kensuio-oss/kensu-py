@@ -170,7 +170,12 @@ class Kensu(object):
 
         # FIXME: what if we want to disable Remote Conf?
         self.kensu_remote_conf_api = KensuRemoteAgentConfApi()
-        self._configure_api(self.kensu_api, sdk_url, kensu_auth_token)
+        self._configure_api(self.kensu_remote_conf_api, sdk_url, kensu_auth_token)
+        self.remote_conf_enabled = get_property("remote_conf_enabled", True)
+        self.remote_conf_timeout_secs = get_property("remote_conf_timeout_secs", 5*60) # FIXME: is this too long?
+        self.remote_circuit_breaker_enabled = get_property("remote_circuit_breaker_enabled", True)
+        self.remote_circuit_breaker_precheck_delay_secs = \
+            get_property("remote_circuit_breaker_precheck_delay_secs", 5*60)
 
         # add function to Kensu entities
         injection = Injection()
