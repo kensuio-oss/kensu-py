@@ -88,15 +88,18 @@ class FakeIngestionRequestHandler(BaseHTTPRequestHandler):
                 print('IOError: {}'.format(traceback.format_exc()))
                 raise
         elif self.path == '/api/services/v2/logical-datasources/configuration/processes/metrics':
-            json_resp = {
-                            "processName": "ignored",
+            successful_json_resp = {
+                            "processName": "my-process-name",
                             "metricsConfiguration": [
                                 {
                                     "logicalDataSource": {"ldsName":"hive_database.db/hive_table"},
                                     "useDefaultConfig": False,
                                     "activeMetrics": [
-                                      'featuresecond.median', 'id_pro.nullrows', 'featurefirst.min', 'featurefirst.nullrows', 'featuresecond.stddev', 'featurefirst.mean', 'featuresecond.max', 'nrows', 'featuresecond.mean', 'featurefirst.median', 'activity.nullrows', 'featurefirst.max', 'featuresecond.nrows', 'featuresecond.min', 'featurefirst.75%', 'featuresecond.25%', 'featuresecond.75%', 'featuresecond.nullrows', 'featurefirst.25%', 'featurefirst.nrows', 'activity.nrows', 'id.nrows'
-                                      # excludes 'featurefirst.stddev' and a few more (depending on PDS)
+                                        'featurefirst.min',
+                                        'featurefirst.nullrows',
+                                        'featuresecond.stddev',
+                                        'nrows',
+                                        'id.nrows'
                                     ]
                                 },
 
@@ -113,12 +116,23 @@ class FakeIngestionRequestHandler(BaseHTTPRequestHandler):
                 import json
                 body_json = json.loads(body)
                 requested_info = body_json.get('requestedInfo')
-                print(f'metrics/conf requested_info: {requested_info}')
-                if requested_info:
+                process_name = body_json.get('processName')
+                request_lds_names = [
+                    l.get('ldsName')
+                    for l in body_json.get('logicalDatasources', [])]
+
+                print(f'metrics/conf requested_info: {requested_info} process_name: {process_name}')
+                expected_process_name = 'my-process-name'
+                expected_lds_name = 'hive_database.db/hive_table'
+                if process_name != expected_process_name or (expected_lds_name not in request_lds_names):
+                    json_resp = {"processName": process_name}
+                elif requested_info:
+                    json_resp = successful_json_resp
                     if requested_info == 'BREAKERS':
-                        json_resp = {'breakProcessExecutionNow': True, "processName": "ignored"}
+                        json_resp = {'breakProcessExecutionNow': True, "processName": process_name}
                     elif requested_info == 'ALL':
                         json_resp['breakProcessExecutionNow'] = True
+
             except:
                 print('Error: {}'.format(traceback.format_exc()))
                 raise

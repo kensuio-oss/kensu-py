@@ -176,6 +176,7 @@ class Kensu(object):
         self.remote_circuit_breaker_enabled = get_property("remote_circuit_breaker_enabled", True)
         self.remote_circuit_breaker_precheck_delay_secs = \
             get_property("remote_circuit_breaker_precheck_delay_secs", 5*60)
+        self.circuit_breaker_logical_datasource_names = []
 
         # add function to Kensu entities
         injection = Injection()
