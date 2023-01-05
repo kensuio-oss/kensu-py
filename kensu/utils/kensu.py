@@ -273,6 +273,7 @@ class Kensu(object):
             else:
                 raise Exception("Can't determine `process_name`, maybe is this running from a Notebook?")
         self.process = Process(pk=ProcessPK(qualified_name=process_name))._report()
+        self.process_name = process_name
         if project_name is None:
             self.project_refs = []
         else:

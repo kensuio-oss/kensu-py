@@ -11,7 +11,10 @@ from kensu.google.cloud.bigquery.job.bigquery_stats import compute_bigquery_stat
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, GenericComputedInMemDs, \
     ExtDependencyEntry
 import google.cloud.bigquery as bq
+
+from kensu.utils.helpers import lds_name_from_datasource
 from kensu.utils.kensu_provider import KensuProvider
+from kensu.utils.remote.remote_conf import query_metric_conf_by_datasource
 
 logger = logging.getLogger(__name__)
 
@@ -80,14 +83,17 @@ class BqRemoteParser:
             bg_table_ref = bq_table.reference
             # note: making stats computation lazy in a f_get_stats lambda seem to behave very weirdly...
             # so stats are computed eagerly now
-            if kensu.compute_stats:
+            remote_conf = query_metric_conf_by_datasource(ds)
+            if remote_conf.is_enabled(kensu.compute_stats):
                 try:
                     stats_values = compute_bigquery_stats(
                         table_ref=bg_table_ref,
                         table=bq_table,
                         client=client,
                         stats_aggs=stats_aggs,
-                        input_filters=stats_filters)
+                        input_filters=stats_filters,
+                        remote_conf=remote_conf
+                    )
                 except Exception as e:
                     stats_values = None
                     logger.warning(f"Unable to compute the stats: {e}")

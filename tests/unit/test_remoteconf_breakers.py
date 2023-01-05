@@ -52,7 +52,7 @@ class TestRemoteConfAndBreakers(unittest.TestCase):
         ksu = KensuProvider().instance()
         # need to be after kensu init, to override default config
         Kensu._configure_api(ksu.kensu_remote_conf_api, f'http://localhost:{cls.server_port}', ingestion_token)
-        ksu.remote_circuit_breaker_precheck_delay_secs = 5
+        ksu.remote_circuit_breaker_precheck_delay_secs = 1
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -107,21 +107,20 @@ class TestRemoteConfAndBreakers(unittest.TestCase):
             break_app_if_needed(exit_code=253)
             raise CustomIgnoredException()
 
-    def test_remote_conf(self):
+    def test_remote_conf_defaults(self):
         ksu = KensuProvider().instance()
         default_conf = SingleLdsRemoteConf.default()
         # no match => default
-        c = query_metric_conf(api=ksu.kensu_remote_conf_api,
-                              process_name=self.known_process_name,
-                              lds_name='unknown_lds_name')
+        # unknown lds_name; using self.known_process_name from Kensu.process_name
+        c = query_metric_conf(lds_name='unknown_lds_name')
         assert c == default_conf
 
-        c = query_metric_conf(api=ksu.kensu_remote_conf_api,
-                              process_name='unknown-process-name',
-                              lds_name=self.known_lds_name)
+        # unknown process_name
+        c = query_metric_conf(lds_name=self.known_lds_name, process_name='unknown-process-name')
         assert c == default_conf
 
-        # explicit metrics
+    def test_remote_conf(self):
+        # explicit metrics, as responded by remote API
         specific_conf = SingleLdsRemoteConf(
             activeMetrics=[
                 'featurefirst.min',
@@ -132,10 +131,8 @@ class TestRemoteConfAndBreakers(unittest.TestCase):
             ],
             useDefaultConfig=False
         )
-        assert query_metric_conf(
-            api=ksu.kensu_remote_conf_api,
-            process_name=self.known_process_name,
-            lds_name=self.known_lds_name) == specific_conf
+        # using self.known_process_name from Kensu.process_name
+        assert query_metric_conf(lds_name=self.known_lds_name) == specific_conf
 
 
 if __name__ == '__main__':

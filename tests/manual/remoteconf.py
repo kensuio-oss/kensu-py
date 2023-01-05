@@ -49,11 +49,10 @@ with FakeIngestionApi.create(conf=conf) as fake_ingestion_port:
     print(f'break_app_now: {break_app_now}')
     print(break_app_now.__class__)
 
-    c = query_metric_conf(api=kensu_remote_conf_api, process_name='my-process-name-2', lds_name='hive_database.db/hive_table')
+    c = query_metric_conf(process_name='my-process-name-2', lds_name='hive_database.db/hive_table')
     print(c)
 
-    c = query_metric_conf(api=kensu_remote_conf_api,
-                          process_name='my-process-name-3',
+    c = query_metric_conf(process_name='my-process-name-3',
                           lds_name='hive_database.db/hive_tablex')
     print(c)
 

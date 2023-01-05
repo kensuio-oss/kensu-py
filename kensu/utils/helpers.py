@@ -177,6 +177,13 @@ def to_datasource(ds_pk, format, location, logical_data_source_naming_strategy, 
         ds = DataSource(name=name, format=format, categories=[], pk=ds_pk)
     return ds
 
+def lds_name_from_datasource(
+        ds  # type: DataSource
+):
+    return (list([c.replace('logical::', '')
+                  for c in ds.categories or []]) or
+            [ds.name])[0]
+
 def save_stats_json(schemaID,stats):
     from kensu.utils.kensu_provider import KensuProvider
     kensu = KensuProvider().instance()
