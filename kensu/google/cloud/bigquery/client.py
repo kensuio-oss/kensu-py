@@ -84,13 +84,14 @@ class Client(client.Client):
                     except:
                         bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
 
+                    # fixme: `table_infos_out` is here probably mess and not always guaranteed to be the output!!???
                     db_metadata_out, table_id_to_bqtable_out, table_infos_out = BqOfflineParser.get_referenced_tables_metadata(
                         kensu=kensu,
                         client=client,
                         job=j,
                         table=dest)
 
-                    table_infos_out[0][1]._report()
+                    table_infos_out[0][1]._report() # fixme: is this ds?
                     # FIXME: is this schema!!!??? Looks very very suspicious usage with [0][2] indexing!!!!
                     output_variable_with_extractor = table_infos_out[0][2]
                     bq_lineage.report(
