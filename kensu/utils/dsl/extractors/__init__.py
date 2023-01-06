@@ -119,10 +119,6 @@ class Extractors(object):
         raise Exception("Not supported object: " + value.__class__)
 
     def extract_stats(self, value):
-        from kensu.utils.kensu_provider import KensuProvider
-        kensu = KensuProvider().instance()
-        if not kensu.compute_stats:
-            return None
         for support in self.supports:
             if support.is_supporting(value):
                 return support.extract_stats(value)
