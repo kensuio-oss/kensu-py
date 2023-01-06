@@ -9,6 +9,9 @@ import os
 
 import requests as req
 
+from kensu.utils.remote.remote_conf import query_metric_conf_by_datasource
+
+
 def wrap_get(method):
     def wrapper(*args, **kwargs):
         result = method(*args, **kwargs)
@@ -57,14 +60,19 @@ def wrap_get(method):
                 result.ksu_short_schema = result_sc
                 result.ksu_schema = real_sc
                 result.ds_location = result.url
-            try:
-                import json
-                d = json.loads(result.text)
-                count_json = len(d)
-                stats = {'count':count_json}
 
-            except:
-                stats = None
+            remote_conf = query_metric_conf_by_datasource(result_ds)
+            stats = None
+            if remote_conf.is_enabled() and \
+                    remote_conf.is_metric_active(metric='count'):
+                try:
+                    import json
+                    d = json.loads(result.text)
+                    count_json = len(d)
+                    stats = {'count': count_json}
+                except:
+                    pass
+
             kensu.real_schema_df[result_sc.to_guid()] = None
             result.ksu_stats = stats
 

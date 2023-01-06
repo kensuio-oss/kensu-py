@@ -9,6 +9,8 @@ from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
 from kensu.utils.helpers import singleton, save_stats_json, to_datasource
 from kensu.utils.kensu_provider import KensuProvider
+from kensu.utils.remote.remote_conf import query_metric_conf
+
 
 @singleton
 class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
@@ -30,17 +32,27 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
         return fields
 
     # return dict of doubles (stats)
-    def extract_stats(self, fig):
+    def extract_stats(self, fig, lds_name, **kwargs):
         kensu = KensuProvider().instance()
         stats = {}
         ax_num = 0
+        remote_stats_conf = query_metric_conf(lds_name, **kwargs)
+        if not remote_stats_conf.is_enabled():
+            return None
         for ax in fig.axes:
             source_num = 0
             for df in ax.inheritance:
                 #TODO : extract ax name if any instead of generic number
-                inherited_stats = {'Ax'+str(ax_num)+'.Source'+str(source_num)+'.'+key : value for key,value in kensu.extractors.extract_stats(df).items()}
-                stats = {**stats,**inherited_stats}
-                source_num+=1
+                inherited_stats = {'Ax'+str(ax_num)+'.Source'+str(source_num)+'.'+key : value
+                                   # below we ask to skip remote_conf check, and we'll apply it later on, on the result
+                                   for key, value in kensu.extractors.extract_stats(df, lds_name=None, always_compute=True).items()}
+                # fixme: could we disable computation for certain metrics instead of excluding them? it dont seem simple
+                #  as metrics are 'renamed' here, and computed somewhere elsewhere
+                inherited_stats = {k: v
+                                   for k, v in inherited_stats.items()
+                                   if remote_stats_conf.is_metric_active(metric=k)}
+                stats = {**stats, **inherited_stats}
+                source_num += 1
             ax_num += 1
         return stats
 

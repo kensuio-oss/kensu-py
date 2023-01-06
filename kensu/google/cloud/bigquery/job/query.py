@@ -18,6 +18,8 @@ from kensu.utils.kensu_provider import KensuProvider
 import google.cloud.bigquery as bq
 import google.cloud.bigquery.job as bqj
 
+from kensu.utils.remote.remote_conf import query_metric_conf_via_extractor
+
 logger = logging.getLogger(__name__)
 
 
@@ -134,17 +136,21 @@ class QueryJob(bqj.QueryJob):
             operation_type=None
     ):
         kensu = KensuProvider().instance()
-        if kensu.compute_stats and is_ddl_write and isinstance(ddl_target_table, bq.Table):
-            # for DDL writes, stats can be computed by just reading the whole table
-            # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
-            out_stats_values = compute_bigquery_stats(
-                table_ref=ddl_target_table.reference,
-                table=ddl_target_table,
-                client=client,
-                # stats for all output columns
-                stats_aggs=None,
-                input_filters=None)
-            KensuBigQuerySupport().set_stats(result, out_stats_values)
+        if is_ddl_write and isinstance(ddl_target_table, bq.Table):
+            remote_conf = query_metric_conf_via_extractor(result)
+            if remote_conf.is_enabled():
+                # for DDL writes, stats can be computed by just reading the whole table
+                # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
+                out_stats_values = compute_bigquery_stats(
+                    table_ref=ddl_target_table.reference,
+                    table=ddl_target_table,
+                    client=client,
+                    # stats for all output columns
+                    stats_aggs=None,
+                    input_filters=None,
+                    remote_conf=remote_conf
+                )
+                KensuBigQuerySupport().set_stats(result, out_stats_values)
         lineage.report(
             ksu=kensu,
             df_result=result,

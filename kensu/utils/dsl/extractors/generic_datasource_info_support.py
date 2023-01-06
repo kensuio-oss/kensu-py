@@ -17,7 +17,7 @@ class GenericDatasourceInfoSupport(ExtractorSupport):
 
     # return dict of doubles (stats)
     # stats are reported inside spark itself (?)
-    def extract_stats(self, df):
+    def extract_stats(self, df, lds_name, **kwargs):
         logging.debug('starting waiting for datastats for {}'.format(df.ksu_ds.name))
         stats = df.f_get_stats()
         logging.debug('done waiting for datastats for {}'.format(df.ksu_ds.name))

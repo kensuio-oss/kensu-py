@@ -4,6 +4,7 @@ import logging
 
 from kensu.client import DataSourcePK, Schema, SchemaPK
 from kensu.utils.helpers import to_datasource
+from kensu.utils.remote.remote_conf import query_metric_conf_via_extractor, SingleLdsRemoteConf
 
 logger = logging.getLogger(__name__)
 
@@ -83,16 +84,19 @@ class Client(client.Client):
                     except:
                         bq_lineage = BqOfflineParser.fallback_lineage(kensu, table_infos, dest)
 
+                    # fixme: `table_infos_out` is here probably mess and not always guaranteed to be the output!!???
                     db_metadata_out, table_id_to_bqtable_out, table_infos_out = BqOfflineParser.get_referenced_tables_metadata(
                         kensu=kensu,
                         client=client,
                         job=j,
                         table=dest)
 
-                    table_infos_out[0][1]._report()
+                    table_infos_out[0][1]._report() # fixme: is this ds?
+                    # FIXME: is this schema!!!??? Looks very very suspicious usage with [0][2] indexing!!!!
+                    output_variable_with_extractor = table_infos_out[0][2]
                     bq_lineage.report(
                         ksu=kensu,
-                        df_result=table_infos_out[0][2],
+                        df_result=output_variable_with_extractor,
                         operation_type='BigQuery SQL result',
                         report_output=True,
                         # FIXME: how to know when in mem or when bigquery://projects/psyched-freedom-306508/datasets/_b63f45da1cafbd073e5c2770447d963532ac43ec/tables/anonc79d9038a13ab2dbe40064636b0aceedc62b5d69
@@ -114,7 +118,12 @@ class Client(client.Client):
 
                         else:
                             query_without_insert = query
-                        output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client,query = query_without_insert)
+                        # FIXME: no input table stats here?
+                        # FIXME: what is logical datasource name of output here? is it always known already (not in case of SELECT)?
+                        remote_conf = SingleLdsRemoteConf.default(kensu.compute_stats)  # FIXME: query_metric_conf_via_extractor(output_variable_with_extractor)
+                        if remote_conf.is_enabled():
+                            output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client, query = query_without_insert,
+                                                                  remote_conf=remote_conf)
                     except:
                         logger.debug(f"Unable to compute stats for table {str(table)}")
                         output_stats=None

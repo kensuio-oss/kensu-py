@@ -23,6 +23,10 @@ class KensuDatasourceAndSchema:
         # this allows remote computation of stats to be published by the remote processor (if at all)
         self.f_publish_stats = f_publish_stats
 
+    def with_updated_f_get_stats_callback(self, f_get_stats):
+        return KensuDatasourceAndSchema(ksu_ds=self.ksu_ds, ksu_schema=self.ksu_schema, f_get_stats=f_get_stats)
+
+
     def field_names(self):
         return [f.name for f in self.ksu_schema.pk.fields]
 
@@ -184,7 +188,7 @@ class GenericComputedInMemDs:
                                                      from_guid=input_ds.ksu_schema.to_guid(),
                                                      from_col=str(in_col),
                                                      type=operation_type)
-            # at datasource level (not column lineage info known)
+            # at datasource level (no column lineage info known)
             else:
                 i=(input_ds, input_ds.ksu_ds, input_ds.ksu_schema)
                 o=(df_result, result_ds, result_schema)

@@ -9,7 +9,7 @@ from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndS
 from kensu.utils.dsl import mapping_strategies
 from kensu.utils.dsl.extractors import Extractors
 from kensu.utils.dsl.lineage_builder import LineageBuilder
-from kensu.utils.helpers import extract_config_property, get_conf_path, to_hash_key
+from kensu.utils.helpers import extract_config_property, get_conf_path, to_hash_key, lds_name_from_datasource
 from kensu.utils.injection import Injection
 from kensu.utils.reporters import *
 from kensu.utils.rule_engine import create_kensu_nrows_consistency
@@ -73,6 +73,11 @@ class Kensu(object):
         except:
             logging.warning(f"KENSU: Cannot load config from file `%s`" % (conf_path))
         return config
+
+    @staticmethod
+    def _configure_api(api, kensu_host, kensu_auth_token):
+        api.api_client.host = kensu_host
+        api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
 
     def __init__(self, kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None,
                  user_name=None, code_location=None, do_report=None, report_to_file=None, offline_file_name=None,
@@ -146,8 +151,8 @@ class Kensu(object):
         raise_on_check_failure = get_property("raise_on_check_failure", False)
 
         self.kensu_api = KensuEntitiesApi()
-        self.kensu_api.api_client.host = kensu_host
-        self.kensu_api.api_client.default_headers["X-Auth-Token"] = kensu_auth_token
+        self._configure_api(self.kensu_api, kensu_host, kensu_auth_token)
+
         self.api_url = kensu_host
         self.report_to_file = report_to_file
         self.lean_mode = kensu_lean_mode
@@ -162,6 +167,16 @@ class Kensu(object):
             if sdk_url is None:
                 sdk_url = self.api_url.replace('-api', '')                
             self.sdk = sdk.SDK(sdk_url, sdk_pat, verify_ssl=sdk_verify_ssl)
+
+        # FIXME: what if we want to disable Remote Conf?
+        self.kensu_remote_conf_api = KensuRemoteAgentConfApi()
+        self._configure_api(self.kensu_remote_conf_api, sdk_url, kensu_auth_token)
+        self.remote_conf_enabled = get_property("remote_conf_enabled", True)
+        self.remote_conf_timeout_secs = get_property("remote_conf_timeout_secs", 5*60) # FIXME: is this too long?
+        self.remote_circuit_breaker_enabled = get_property("remote_circuit_breaker_enabled", True)
+        self.remote_circuit_breaker_precheck_delay_secs = \
+            get_property("remote_circuit_breaker_precheck_delay_secs", 5*60)
+        self.circuit_breaker_logical_datasource_names = []
 
         # add function to Kensu entities
         injection = Injection()
@@ -198,7 +213,10 @@ class Kensu(object):
             name = name + " of format=" + str(ds.format or '?')
         self.schema_name_by_guid[schema.to_guid()] = name
         try:
-            self.logical_name_by_guid[schema.to_guid()] = ds.categories[0].split("::")[1]
+            # FIXME: move to common extractor?
+            # need to store lds_name (to be used by datastats decision logic)
+            # as datasource name/location might differ depending on kwargs, not only on `df` (see `def extract_data_source`)
+            self.logical_name_by_guid[schema.to_guid()] = lds_name_from_datasource(ds) # ds.categories[0].split("::")[1]
         except:
             None
         return schema
@@ -258,6 +276,7 @@ class Kensu(object):
             else:
                 raise Exception("Can't determine `process_name`, maybe is this running from a Notebook?")
         self.process = Process(pk=ProcessPK(qualified_name=process_name))._report()
+        self.process_name = process_name
         if project_name is None:
             self.project_refs = []
         else:
@@ -309,13 +328,13 @@ class Kensu(object):
     def name_for_stats(self, input_name):
         return input_name.replace('.', '_')
 
-    def extract_stats(self, stats_df):
+    def extract_stats(self, stats_df, lds_name):
         try:
-            stats = self.extractors.extract_stats(stats_df)
+            stats = self.extractors.extract_stats(stats_df, lds_name=lds_name)
         except Exception as e:
             logging.debug(f'KENSU: stats extraction from {type(stats_df)} failed', e)
             if isinstance(stats_df, dict):
-                # FIXME: this is weird logic here... we'd post the actual data instead of stats!
+                # FIXME: this is weird logic here... we might post the actual data instead of stats!
                 stats = stats_df
             else:
                 # TODO Support ndarray
@@ -361,7 +380,8 @@ class Kensu(object):
 
                     def create_stats(schema_guid):
                         stats_df = self.real_schema_df[schema_guid]
-                        stats = self.extract_stats(stats_df)
+                        lds_name = self.logical_name_by_guid.get(schema_guid)
+                        stats = self.extract_stats(stats_df, lds_name=lds_name)
                         if stats is None and isinstance(stats_df, KensuDatasourceAndSchema):
                             # in this special case, the stats are reported not by kensu-py,
                             # but by some external library called from .f_publish_stats callback
@@ -492,7 +512,8 @@ class Kensu(object):
 
                     def create_stats(schema_guid):
                         stats_df = self.real_schema_df[schema_guid]
-                        stats = self.extract_stats(stats_df)
+                        lds_name = self.logical_name_by_guid.get(schema_guid)
+                        stats = self.extract_stats(stats_df, lds_name=lds_name)
                         if stats is None and isinstance(stats_df, KensuDatasourceAndSchema):
                             # in this special case, the stats are reported not by kensu-py,
                             # but by some external library called from .f_publish_stats callback
@@ -672,7 +693,8 @@ class Kensu(object):
             {to_hash_key(d.output_schema): (d.output_schema, d.output) for d in process_lineage_dependencies}.values())
 
         for (schema, df) in (data_flow_inputs + data_flow_outputs):
-            stats = self.extractors.extract_stats(df)
+            lds_name = self.logical_name_by_guid.get(schema.to_guid())
+            stats = self.extractors.extract_stats(df, lds_name=lds_name)
             if report_stats and stats is not None:
                 DataStats(pk=DataStatsPK(schema_ref=schema.to_ref(),
                                          lineage_run_ref=lineage_run.to_ref()),

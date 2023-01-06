@@ -8,6 +8,7 @@ import kensu
 from kensu.client import *
 from kensu.utils.dsl.extractors import ExtractorSupport, get_or_set_rand_location
 from kensu.utils.helpers import singleton, save_stats_json, to_datasource
+from kensu.utils.remote.remote_conf import query_metric_conf
 
 
 @singleton
@@ -60,8 +61,11 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
     def tk(self, k, k1): return str(k) + '.' + k1
 
     # return dict of doubles (stats)
-    def extract_stats(self, df):
+    def extract_stats(self, df, lds_name, **kwargs):
         df = self.skip_wr(df)
+        remote_stats_conf = query_metric_conf(lds_name, **kwargs)
+        if not remote_stats_conf.is_enabled():
+            return None
         if isinstance(df, pd.DataFrame):
             try:
                 df_desc_numbers = df.describe(include=['number']).to_dict().items()
@@ -72,10 +76,9 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
             # add all counts
             all_count = df.describe(include='all').loc[['count']].to_dict().items()
-            count_dict= {self.tk(k, k1): v for k, o in all_count for k1, v in o.items()}
+            count_dict = {self.tk(k, k1): v for k, o in all_count for k1, v in o.items()}
 
-
-            #Extract datetime for timeliness
+            # Extract datetime for timeliness
             date_df = df.select_dtypes(['datetime', 'datetimetz'])
             date_dict = {}
             # if not checked, when there's no Datetime types,
@@ -88,7 +91,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                     date_dict[col + '.first'] = first
                     date_dict[col + '.last'] = last
             
-            #Extract categories and boolean as categorical series
+            # Extract categories and boolean as categorical series
             cat_names = df.select_dtypes(['category', 'boolean']).columns
             cat_dict = {}
             for cat_col in cat_names:
@@ -126,7 +129,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
             for col in df:
                 try:
-                    stats_dict[col + '.nullrows'] =  count - stats_dict[col + '.count']
+                    stats_dict[col + '.nullrows'] = count - stats_dict[col + '.count']
                 except:
                     try:
                         stats_dict[col + '.nullrows'] = count - stats_dict[col + '.nrows']
@@ -134,7 +137,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                         logging.debug('Unable to get NA count for ' + str(col))
 
             for key, item in stats_dict.copy().items():
-                if isinstance(item,str):
+                # FIXME: implement more efficient disabling of stats where uneeded stuff is not computed (skip, project part of DF etc)
+                if not remote_stats_conf.is_metric_active(metric=key):
+                    del stats_dict[key]
+                elif isinstance(item, str):
                     del stats_dict[key]
                 elif np.isnan(item):
                     del stats_dict[key]
@@ -143,7 +149,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
                 
             return stats_dict
         elif isinstance(df, pd.Series):
-            return {k: v for k, v in df.describe().to_dict().items() if type(v) in [int,float] }
+            return {k: v
+                    for k, v in df.describe().to_dict().items()
+                    if type(v) in [int, float] and remote_stats_conf.is_metric_active(metric=k)
+                    }
 
     def extract_data_source(self, df, pl, **kwargs):
 
@@ -155,7 +164,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
         if location is None or fmt is None:
             raise Exception(
-                "cannot report new pandas dataframe without location ({}) a format provided ({})!".format(location, fmt))
+                "cannot report new pandas dataframe without location ({}) and format provided ({})!".format(location, fmt))
 
         ds_pk = DataSourcePK(location=location, physical_location_ref=pl)
         name = ('/').join(location.split('/')[-2:])
