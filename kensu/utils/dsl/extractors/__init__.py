@@ -32,7 +32,7 @@ class ExtractorSupport(object):
     def extract_data_source_and_schema(self, value, physical_location):
         pass
 
-    def extract_stats(self, value, lds_name):
+    def extract_stats(self, value, lds_name, **kwargs):
         pass
 
     def is_machine_learning(self, ml):
@@ -118,11 +118,11 @@ class Extractors(object):
 
         raise Exception("Not supported object: " + value.__class__)
 
-    def extract_stats(self, value, lds_name):
+    def extract_stats(self, value, lds_name, **kwargs):
         # FIXME: maybe need to check here if stats enabled and not in mem ds?
         for support in self.supports:
             if support.is_supporting(value):
-                return support.extract_stats(value, lds_name)
+                return support.extract_stats(value, lds_name, **kwargs)
 
         raise Exception("Not supported container: " + value.__class__)
 

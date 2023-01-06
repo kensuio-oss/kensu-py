@@ -61,7 +61,7 @@ class ndarraySupport(ExtractorSupport):  # should extends some KensuSupport clas
     def tk(self, k, k1): return k + '.' + k1
 
     # return dict of doubles (stats)
-    def extract_stats(self, nd, lds_name):
+    def extract_stats(self, nd, lds_name, **kwargs):
         nd = self.skip_wr(nd)
         #TODO use scipy.stats?
         #return {self.tk(k, k1): v for k, o in nd.describe().to_dict().items() for k1, v in o.items()}

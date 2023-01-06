@@ -18,11 +18,12 @@ def _send_request(api, process_name, lds_names, requested_info='METRICS_CONFIG')
 
 class SingleLdsRemoteConf:
 
-    def __init__(self, activeMetrics, useDefaultConfig):
+    def __init__(self, activeMetrics, useDefaultConfig, default_conf_enabled):
         self.activeMetrics = activeMetrics
         self.useDefaultConfig = useDefaultConfig
         self.remotelyKnownColumnNames = set([])  # FIXME: agree/implement API client
         self.remotelyKnownColumnNamesEnabled = False # FIXME
+        self.default_conf_enabled = default_conf_enabled
 
     def __unicode__(self):
         return f'LdsRemoteConf(activeMetrics: {self.activeMetrics}, useDefaultConfig: {self.useDefaultConfig})'
@@ -30,10 +31,10 @@ class SingleLdsRemoteConf:
     def __str__(self):
         return self.__unicode__()
 
-    def is_enabled(self, default_conf_enabled):
+    def is_enabled(self):
         # FIXME: check if available field names / metrics overlap with remotely configured metrics
         if self.useDefaultConfig:
-            return default_conf_enabled
+            return self.default_conf_enabled
         else:
             return bool(self.activeMetrics)
 
@@ -61,8 +62,12 @@ class SingleLdsRemoteConf:
         return False
 
     @staticmethod
-    def default():
-        return SingleLdsRemoteConf(activeMetrics=None, useDefaultConfig=True)
+    def default(default_conf_enabled):
+        return SingleLdsRemoteConf(activeMetrics=None, useDefaultConfig=True, default_conf_enabled=default_conf_enabled)
+
+    @staticmethod
+    def always_compute():
+        return SingleLdsRemoteConf.default(default_conf_enabled=True)
 
     def __eq__(self, other):
         return self.activeMetrics == other.activeMetrics and \
@@ -82,18 +87,22 @@ def query_metric_conf_via_extractor(orig_variable):
     return query_metric_conf_by_datasource(ds)
 
 # FIXME: ADD actual_column_names
-def query_metric_conf(lds_name, process_name=None):
+def query_metric_conf(lds_name, process_name=None, **options):
     # if remote_conf disabled...
-    default_conf = SingleLdsRemoteConf.default()
     ksu = KensuProvider().instance()  # type: Kensu
+    agent_conf = SingleLdsRemoteConf.default(default_conf_enabled=ksu.compute_stats)
+
+    if options.get('always_compute'):
+        return SingleLdsRemoteConf.always_compute()
+
     if not ksu.remote_conf_enabled:
         logging.info(f'Kensu agent remote config disabled, using agent config')
-        return default_conf
+        return agent_conf
 
     if not lds_name:
         logging.info(f'Got empty lds_name, using agent config')
         # fixme: here we might want to actually force datastats computation instead
-        return default_conf
+        return agent_conf
 
     if not process_name:
         process_name = ksu.process_name
@@ -126,4 +135,4 @@ def query_metric_conf(lds_name, process_name=None):
         return remote_res
     else:
         # no explicit response received
-        return default_conf
+        return agent_conf

@@ -119,8 +119,8 @@ class Client(client.Client):
                             query_without_insert = query
                         # FIXME: no input table stats here?
                         # FIXME: what is logical datasource name of output here? is it always known already (not in case of SELECT)?
-                        remote_conf = SingleLdsRemoteConf.default()  # FIXME: query_metric_conf_via_extractor(output_variable_with_extractor)
-                        if remote_conf.is_enabled(kensu.compute_stats):
+                        remote_conf = SingleLdsRemoteConf.default(kensu.compute_stats)  # FIXME: query_metric_conf_via_extractor(output_variable_with_extractor)
+                        if remote_conf.is_enabled():
                             output_stats = compute_bigquery_stats(table_ref=destination, table = client.get_table(destination), client = client, query = query_without_insert,
                                                                   remote_conf=remote_conf)
                     except:

@@ -61,12 +61,10 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
     def tk(self, k, k1): return str(k) + '.' + k1
 
     # return dict of doubles (stats)
-    def extract_stats(self, df, lds_name):
+    def extract_stats(self, df, lds_name, **kwargs):
         df = self.skip_wr(df)
-        remote_conf = query_metric_conf(lds_name)
-        from kensu.utils.kensu_provider import KensuProvider
-        ksu = KensuProvider().instance()  # type: Kensu
-        if not remote_conf.is_enabled(ksu.compute_stats):
+        remote_stats_conf = query_metric_conf(lds_name, **kwargs)
+        if not remote_stats_conf.is_enabled():
             return None
         if isinstance(df, pd.DataFrame):
             try:
@@ -140,7 +138,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
 
             for key, item in stats_dict.copy().items():
                 # FIXME: implement more efficient disabling of stats where uneeded stuff is not computed (skip, project part of DF etc)
-                if not remote_conf.is_metric_active(metric=key):
+                if not remote_stats_conf.is_metric_active(metric=key):
                     del stats_dict[key]
                 elif isinstance(item, str):
                     del stats_dict[key]
@@ -153,7 +151,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
         elif isinstance(df, pd.Series):
             return {k: v
                     for k, v in df.describe().to_dict().items()
-                    if type(v) in [int, float] and remote_conf.is_metric_active(metric=k)
+                    if type(v) in [int, float] and remote_stats_conf.is_metric_active(metric=k)
                     }
 
     def extract_data_source(self, df, pl, **kwargs):

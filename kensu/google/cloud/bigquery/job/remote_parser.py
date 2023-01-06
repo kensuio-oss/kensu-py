@@ -84,7 +84,7 @@ class BqRemoteParser:
             # note: making stats computation lazy in a f_get_stats lambda seem to behave very weirdly...
             # so stats are computed eagerly now
             remote_conf = query_metric_conf_by_datasource(ds)
-            if remote_conf.is_enabled(kensu.compute_stats):
+            if remote_conf.is_enabled():
                 try:
                     stats_values = compute_bigquery_stats(
                         table_ref=bg_table_ref,

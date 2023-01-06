@@ -138,7 +138,7 @@ class QueryJob(bqj.QueryJob):
         kensu = KensuProvider().instance()
         if is_ddl_write and isinstance(ddl_target_table, bq.Table):
             remote_conf = query_metric_conf_via_extractor(result)
-            if remote_conf.is_enabled(kensu.compute_stats):
+            if remote_conf.is_enabled():
                 # for DDL writes, stats can be computed by just reading the whole table
                 # FIXME: for incremental `INSERT INTO` would not give the correct stats (we'd get full table)
                 out_stats_values = compute_bigquery_stats(

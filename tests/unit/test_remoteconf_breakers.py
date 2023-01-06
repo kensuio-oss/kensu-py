@@ -109,7 +109,7 @@ class TestRemoteConfAndBreakers(unittest.TestCase):
 
     def test_remote_conf_defaults(self):
         ksu = KensuProvider().instance()
-        default_conf = SingleLdsRemoteConf.default()
+        default_conf = SingleLdsRemoteConf.default(ksu.compute_stats)
         # no match => default
         # unknown lds_name; using self.known_process_name from Kensu.process_name
         c = query_metric_conf(lds_name='unknown_lds_name')

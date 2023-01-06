@@ -63,7 +63,7 @@ def wrap_get(method):
 
             remote_conf = query_metric_conf_by_datasource(result_ds)
             stats = None
-            if remote_conf.is_enabled(kensu.compute_stats) and \
+            if remote_conf.is_enabled() and \
                     remote_conf.is_metric_active(metric='count'):
                 try:
                     import json

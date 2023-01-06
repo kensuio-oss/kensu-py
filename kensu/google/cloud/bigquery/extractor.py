@@ -95,7 +95,7 @@ class KensuBigQuerySupport(ExtractorSupport):  # should extends some KensuSuppor
         setattr(obj, self.KENSU_DDL_STATS_VALUES_ATTR, out_stats_values)
 
     # return dict of doubles (stats)
-    def extract_stats(self, df, lds_name):
+    def extract_stats(self, df, lds_name, **kwargs):
         if hasattr(df, self.KENSU_DDL_STATS_VALUES_ATTR):
             return getattr(df, self.KENSU_DDL_STATS_VALUES_ATTR)
         # otherwise, stats definitions are computed directly in wrapper in more efficient fashion, see `query.py`
