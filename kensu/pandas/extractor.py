@@ -60,7 +60,7 @@ class KensuPandasSupport(ExtractorSupport):  # should extends some KensuSupport 
     def tk(self, k, k1): return str(k) + '.' + k1
 
     # return dict of doubles (stats)
-    def extract_stats(self, df):
+    def extract_stats(self, df, lds_name):
         df = self.skip_wr(df)
         if isinstance(df, pd.DataFrame):
             try:

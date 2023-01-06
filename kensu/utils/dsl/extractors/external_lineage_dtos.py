@@ -23,6 +23,10 @@ class KensuDatasourceAndSchema:
         # this allows remote computation of stats to be published by the remote processor (if at all)
         self.f_publish_stats = f_publish_stats
 
+    def with_updated_f_get_stats_callback(self, f_get_stats):
+        return KensuDatasourceAndSchema(ksu_ds=self.ksu_ds, ksu_schema=self.ksu_schema, f_get_stats=f_get_stats)
+
+
     def field_names(self):
         return [f.name for f in self.ksu_schema.pk.fields]
 

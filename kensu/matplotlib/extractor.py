@@ -30,7 +30,7 @@ class PlotSupport(ExtractorSupport):  # should extends some KensuSupport class
         return fields
 
     # return dict of doubles (stats)
-    def extract_stats(self, fig):
+    def extract_stats(self, fig, lds_name):
         kensu = KensuProvider().instance()
         stats = {}
         ax_num = 0

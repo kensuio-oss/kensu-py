@@ -8,6 +8,7 @@ from kensu.pandas import KensuPandasSupport
 from kensu.utils.dsl.extractors.external_lineage_dtos import KensuDatasourceAndSchema, ExtDependencyEntry, \
     GenericComputedInMemDs
 from kensu.psycopg2.pghelpers import get_table_schema, get_current_db_info
+from kensu.utils.helpers import lds_name_from_datasource
 
 
 def parse_and_report(cur,
@@ -133,15 +134,16 @@ def report_write(out_table, op_type, out_stats_data_pandas, inputs=None):
         out_schema = [("unknown", "unknown")]
     else:
         out_schema = [(f.get('field_name') or 'unknown', f.get('field_type') or 'unknown') for f in out_schema]
-    f_get_stats =lambda: None  # no stats by default
-    if out_stats_data_pandas is not None:
-        f_get_stats = lambda: KensuPandasSupport().extract_stats(out_stats_data_pandas)
     output_ds = KensuDatasourceAndSchema.for_path_with_opt_schema(ksu=ksu,
                                                                   ds_path=dest_path,
                                                                   maybe_schema=out_schema,
                                                                   ds_name=dest_name,
-                                                                  f_get_stats=f_get_stats,
                                                                   format='postgres table')
+    lds_name = lds_name_from_datasource(output_ds.ksu_ds)
+    f_get_stats =lambda: None  # no stats by default
+    if out_stats_data_pandas is not None:
+        f_get_stats = lambda: KensuPandasSupport().extract_stats(out_stats_data_pandas, lds_name=lds_name)
+    output_ds = output_ds.with_updated_f_get_stats_callback(f_get_stats)
 
 
     lineage_info = [

@@ -13,7 +13,7 @@ class KensuSKLearnSupport(ExtractorSupport):
         return True  # FIXME... this is quite abusive
 
     # return dict of doubles (stats)
-    def extract_stats(self, m):
+    def extract_stats(self, m, lds_name):
         # todo (ideas): hist coefs. Or batch several runs and keep stats per coeff
         return {}
 
