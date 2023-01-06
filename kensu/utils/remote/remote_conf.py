@@ -49,6 +49,7 @@ class SingleLdsRemoteConf:
         if self.active_metric_names([metric]):
             return True
         elif column:
+            # FIXME: it might also be that `column=None`, prefix of metric still matches some actual schema field
             if column in self.remotelyKnownColumnNames:
                 # column was known remotely, thus, it's explicitly disabled
                 return False
@@ -87,6 +88,11 @@ def query_metric_conf(lds_name, process_name=None):
     ksu = KensuProvider().instance()  # type: Kensu
     if not ksu.remote_conf_enabled:
         logging.info(f'Kensu agent remote config disabled, using agent config')
+        return default_conf
+
+    if not lds_name:
+        logging.info(f'Got empty lds_name, using agent config')
+        # fixme: here we might want to actually force datastats computation instead
         return default_conf
 
     if not process_name:
