@@ -147,7 +147,9 @@ class QueryJob(bqj.QueryJob):
                     client=client,
                     # stats for all output columns
                     stats_aggs=None,
-                    input_filters=None)
+                    input_filters=None,
+                    remote_conf=remote_conf
+                )
                 KensuBigQuerySupport().set_stats(result, out_stats_values)
         lineage.report(
             ksu=kensu,
