@@ -188,7 +188,7 @@ class GenericComputedInMemDs:
                                                      from_guid=input_ds.ksu_schema.to_guid(),
                                                      from_col=str(in_col),
                                                      type=operation_type)
-            # at datasource level (not column lineage info known)
+            # at datasource level (no column lineage info known)
             else:
                 i=(input_ds, input_ds.ksu_ds, input_ds.ksu_schema)
                 o=(df_result, result_ds, result_schema)

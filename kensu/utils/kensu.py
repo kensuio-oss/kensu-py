@@ -334,7 +334,7 @@ class Kensu(object):
         except Exception as e:
             logging.debug(f'KENSU: stats extraction from {type(stats_df)} failed', e)
             if isinstance(stats_df, dict):
-                # FIXME: this is weird logic here... we'd post the actual data instead of stats!
+                # FIXME: this is weird logic here... we might post the actual data instead of stats!
                 stats = stats_df
             else:
                 # TODO Support ndarray
