@@ -818,3 +818,8 @@ def init_kensu_spark(
             logging.warning("Error when initializing Kensu tracking: " + traceback.format_exc())
     else:
         logging.info("Tracking by Kensu is disabled")
+
+
+ def check_spark_circuit_breakers(spark, exit_code=254):
+    cls = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.KensuSparkCollector")
+    cls.killAppIfCircuitBreakerFailed(spark._jsparkSession, exit_code)
