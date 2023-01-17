@@ -841,4 +841,12 @@ def init_kensu_spark(
 
 def check_spark_circuit_breakers_and_kill_if_broken(spark, exit_code=254):
     cls = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.KensuSparkCollector")
-    cls.killAppIfCircuitBreakerFailed(spark._jsparkSession, exit_code)
+    breakers_failed = cls.checkIfCircuitBreakersFailedAndPrepShutdown(spark._jsparkSession)
+    if breakers_failed:
+        logging.warning("Some kensu circuit braker has failed (there are active unresolved tickets in a rule marked as a circuit breaker), so the app will shutdown now")
+        logging.warning("Shutting down Spark now...")
+        spark.stop()
+        import sys
+        logging.warning(f"Some kensu circuit braker has failed - killing the app with exit_code={exit_code}")
+        sys.exit(exit_code)
+

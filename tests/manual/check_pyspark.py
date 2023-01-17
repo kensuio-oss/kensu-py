@@ -4,7 +4,7 @@ from kensu.utils.remote.circuit_breakers import kill_app_on_circuit_breaker
 import os
 
 kensu_output_dir = os.path.abspath(os.environ.get('KENSU_OUTPUT_DIR', '/tmp/kensu_trash'))
-kensu_jar_path = os.environ.get('KENSU_JAR', 'kensu-spark-collector-1.0.18-alpha230115174008_spark-3.3.0.jar')
+kensu_jar_path = os.environ.get('KENSU_JAR', 'kensu-spark-collector-1.0.18-alpha230117155638_spark-3.3.0.jar')
 spark_warehouse_dir = f"{kensu_output_dir}/spark-warehouse-dir"
 
 from pyspark.sql import SparkSession
@@ -51,7 +51,7 @@ init_kensu_spark(spark_session=spark,
                  # makes kensu_ingestion_url & kensu_ingestion_token config properties mandatory
                  remote_conf_enabled=True,
                  remote_circuit_breaker_enabled=True,
-                 remote_circuit_breaker_precheck_delay_secs=5)
+                 remote_circuit_breaker_precheck_delay_secs=30)
 
 
 df = spark.read.option('inferSchema', True).option('header', True) \
