@@ -312,8 +312,8 @@ def scala_ds_and_schema_to_py(kensu_instance, ds, schema):
     from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
     pl_ref = kensu_instance.UNKNOWN_PHYSICAL_LOCATION.to_ref()
     py_ds = DataSource(name=ds.name(),
-                       format=ds.format(),
-                       categories=list(ds.categories()),
+                       format=ds.format() or None,
+                       categories=list(ds.categories() or []), # NULLABLE
                        pk=DataSourcePK(location=ds.pk().location(), physical_location_ref=pl_ref))
 
     # schema
@@ -354,7 +354,7 @@ def get_inputs_lineage_fn(kensu_instance, df):
     #     datasourceType: String = InternalDatasourceTags.TAG_INPUT_LINEAGE_ONLY,
     #     timeout: Duration
     #   )
-    client_class = ref_scala_object(jvm, "io.kensu.third.integration.dataconversions.SparkToPandasConvTracker")
+    client_class = ref_scala_object(jvm, "io.kensu.sparkcollector.dataconversions.SparkToPandasConversionTracker")
     duration_300s =  ref_scala_object(jvm, "scala.concurrent.duration.Duration").apply(300, "second")
     # FIXME: it should NOT wait for datasts -> check
     import uuid
