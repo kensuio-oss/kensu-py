@@ -389,6 +389,23 @@ def get_inputs_lineage_fn(kensu_instance, df):
     return GenericComputedInMemDs(inputs=list([x.input_ds for x in lineage_info]), lineage=lineage_info)
 
 
+def get_process_run_info(spark):
+    if spark is not None:
+        logging.info(f'Getting Process info from Kensu Spark Agent')
+        cls = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.pyspark.PySparkUtils")
+        # requires Kensu collector to be already initialized - if not yet, it returns None
+        # getProcessAndRunGuid(spark): ProcessRunInfo (nullable)
+        # case class ProcessRunInfo(processGuid: String, processRunGuid: String)
+        run_info = cls.getProcessAndRunGuid(spark._jsparkSession)
+        if run_info:
+            logging.info(f'Successfully retrieved the Process info from Kensu Spark Agent')
+            return {
+                "process_guid": run_info.processGuid(),
+                "process_run_guid": run_info.processRunGuid()
+            }
+    logging.info(f'Unable to get Process info from Kensu Spark Agent, maybe Spark Agent is not initialized yet?')
+    return None
+
 """
 Assuming Datasource name is /a/b/c.ext
 Allowed values for parameters:
