@@ -38,7 +38,10 @@ init_kensu_spark(spark_session=spark,
                  input_stats_compute_quantiles=stats_enabled,
                  output_stats_compute_quantiles=stats_enabled,
                  input_stats_compute_std_dev=stats_enabled,
-                 output_stats_compute_std_dev=stats_enabled)
+                 output_stats_compute_std_dev=stats_enabled,
+                 # FIXME - i think this should be disabled (at least should not wrap pandas)
+                 # so default has already been chaned to patch_pandas_conversions=False
+                 patch_pandas_conversions=False)
 
 run_info = get_process_run_info(spark)
 if run_info:

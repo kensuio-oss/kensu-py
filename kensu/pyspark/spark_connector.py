@@ -567,7 +567,7 @@ def init_kensu_spark(
 
         patch_spark_data_frame = extract_config_property('patch_spark_data_frame', True, patch_spark_data_frame, kw=kwargs, conf=kensu_conf, tpe=bool)
 
-        patch_pandas_conversions = extract_config_property('patch_pandas_conversions', True, patch_pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
+        patch_pandas_conversions = extract_config_property('patch_pandas_conversions', False, patch_pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_df_via_tmp_file = extract_config_property('pandas_to_spark_df_via_tmp_file',True,pandas_to_spark_df_via_tmp_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_tmp_dir = extract_config_property('pandas_to_spark_tmp_dir','/tmp/spark-to-pandas-tmp',pandas_to_spark_tmp_dir, kw=kwargs, conf=kensu_conf)
 
