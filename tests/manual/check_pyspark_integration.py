@@ -1,10 +1,10 @@
-from kensu.pyspark.spark_connector import init_kensu_spark, get_process_run_info, get_inputs_lineage_fn
+from kensu.pyspark.spark_connector import init_kensu_spark, get_process_run_info, get_inputs_lineage_fn, get_df_with_inmem_tag, register_manual_lineage
 from kensu.utils.kensu_provider import KensuProvider
 
 import os
 
 kensu_output_dir = os.path.abspath(os.environ.get('KENSU_OUTPUT_DIR', '/tmp/kensu_trash'))
-jar_name = 'kensu-spark-collector-1.0.18-alpha230119084751_spark-3.3.0.jar'
+jar_name = 'kensu-spark-collector-1.0.18-alpha230120105001_spark-3.3.0.jar'
 print(f'you can download the jar with: wget https://public.usnek.com/n/repository/public/releases/kensu-spark-collector/alpha/{jar_name}')
 
 kensu_jar_path = os.environ.get('KENSU_JAR', jar_name)
@@ -79,11 +79,29 @@ spark_lineage = get_inputs_lineage_fn(kensu_instance=KensuProvider().instance(),
 # see GenericDatasourceInfoSupport(ExtractorSupport) in kensu/utils/dsl/extractors/generic_datasource_info_support.py
 print(spark_lineage)
 
+# P.S. if create_lineage was called before markInMem, we could have one function instead of these following two
+spark_df_from_pandas = get_df_with_inmem_tag(
+    df=spark.createDataFrame(spark_df.toPandas()),  # originally this would lose lineage
+    df_tag='pandas_df')
+
+register_manual_lineage(
+    spark,
+    output_df_tag='pandas_df',
+    inputs=[
+        {
+            # FIXME: demonstrate how to use lineage extracted from .toPandas()
+            'path': 'manual input for createDataFrame',
+            'format': 'CSV',
+            'schema': {'field1': 'datatype1', 'field2': 'datatype2'}
+        }
+    ]
+   )
+
+spark_df_from_pandas.write.mode('overwrite').csv('spark_test_createDataFrame_output.csv')
+
 # option 2:  patched .toPandas() to extract/return lineage of Spark DataFrame, but without wrapping Pandas DataFrame
 # FIXME - TODO: maybe spark_df.kensuTagInMem('some-alias').toPandas()
 # FIXME - TODO: or maybe spark_df.tagInMemToPandas('some-alias')
-
-# df.write.mode('overwrite').csv('spark_test_someoutput.csv')
 
 
 spark.stop()

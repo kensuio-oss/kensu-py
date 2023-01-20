@@ -139,10 +139,15 @@ def patched_dataframe_toPandas(wrapped):
     return wrapper
 
 
-def get_jvm_from_df(dataframe, # type: DataFrame
+def get_spark_from_df(dataframe  # type: DataFrame
                     ):
-    sql_context = dataframe.sql_ctx # type: SQLContext
-    spark = sql_context.sparkSession
+    sql_context = dataframe.sql_ctx  # type: SQLContext
+    return sql_context.sparkSession
+
+
+def get_jvm_from_df(dataframe  # type: DataFrame
+                    ):
+    spark = get_spark_from_df(dataframe)
     return spark.sparkContext._jvm
 
 
@@ -405,6 +410,35 @@ def get_process_run_info(spark):
             }
     logging.info(f'Unable to get Process info from Kensu Spark Agent, maybe Spark Agent is not initialized yet?')
     return None
+
+
+def get_df_with_inmem_tag(df,  # type: DataFrame
+                          df_tag  # type: str
+                          ):
+    jvm = get_jvm_from_df(df)
+    cls = ref_scala_object(jvm, "io.kensu.sparkcollector.lineage.CreateDataFrameLineage")
+    # def dataframeWithLineageTag(df: DataFrame, inputsId: String): DataFrame
+    jdf = cls.dataframeWithLineageTag(df._jdf, df_tag)
+    # finally convert Java DataFrame back to python DataFrame
+    spark = get_spark_from_df(df)
+    from pyspark.sql.dataframe import DataFrame
+    return DataFrame(jdf, spark)
+
+
+def register_manual_lineage(spark,
+                            output_df_tag,  # type: str
+                            inputs          # type: list[dict[str, object]]
+                            ):
+    # def registerLineage(spark: SparkSession, inputsId: String, inputDatasources: java.util.List[SimpleInputDsSchema])
+    cls_reporter = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.lineage.CreateDataFrameLineage")
+    # build inputDatasources
+    # case class SimpleInputDsSchema(path: String, format: String, schema: java.util.Map[String, String])
+    cls_inputobj = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.lineage.SimpleInputDsSchema")
+    inputDatasources = list([
+        cls_inputobj.apply(i.get('path'), i.get('format'), i.get('schema'))
+        for i in inputs
+    ])
+    cls_reporter.registerLineage(spark._jsparkSession, output_df_tag, inputDatasources)
 
 """
 Assuming Datasource name is /a/b/c.ext
@@ -790,6 +824,7 @@ def init_kensu_spark(
                 try:
                     logging.info('KENSU: patching spark.createDataFrame to work with pandas dataframes')
                     from pyspark.sql import SparkSession
+                    # FIXME!!!
                     SparkSession.createDataFrame = patched_spark_createDataFrame_pandas(
                         SparkSession.createDataFrame,
                         pandas_to_spark_df_via_tmp_file=pandas_to_spark_df_via_tmp_file,
