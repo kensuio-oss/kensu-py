@@ -90,9 +90,15 @@ register_manual_lineage(
     inputs=[
         {
             # FIXME: demonstrate how to use lineage extracted from .toPandas()
-            'path': 'manual input for createDataFrame',
+            'path': '1st manual input for createDataFrame',
             'format': 'CSV',
-            'schema': {'field1': 'datatype1', 'field2': 'datatype2'}
+            'schema': {'field11': 'datatype1', 'field12': 'datatype2'}
+        },
+        {
+            # FIXME: demonstrate how to use lineage extracted from .toPandas()
+            'path': '2nd manual input for createDataFrame',
+            'format': 'CSV',
+            'schema': {'field21': 'string', 'field22': 'int'}
         }
     ]
    )
