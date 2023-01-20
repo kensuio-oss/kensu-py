@@ -103,7 +103,11 @@ register_manual_lineage(
     ]
    )
 
-spark_df_from_pandas.write.mode('overwrite').csv('spark_test_createDataFrame_output.csv')
+# manual lineage should work in addition to regular Spark lineage (i.e. regular spark inputs also tracked)
+regular_spark_df = spark_df  # i.e. here it would be a different DF than one in .toPandas(), using same for simplicity only
+spark_df_from_pandas\
+    .union(spark_df) \
+    .write.mode('overwrite').csv('spark_test_createDataFrame_output.csv')
 
 # option 2:  patched .toPandas() to extract/return lineage of Spark DataFrame, but without wrapping Pandas DataFrame
 # FIXME - TODO: maybe spark_df.kensuTagInMem('some-alias').toPandas()
