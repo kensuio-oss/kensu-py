@@ -62,7 +62,13 @@ def tagCreateDataFrame(self,name):
     ds_pk=DataSourcePK(location=location,physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
 
     k = KensuProvider().instance()
-    to_datasource(ds_pk, format, location, 'File', name)._report()
+    ds = to_datasource(ds_pk, format, location, 'File', name)._report()
+
+    #TODO Real schema
+
+    fields = [FieldDef('unknown', 'unknown', False)]
+    schema = Schema(name, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()), fields=fields))._report()
+    k.name_schema_lineage_dict[name] = schema.to_guid()
 
     return self
 
@@ -73,6 +79,7 @@ def tagCreateDataFrameWrapper():
         return tagCreateDataFrame(self, name)
     return tagInMemInner
 
+DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
 
 
 def create_publish_for_sklearn_model(model, location, name):
@@ -88,17 +95,26 @@ def create_publish_for_sklearn_model(model, location, name):
     k.name_schema_lineage_dict[name] = schema.to_guid()
 
 
-# def get_schema(o):
-#   # use the lookup table
-#
-# def create_lineage():
-#     none
-# def link(input_names, output_names):
-#   # retrieve schemas for inputs
-#   input_scs = [get_schema(i) for i in input_names]
-#   # retrieve schemas for outputs
-#   output_scs = [get_schema(o) for o in output_names]
-#   # create lineage
-#   lineage = create_lineage(inputs = input_scs, outputs = output_scs)._report()
-#   # create lineage run
-#   lineage_run = LineageRun(..., lineage)._report()
+def get_schema(name):
+   # use the lookup table
+   k = KensuProvider().instance()
+   return k.name_schema_lineage_dict[name]
+
+
+def create_lineage(inputs,output):
+    data_flow = [SchemaLineageDependencyDef(SchemaRef(by_guid=i),SchemaRef(by_guid=output),{'unknown':['unknown']}) for i in inputs ]
+    lineage = ProcessLineage(name=f'Lineage to {str(output)}',operation_logic='APPEND',pk=ProcessLineagePK(process_ref=ProcessRef(by_guid=get_process_run_info(get_spark_session())['process_guid']),
+                                                                                                           data_flow=data_flow))._report()
+    return lineage
+
+def link(input_names, output_name):
+    # retrieve schemas for inputs
+    input_scs = [get_schema(i) for i in input_names]
+    # retrieve schemas for outputs
+    output_sc = get_schema(output_name)
+    # create lineage
+    lineage = create_lineage(input_scs,output_sc)._report()
+    # create lineage run
+    spark_run = get_process_run_info(get_spark_session())['process_run_guid']
+    k = KensuProvider().instance()
+    lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=spark_run),lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),timestamp=1000*k.timestamp))._report()
