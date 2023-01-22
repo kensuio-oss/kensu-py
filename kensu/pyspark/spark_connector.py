@@ -523,8 +523,7 @@ def init_kensu_spark(
         project_name=None,
         h2o_support=None,
         h2o_create_virtual_training_datasource=None,
-        patch_pandas_conversions=None,
-        spark_patch_createDataFrame_with_pandas_wrapper=False,
+        patch_pandas_conversions=False,
         pandas_to_spark_df_via_tmp_file=None,
         pandas_to_spark_tmp_dir=None,
         use_api_client=None,
@@ -825,20 +824,18 @@ def init_kensu_spark(
                 except:
                     import traceback
                     logging.warning("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
-                if spark_patch_createDataFrame_with_pandas_wrapper:
-                    try:
-                        logging.info('KENSU: patching spark.createDataFrame to work with pandas dataframes')
-                        from pyspark.sql import SparkSession
-                        # FIXME!!!
-                        SparkSession.createDataFrame = patched_spark_createDataFrame_pandas(
-                            SparkSession.createDataFrame,
-                            pandas_to_spark_df_via_tmp_file=pandas_to_spark_df_via_tmp_file,
-                            tmp_dir=pandas_to_spark_tmp_dir
-                        )
-                        logging.info('KENSU: patching  spark.createDataFrame done')
-                    except:
-                        import traceback
-                        logging.warning("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                try:
+                    logging.info('KENSU: patching spark.createDataFrame to work with pandas dataframes')
+                    from pyspark.sql import SparkSession
+                    SparkSession.createDataFrame = patched_spark_createDataFrame_pandas(
+                        SparkSession.createDataFrame,
+                        pandas_to_spark_df_via_tmp_file=pandas_to_spark_df_via_tmp_file,
+                        tmp_dir=pandas_to_spark_tmp_dir
+                    )
+                    logging.info('KENSU: patching  spark.createDataFrame done')
+                except:
+                    import traceback
+                    logging.warning("KENSU: unexpected issue when patching DataFrame.createDataFrame: {}".format(traceback.format_exc()))
                 try:
                     logging.info('KENSU: adding spark env var KSU_DISABLE_PY_COLLECTOR=true to disable kensu-py collector on executor nodes')
                     spark_session.conf.set("KSU_DISABLE_PY_COLLECTOR", 'true')
