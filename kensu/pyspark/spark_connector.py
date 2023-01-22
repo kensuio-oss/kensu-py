@@ -350,7 +350,7 @@ def j2py_dict_of_lists(jdict):
     return r
 
 
-def get_inputs_lineage_fn(kensu_instance, df):
+def get_inputs_lineage_fn(kensu_instance, df, virtual_ds_name=None, virtual_ds_logical_name=None):
     jvm = get_jvm_from_df(df)
     # call def fetchToPandasReport(
     #     df: DataFrame,
@@ -363,7 +363,10 @@ def get_inputs_lineage_fn(kensu_instance, df):
     duration_300s =  ref_scala_object(jvm, "scala.concurrent.duration.Duration").apply(300, "second")
     # FIXME: it should NOT wait for datasts -> check
     import uuid
-    virtual_ds_name = str(uuid.uuid1())
+    if not virtual_ds_name:
+        virtual_ds_name = str(uuid.uuid1())
+    # FIXME: virtual_ds_logical_name
+    # FIXME: add format
     no_logical_name = jvm.scala.Option.apply(None)
     lineage_from_scala = client_class.fetchToPandasReport(
         df._jdf,

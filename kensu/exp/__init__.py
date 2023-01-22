@@ -69,6 +69,9 @@ def tagInMem(self,  # type: DataFrame
     # Creation of an in-mem data source
     location = f'in-mem://{process}/{name}'
     format = 'in-mem'
+    # FIXME: revert to standard format for the LOCATION
+    spark_ds_name=f'{process}/{name}'
+    location = f'in-memory-data://spark-to-pandas-conversion:{spark_ds_name}'
     ds_pk=DataSourcePK(location=location,
                        physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
 
@@ -84,14 +87,18 @@ def tagInMem(self,  # type: DataFrame
     # report Spark lineage to Kensu
     # FIXME: check if self is Spark DataFrame
     # report lineage to Kensu
-    spark_lineage = get_inputs_lineage_fn(kensu_instance=k, df=spark_df)
+    spark_lineage = get_inputs_lineage_fn(kensu_instance=k, df=spark_df, virtual_ds_name=spark_ds_name)
+    print('got lineage from spark, just before calling .toPandas()')
+    print(spark_lineage)
+    # FIXME: we could use this and also report spark datastats
     spark_lineage.report(
         ksu=k,
         df_result=spark_df_schema,  # we don't handle Spark DataFrame directly in extractors yet, so pass a schema
         operation_type='Spark to Python',
-        report_output=False,
+        report_output=True,
         register_output_orig_data=False
     )
+    k.report_with_mapping()
 
     return self
 
