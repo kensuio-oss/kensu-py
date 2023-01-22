@@ -225,10 +225,24 @@ def create_publish_for_postgres_table(table, name, cur=None):
         if cur:
             SchemaFields = get_table_schema(cur=cur,table_name=table)
             from kensu.client.models import FieldDef
-            schema = [FieldDef(f['field_name'],f['field_type'],True) for f in SchemaFields]
+            schema_ = [FieldDef(f['field_name'],f['field_type'],True) for f in SchemaFields]
+        else:
+            schema_ = None
     except:
-        schema=None
-    create_publish_for_data_source(ds=table, name=name, location=location, format=format, schema=schema)
+        schema_=None
+    create_publish_for_data_source(ds=table, name=name, location=location, format=format, schema=schema_)
+
+def create_publish_for_csv(location, name):
+    format='csv'
+    import pandas as pd
+    from kensu.pandas.extractor import KensuPandasSupport
+
+    try:
+        df = pd.read_csv(location)
+        schema_ = KensuPandasSupport().extract_schema_fields(df)
+    except:
+        schema_=None
+    create_publish_for_data_source(ds=name, name=name, location=location, format=format, schema=schema_)
 
 def create_publish_for_sklearn_model(model, location, name):
     format = 'SKLearn'
@@ -278,7 +292,7 @@ def link(input_names, output_name):
     lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=spark_run),
                                           lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                           # Should be int/long
-                                          timestamp=int(1000*k.timestamp)))
+                                          timestamp=(1000*k.timestamp)))
     print(f'reporting lineage_run for {input_names} -> {output_name}. payload={lineage_run}...')
     lineage_run._report()
     return lineage_run
