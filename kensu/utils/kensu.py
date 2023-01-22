@@ -17,6 +17,9 @@ from kensu import sdk
 
 
 class Kensu(object):
+    #This is added for lean mode
+    name_schema_lineage_dict = {}
+
     UNKNOWN_PHYSICAL_LOCATION = PhysicalLocation(name="Unknown", lat=0.12341234, lon=0.12341234,
                                                  pk=PhysicalLocationPK(city="Unknown", country="Unknown"))
 

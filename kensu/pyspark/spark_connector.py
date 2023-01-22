@@ -350,7 +350,7 @@ def j2py_dict_of_lists(jdict):
     return r
 
 
-def get_inputs_lineage_fn(kensu_instance, df):
+def get_inputs_lineage_fn(kensu_instance, df, virtual_ds_name=None, virtual_ds_logical_name=None):
     jvm = get_jvm_from_df(df)
     # call def fetchToPandasReport(
     #     df: DataFrame,
@@ -363,7 +363,10 @@ def get_inputs_lineage_fn(kensu_instance, df):
     duration_300s =  ref_scala_object(jvm, "scala.concurrent.duration.Duration").apply(300, "second")
     # FIXME: it should NOT wait for datasts -> check
     import uuid
-    virtual_ds_name = str(uuid.uuid1())
+    if not virtual_ds_name:
+        virtual_ds_name = str(uuid.uuid1())
+    # FIXME: virtual_ds_logical_name
+    # FIXME: add format
     no_logical_name = jvm.scala.Option.apply(None)
     lineage_from_scala = client_class.fetchToPandasReport(
         df._jdf,
@@ -520,7 +523,7 @@ def init_kensu_spark(
         project_name=None,
         h2o_support=None,
         h2o_create_virtual_training_datasource=None,
-        patch_pandas_conversions=None,
+        patch_pandas_conversions=False,
         pandas_to_spark_df_via_tmp_file=None,
         pandas_to_spark_tmp_dir=None,
         use_api_client=None,
@@ -824,7 +827,6 @@ def init_kensu_spark(
                 try:
                     logging.info('KENSU: patching spark.createDataFrame to work with pandas dataframes')
                     from pyspark.sql import SparkSession
-                    # FIXME!!!
                     SparkSession.createDataFrame = patched_spark_createDataFrame_pandas(
                         SparkSession.createDataFrame,
                         pandas_to_spark_df_via_tmp_file=pandas_to_spark_df_via_tmp_file,
@@ -833,7 +835,7 @@ def init_kensu_spark(
                     logging.info('KENSU: patching  spark.createDataFrame done')
                 except:
                     import traceback
-                    logging.warning("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when patching DataFrame.createDataFrame: {}".format(traceback.format_exc()))
                 try:
                     logging.info('KENSU: adding spark env var KSU_DISABLE_PY_COLLECTOR=true to disable kensu-py collector on executor nodes')
                     spark_session.conf.set("KSU_DISABLE_PY_COLLECTOR", 'true')
