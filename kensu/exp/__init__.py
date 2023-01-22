@@ -1,3 +1,5 @@
+import logging
+
 import urllib3
 urllib3.disable_warnings()
 from kensu.utils.kensu import Kensu
@@ -6,7 +8,8 @@ from kensu.utils.helpers import to_datasource
 
 from pyspark.sql import DataFrame
 from pyspark.sql import SparkSession
-from kensu.pyspark import get_process_run_info, get_inputs_lineage_fn
+from kensu.pyspark import get_process_run_info, get_inputs_lineage_fn, register_manual_lineage, get_spark_from_df, \
+    get_df_with_inmem_tag
 from kensu.utils.kensu_provider import KensuProvider
 
 
@@ -19,23 +22,76 @@ def get_spark_session():
 
 import types
 
-def tagInMem(self,name):
 
-    #Get spark session info
-    spark = get_spark_session()
-    spark_info=get_process_run_info(spark)
+def get_schema_fields_from_spark_df(
+        spark_df,  # type: DataFrame
+):
+    return list([
+        FieldDef(name=f.name, field_type=f.dataType.simpleString(), nullable=False)
+        for f in spark_df.schema.fields
+    ])
+
+
+def register_in_mem_schema(
+        ds,  # type: DataSource
+        schem_fields,  # type: list[FieldDef]
+        in_mem_location,  # type: str
+        in_mem_name  # type: str
+):
+    schema = Schema(in_mem_location, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()),
+                                                 fields=schem_fields))._report()
+    k = KensuProvider().instance()
+    k.name_schema_lineage_dict[in_mem_name] = schema.to_guid()
+    return schema
+
+"""
+Tag a Spark DataFrame as in-mem datasource, assuming that it will be transformed into python by using say .toPandas().
+The result in Kensu will be: [spark input{1,2,..}] --lineage--> [in-mem: name]
+
+Currently only a single .tagInMem() call is allowed on same Spark DataFrame. 
+The subsequent calls would be interpreted as individual in-mem data-sources not dependent on the earlier one (due to
+how spark works - DataFrame is never materialized before "write"), i.e.:
+    `spark_df.tagInMem('name1').filter('col1 = 1').tagInMem('name2')`
+would create two UNRELATED in-mem data-sources.
+"""
+def tagInMem(self,  # type: DataFrame
+             name):
+    # Get spark session info
+    # FIXME: we can get Spark session more reliably/efficiently from `self: DataFrame`,
+    #  while databricks have multiple sessions (and not sure about isolation there)!
+    # spark = get_spark_session()
+    # FIXME: check if self is Spark DataFrame?
+    spark_df = self
+    spark = get_spark_from_df(spark_df)
+    spark_info = get_process_run_info(spark)
     process = spark_info['process_guid']
 
     # Creation of an in-mem data source
     location = f'in-mem://{process}/{name}'
-    format='in-mem'
-    ds_pk=DataSourcePK(location=location,physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
+    format = 'in-mem'
+    ds_pk=DataSourcePK(location=location,
+                       physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
 
     k = KensuProvider().instance()
-    to_datasource(ds_pk, format, location, 'File', name)._report()
+    df_ds = to_datasource(ds_pk, format, location, 'File', name)._report()
+    spark_df_schema = register_in_mem_schema(
+        ds=df_ds,
+        schem_fields=get_schema_fields_from_spark_df(spark_df),
+        in_mem_location=location,
+        in_mem_name=name
+    )
 
-    get_inputs_lineage_fn(kensu_instance=KensuProvider().instance(),
-                          df=self)
+    # report Spark lineage to Kensu
+    # FIXME: check if self is Spark DataFrame
+    # report lineage to Kensu
+    spark_lineage = get_inputs_lineage_fn(kensu_instance=k, df=spark_df)
+    spark_lineage.report(
+        ksu=k,
+        df_result=spark_df_schema,  # we don't handle Spark DataFrame directly in extractors yet, so pass a schema
+        operation_type='Spark to Python',
+        report_output=False,
+        register_output_orig_data=False
+    )
 
     return self
 
@@ -49,34 +105,66 @@ def tagInMemWrapper():
 
 DataFrame.tagInMem = tagInMemWrapper()
 
-def tagCreateDataFrame(self,name):
 
+def tagCreateSparkDataFrameFromPy(
+        self,  # type: DataFrame
+        name,  # type: str
+        input_names=None  # type: list[str]
+       ):
     #Get spark session info
-    spark = get_spark_session()
-    spark_info=get_process_run_info(spark)
+    spark = get_spark_from_df(self)
+    spark_info = get_process_run_info(spark)
     process = spark_info['process_guid']
 
     # Creation of an in-mem data source
     location = f'in-mem://{process}/{name}'
-    format='in-mem'
-    ds_pk=DataSourcePK(location=location,physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
+    in_mem_format = 'in-mem'
+    ds_pk = DataSourcePK(location=location,
+                         physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
 
     k = KensuProvider().instance()
-    ds = to_datasource(ds_pk, format, location, 'File', name)._report()
+    ds = to_datasource(ds_pk, in_mem_format, location, 'File', name)._report()
 
-    #TODO Real schema
-
-    fields = [FieldDef('unknown', 'unknown', False)]
-    schema = Schema(name, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()), fields=fields))._report()
+    # FIXME: only spark dataframe supported now, i.e. this function must be after spark.createDataFrame()
+    fields = get_schema_fields_from_spark_df(spark_df=self)
+    schema = Schema(location, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()), fields=fields))._report()
     k.name_schema_lineage_dict[name] = schema.to_guid()
 
-    return self
+    # report lineage to Kensu between Python inputs and spark.createDataFrame which is not seen by Spark directly
+    if input_names:
+        link(input_names=input_names, output_name=name)
+    else:
+        # p.s. if we need mode where in-mem is not reported, would need to get earlier reported lineage
+        pass
+
+    # also need to report lineage to Spark JVM,
+    # which for now will be simply `name` of this .createDataFrame() in-mem operation
+    output_df_tag = f'spark_df_{name}'
+    register_manual_lineage(
+        spark,
+        output_df_tag=output_df_tag,  # p.s. output_df_tag is only used as an ID in Spark agent side, nothing else
+        # P.S. or alternatively we could pass over the input_names to Spark,
+        #  and then not report any lineage between inputs_name(python) and {spark_dataframe} from within Python
+        #  but then the `name` (of this in-memory spark dataframe)  would be not reported to Kensu, so
+        #  current solution seems better/more consistent with the rest of this file
+        inputs=[
+            {
+                'path': location,  # FIXME: will DS name be consistently reported between python and Spark/scala?
+                'format': in_mem_format,
+                'schema': dict([(f.name, f.field_type) for f in fields])
+            },
+        ]
+    )
+    output_df = get_df_with_inmem_tag(df=self, df_tag=output_df_tag)
+    return output_df
+
 
 def tagCreateDataFrameWrapper():
     def tagInMemInner(self,  # type: DataFrame
-                      name   # type: str
+                      name,   # type: str
+                      input_names=None
                       ):
-        return tagCreateDataFrame(self, name)
+        return tagCreateSparkDataFrameFromPy(self, name=name, input_names=input_names)
     return tagInMemInner
 
 DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
@@ -88,10 +176,10 @@ def create_publish_for_sklearn_model(model, location, name):
                          physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
 
     k = KensuProvider().instance()
-    ds = DataSource(name=name,format=format,categories=[f'logical::{name}'],pk=ds_pk)._report()
+    ds = DataSource(name=name,format=format, categories=[f'logical::{name}'],pk=ds_pk)._report()
 
     fields = [FieldDef('intercept','Numeric',False),FieldDef('coeff','Numeric',False)]
-    schema = Schema(name,pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()),fields=fields))._report()
+    schema = Schema(name, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()),fields=fields))._report()
     k.name_schema_lineage_dict[name] = schema.to_guid()
 
 
@@ -101,10 +189,15 @@ def get_schema(name):
    return k.name_schema_lineage_dict[name]
 
 
-def create_lineage(inputs,output):
-    data_flow = [SchemaLineageDependencyDef(SchemaRef(by_guid=i),SchemaRef(by_guid=output),{'unknown':['unknown']}) for i in inputs ]
-    lineage = ProcessLineage(name=f'Lineage to {str(output)}',operation_logic='APPEND',pk=ProcessLineagePK(process_ref=ProcessRef(by_guid=get_process_run_info(get_spark_session())['process_guid']),
-                                                                                                           data_flow=data_flow))._report()
+def create_lineage(inputs, output):
+    data_flow = [SchemaLineageDependencyDef(from_schema_ref=SchemaRef(by_guid=i),
+                                            to_schema_ref=SchemaRef(by_guid=output),
+                                            # FIXME: or should we report column_data_dependencies=None ?
+                                            column_data_dependencies={'unknown': ['unknown']}) for i in inputs ]
+    lineage = ProcessLineage(name=f'Lineage to {str(output)}',  # FIXME: List inputs too?
+                             operation_logic='APPEND',
+                             pk=ProcessLineagePK(process_ref=ProcessRef(by_guid=get_process_run_info(get_spark_session())['process_guid']),
+                                                 data_flow=data_flow))._report()
     return lineage
 
 def link(input_names, output_name):
@@ -117,4 +210,9 @@ def link(input_names, output_name):
     # create lineage run
     spark_run = get_process_run_info(get_spark_session())['process_run_guid']
     k = KensuProvider().instance()
-    lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=spark_run),lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),timestamp=1000*k.timestamp))._report()
+    lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=spark_run),
+                                          lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
+                                          # Should be int/long
+                                          timestamp=int(1000*k.timestamp)))
+    print(f'reporting lineage_run for {input_names} -> {output_name}. payload={lineage_run}...')
+    lineage_run._report()
