@@ -67,7 +67,7 @@ def tagInMem(self,  # type: DataFrame
     process = spark_info['process_guid']
 
     # Creation of an in-mem data source
-    location = f'in-mem://{process}/{name}'
+    location = f'in-memory-data://{process}/{name}'
     format = 'in-mem'
     # FIXME: revert to standard format for the LOCATION
     spark_ds_name=f'{process}/{name}'
@@ -124,7 +124,7 @@ def tagCreateSparkDataFrameFromPy(
     process = spark_info['process_guid']
 
     # Creation of an in-mem data source
-    location = f'in-mem://{process}/{name}'
+    location = f'in-memory-data://{process}/{name}'
     in_mem_format = 'in-mem'
     ds_pk = DataSourcePK(location=location,
                          physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
