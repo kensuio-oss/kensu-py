@@ -177,7 +177,7 @@ def tagCreateDataFrameWrapper():
 DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
 
 
-def create_publish_for_data_source(ds, name, format, location, schema):
+def create_publish_for_data_source(ds, name, format, location, schema=None):
     ds_pk = DataSourcePK(location=location,
                          physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
 
@@ -191,11 +191,18 @@ def create_publish_for_data_source(ds, name, format, location, schema):
     schema = Schema(name, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()),fields=fields))._report()
     k.name_schema_lineage_dict[name] = schema.to_guid()
 
-def create_publish_for_postgres_table(table, name, con):
+def create_publish_for_postgres_table(table, name, cur=None):
     location = name
     format='Postgres Table'
-    #Todo add schema with cursor/con
-    create_publish_for_data_source(table, name, format)
+    from kensu.psycopg2.pghelpers import get_table_schema
+    try:
+        if cur:
+            SchemaFields = get_table_schema(cur=cur,table_name=table)
+            from kensu.client.models import FieldDef
+            schema = [FieldDef(f['field_name'],f['field_type'],True) for f in SchemaFields]
+    except:
+        schema=None
+    create_publish_for_data_source(ds=table, name=name, location=location, format=format, schema=schema)
 
 def create_publish_for_sklearn_model(model, location, name):
     format = 'SKLearn'
@@ -212,8 +219,13 @@ def create_publish_for_sklearn_model(model, location, name):
 
 def get_schema(name):
    # use the lookup table
+
    k = KensuProvider().instance()
-   return k.name_schema_lineage_dict[name]
+   if name in k.name_schema_lineage_dict:
+       return k.name_schema_lineage_dict[name]
+   else:
+       logging.info(f'Unable to retrieve Kensu GUID for schema {name}')
+       return None
 
 
 def create_lineage(inputs, output):
