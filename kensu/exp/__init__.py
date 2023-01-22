@@ -91,16 +91,42 @@ def tagInMem(self,  # type: DataFrame
     print('got lineage from spark, just before calling .toPandas()')
     print(spark_lineage)
     # FIXME: we could use this and also report spark datastats
-    spark_lineage.report(
-        ksu=k,
-        df_result=spark_df_schema,  # we don't handle Spark DataFrame directly in extractors yet, so pass a schema
-        operation_type='Spark to Python',
-        report_output=True,
-        register_output_orig_data=False
-    )
-    k.report_with_mapping()
+    # FIXME: or should we report using low level apis instead, so we'd easily keep the process info extracted from spark
+    # spark_lineage.report(
+    #     ksu=k,
+    #     df_result=spark_df_schema,  # we don't handle Spark DataFrame directly in extractors yet, so pass a schema
+    #     operation_type='Spark to Python',
+    #     report_output=True,
+    #     register_output_orig_data=False
+    # )
+    # k.report_with_mapping()
+    report_spark_lineage(spark_lineage, k=k, result_schema=spark_df_schema, output_name=name)
 
     return self
+
+
+def report_spark_lineage(spark_lineage,
+                         k,  # type: Kensu
+                         result_schema,
+                         output_name):
+        # similar like GenericComputedInMemDs.report, but using processRun from spark and no Kensu-Py magic
+        from kensu.utils.helpers import extract_ksu_ds_schema
+        spark_input_names = []
+        for input_ds in spark_lineage.inputs:
+            ds, schema = extract_ksu_ds_schema(k, input_ds, report=True, register_orig_data=False)
+            input_name = ds.pk.location
+            spark_input_names.append(input_name)
+            k.name_schema_lineage_dict[input_name] = schema.to_guid()
+
+        # report output (if needed)
+        result_schema._report()
+        lineage_run = link(input_names=spark_input_names, output_name=output_name)
+        lineage_run_id = lineage_run.to_guid()
+        # ask spark to publish stats given a lineage-run
+        # FIXME: do we need to activate/deactivate it depending on config? but kensupy conf or pyspark conf?
+        for input_ds in spark_lineage.inputs:
+            input_ds.f_publish_stats(lineage_run_id)
+
 
 def tagInMemWrapper():
     def tagInMemInner(self,  # type: DataFrame
@@ -255,3 +281,4 @@ def link(input_names, output_name):
                                           timestamp=int(1000*k.timestamp)))
     print(f'reporting lineage_run for {input_names} -> {output_name}. payload={lineage_run}...')
     lineage_run._report()
+    return lineage_run
