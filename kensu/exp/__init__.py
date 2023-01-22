@@ -170,6 +170,26 @@ def tagCreateDataFrameWrapper():
 DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
 
 
+def create_publish_for_data_source(ds, name, format, location, schema):
+    ds_pk = DataSourcePK(location=location,
+                         physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
+
+    k = KensuProvider().instance()
+    ds = DataSource(name=name,format=format, categories=[f'logical::{name}'],pk=ds_pk)._report()
+
+    if schema is not None:
+        fields = schema
+    else:
+        fields = [FieldDef('unknown','unknown',True)]
+    schema = Schema(name, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()),fields=fields))._report()
+    k.name_schema_lineage_dict[name] = schema.to_guid()
+
+def create_publish_for_postgres_table(table, name, con):
+    location = name
+    format='Postgres Table'
+    #Todo add schema with cursor/con
+    create_publish_for_data_source(table, name, format)
+
 def create_publish_for_sklearn_model(model, location, name):
     format = 'SKLearn'
     ds_pk = DataSourcePK(location=location,
