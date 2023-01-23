@@ -18,7 +18,7 @@ class KensuProvider(object):
     @staticmethod
     def initKensu(kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None, user_name=None, code_location=None,
                   get_code_version_fn=None, get_explicit_code_version_fn=None, do_report=None,
-                  report_to_file=None, offline_file_name=None, reporter=None, **kwargs):
+                  report_to_file=None, offline_file_name=None, reporter=None, report_process_info=True, **kwargs):
         allow_reinit = kwargs["allow_reinit"] if "allow_reinit" in kwargs else False
         ksu_provided_inst = KensuProvider().instance()
         if ksu_provided_inst is not None and allow_reinit:
@@ -55,7 +55,8 @@ class KensuProvider(object):
                            report_to_file=report_to_file, offline_file_name=offline_file_name, reporter=reporter,
                            get_code_version=get_explicit_code_version_fn or get_code_version or get_code_version_fn,
                            compute_stats=stats, compute_input_stats=input_stats, bigquery_headers=bigquery_headers,
-                           kensu_sql_parser_url=kensu_sql_parser_url, compute_delta_stats=compute_delta)
+                           kensu_sql_parser_url=kensu_sql_parser_url, compute_delta_stats=compute_delta,
+                           report_process_info=report_process_info)
 
             KensuProvider().setKensu(_kensu)
             return _kensu
