@@ -17,6 +17,9 @@ from kensu import sdk
 
 
 class Kensu(object):
+    #This is added for lean mode
+    name_schema_lineage_dict = {}
+
     UNKNOWN_PHYSICAL_LOCATION = PhysicalLocation(name="Unknown", lat=0.12341234, lon=0.12341234,
                                                  pk=PhysicalLocationPK(city="Unknown", country="Unknown"))
 
@@ -76,7 +79,7 @@ class Kensu(object):
 
     def __init__(self, kensu_ingestion_url=None, kensu_ingestion_token=None, process_name=None,
                  user_name=None, code_location=None, do_report=None, report_to_file=None, offline_file_name=None,
-                 compute_stats=True, config=None, **kwargs):
+                 compute_stats=True, config=None, report_process_info=True, **kwargs):
         """
         config: : configparser.ConfigParser if None `build_conf` will be tried
         """
@@ -190,7 +193,7 @@ class Kensu(object):
         # can be updated using set_default_physical_location
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
                           get_code_version=get_code_version, project_name=project_name, environment=environment,
-                          timestamp=execution_timestamp)
+                          timestamp=execution_timestamp, report_process_info=report_process_info)
 
     def register_schema_name(self, ds, schema):
         name = ds.name
@@ -209,7 +212,8 @@ class Kensu(object):
     def to_schema_names(self, s_guids):
         return list(set([self.to_schema_name(s_guid) for s_guid in s_guids]))
 
-    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_name=None, environment=None, timestamp=None):
+    def init_context(self, process_name=None, user_name=None, code_location=None, get_code_version=None, project_name=None, environment=None, timestamp=None,
+                     report_process_info=True):
         # list of triples i, o, mapping strategy
         # i and o are either one or a list of triples (object, DS, SC)
         self.dependencies = []
@@ -240,8 +244,8 @@ class Kensu(object):
             user_name = Kensu.discover_user_name()
         if code_location is None:
             code_location = Kensu.discover_code_location()
-        self.user = User(pk=UserPK(user_name))._report()
-        self.code_base = CodeBase(pk=CodeBasePK(code_location))._report()
+        self.user = User(pk=UserPK(user_name))
+        self.code_base = CodeBase(pk=CodeBasePK(code_location))
         if get_code_version is None:
             if timestamp is not None: # this is weird though...
                 version = datetime.datetime.fromtimestamp(timestamp/1000).isoformat()
@@ -251,17 +255,22 @@ class Kensu(object):
             version = get_code_version()
         self.code_version = CodeVersion(maintainers_refs=[self.user.to_ref()],
                                         pk=CodeVersionPK(version=version,
-                                                         codebase_ref=self.code_base.to_ref()))._report()
+                                                         codebase_ref=self.code_base.to_ref()))
         if process_name is None:
             if "__file__" in globals():
                 process_name = os.path.basename(os.path.realpath(__file__))
             else:
                 raise Exception("Can't determine `process_name`, maybe is this running from a Notebook?")
-        self.process = Process(pk=ProcessPK(qualified_name=process_name))._report()
+        self.process = Process(pk=ProcessPK(qualified_name=process_name))
+
+        self.projects = []
         if project_name is None:
             self.project_refs = []
         else:
-            self.project_refs = [Project(pk=ProjectPK(name=project_name))._report().to_ref()]
+            project = Project(pk=ProjectPK(name=project_name))
+            self.projects.append(project)
+            self.project_refs = [project.to_ref()]
+
         process_run_name = process_name + "@" + datetime.datetime.now().isoformat()
         self.process_run = ProcessRun(
             pk=ProcessRunPK(process_ref=self.process.to_ref(), qualified_name=process_run_name)
@@ -269,7 +278,13 @@ class Kensu(object):
             , executed_code_version_ref=self.code_version.to_ref()
             , projects_refs=self.project_refs
             , environment = environment
-        )._report()
+        )
+        if report_process_info:
+            self.report_process_info()
+
+    def report_process_info(self):
+        for e in [self.user, self.code_base, self.code_version, self.process] + self.projects + [self.process_run]:
+            e._report()
 
     def set_reinit(self, bool = True):
         self.write_reinit = bool
