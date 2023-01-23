@@ -4,7 +4,7 @@ from kensu.utils.kensu_provider import KensuProvider
 import os
 
 kensu_output_dir = os.path.abspath(os.environ.get('KENSU_OUTPUT_DIR', '/tmp/kensu_trash'))
-jar_name = 'kensu-spark-collector-1.0.18-alpha230120105001_spark-3.3.0.jar'
+jar_name = 'kensu-spark-collector-1.0.18-alpha230123072049_spark-3.3.0.jar'
 print(f'you can download the jar with: wget https://public.usnek.com/n/repository/public/releases/kensu-spark-collector/alpha/{jar_name}')
 
 kensu_jar_path = os.environ.get('KENSU_JAR', jar_name)
