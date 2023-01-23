@@ -283,7 +283,7 @@ class Kensu(object):
             self.report_process_info()
 
     def report_process_info(self):
-        for e in [self.user, self.code_base, self.code_version, self.process] + projects + [self.process_run]:
+        for e in [self.user, self.code_base, self.code_version, self.process] + self.projects + [self.process_run]:
             e._report()
 
     def set_reinit(self, bool = True):
