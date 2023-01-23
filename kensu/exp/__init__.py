@@ -69,10 +69,9 @@ def tagInMem(self,  # type: DataFrame
     # Creation of an in-mem data source
     location = f'in-memory-data://{process}/{name}'
     format = 'in-mem'
-    ds_pk=DataSourcePK(location=location,
-                       physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
-
     k = KensuProvider().instance()
+    ds_pk = DataSourcePK(location=location,
+                         physical_location_ref=PhysicalLocationRef(by_pk=k.UNKNOWN_PHYSICAL_LOCATION.pk))
     df_ds = to_datasource(ds_pk, format, location, 'File', name)._report()
     spark_df_schema = register_in_mem_schema(
         ds=df_ds,
@@ -149,10 +148,9 @@ def tagCreateSparkDataFrameFromPy(
     # Creation of an in-mem data source
     location = f'in-memory-data://{process}/{name}'
     in_mem_format = 'in-mem'
-    ds_pk = DataSourcePK(location=location,
-                         physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
-
     k = KensuProvider().instance()
+    ds_pk = DataSourcePK(location=location,
+                         physical_location_ref=PhysicalLocationRef(by_pk=k.UNKNOWN_PHYSICAL_LOCATION.pk))
     ds = to_datasource(ds_pk, in_mem_format, location, 'File', name)._report()
 
     # FIXME: only spark dataframe supported now, i.e. this function must be after spark.createDataFrame()
@@ -201,10 +199,10 @@ DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
 
 
 def create_publish_for_data_source(ds, name, format, location, schema=None):
-    ds_pk = DataSourcePK(location=location,
-                         physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
-
     k = KensuProvider().instance()
+    ds_pk = DataSourcePK(location=location,
+                         physical_location_ref=PhysicalLocationRef(by_pk=k.UNKNOWN_PHYSICAL_LOCATION.pk))
+
     ds = DataSource(name=name,format=format, categories=[f'logical::{name}'],pk=ds_pk)._report()
 
     if schema is not None:
@@ -243,10 +241,9 @@ def create_publish_for_csv(location, name):
 
 def create_publish_for_sklearn_model(model, location, name):
     format = 'SKLearn'
-    ds_pk = DataSourcePK(location=location,
-                         physical_location_ref=PhysicalLocationRef(by_pk=Kensu().UNKNOWN_PHYSICAL_LOCATION.pk))
-
     k = KensuProvider().instance()
+    ds_pk = DataSourcePK(location=location,
+                         physical_location_ref=PhysicalLocationRef(by_pk=k.UNKNOWN_PHYSICAL_LOCATION.pk))
     ds = DataSource(name=name,format=format, categories=[f'logical::{name}'],pk=ds_pk)._report()
 
     fields = [FieldDef('intercept','Numeric',False),FieldDef('coeff','Numeric',False)]
