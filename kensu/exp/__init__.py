@@ -67,7 +67,9 @@ def tagInMem(self,  # type: DataFrame
     process = spark_info['process_guid']
 
     # Creation of an in-mem data source
-    location = f'in-memory-data://{process}/{name}'
+    spark_ds_name=f'{process}/{name}'
+    # location = f'in-memory-data://{process}/{name}'
+    location = f'in-memory-data://{spark_ds_name}'
     format = 'in-mem'
     k = KensuProvider().instance()
     ds_pk = DataSourcePK(location=location,
@@ -83,7 +85,7 @@ def tagInMem(self,  # type: DataFrame
     # report Spark lineage to Kensu
     # FIXME: check if self is Spark DataFrame
     # report lineage to Kensu
-    spark_lineage = get_inputs_lineage_fn(kensu_instance=k, df=spark_df, virtual_ds_name=location)
+    spark_lineage = get_inputs_lineage_fn(kensu_instance=k, df=spark_df, virtual_ds_name=spark_ds_name)
     print('got lineage from spark, just before calling .toPandas()')
     print(spark_lineage)
     # FIXME: we could use this and also report spark datastats
