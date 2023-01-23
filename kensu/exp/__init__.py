@@ -292,7 +292,7 @@ def link(input_names, output_name):
     lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=spark_run),
                                           lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                           # Should be int/long
-                                          timestamp=(1000*k.timestamp)))
+                                          timestamp=int(k.timestamp)))
     print(f'reporting lineage_run for {input_names} -> {output_name}. payload={lineage_run}...')
     lineage_run._report()
     return lineage_run
