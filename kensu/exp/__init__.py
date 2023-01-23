@@ -200,7 +200,7 @@ def tagCreateDataFrameWrapper():
 DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
 
 
-def create_publish_for_data_source(ds, name, format, location, schema=None):
+def create_publish_for_data_source(name, format, location, schema=None, **kwargs):
     k = KensuProvider().instance()
     ds_pk = DataSourcePK(location=location,
                          physical_location_ref=PhysicalLocationRef(by_pk=k.UNKNOWN_PHYSICAL_LOCATION.pk))
@@ -214,8 +214,7 @@ def create_publish_for_data_source(ds, name, format, location, schema=None):
     schema = Schema(name, pk=SchemaPK(data_source_ref=DataSourceRef(by_guid=ds.to_guid()),fields=fields))._report()
     k.name_schema_lineage_dict[name] = schema.to_guid()
 
-def create_publish_for_postgres_table(table, name, cur=None):
-    location = name
+def create_publish_for_postgres_table(table, location, cur=None):
     format='Postgres Table'
     from kensu.psycopg2.pghelpers import get_table_schema
     try:
@@ -227,9 +226,9 @@ def create_publish_for_postgres_table(table, name, cur=None):
             schema_ = None
     except:
         schema_=None
-    create_publish_for_data_source(ds=table, name=name, location=location, format=format, schema=schema_)
+    create_publish_for_data_source(ds=table, name=location, location=location, format=format, schema=schema_)
 
-def create_publish_for_csv(location, name):
+def create_publish_for_csv(name, location):
     format='csv'
     import pandas as pd
     from kensu.pandas.extractor import KensuPandasSupport
@@ -241,7 +240,7 @@ def create_publish_for_csv(location, name):
         schema_=None
     create_publish_for_data_source(ds=name, name=name, location=location, format=format, schema=schema_)
 
-def create_publish_for_sklearn_model(model, location, name):
+def create_publish_for_sklearn_model(name, location):
     format = 'SKLearn'
     k = KensuProvider().instance()
     ds_pk = DataSourcePK(location=location,
