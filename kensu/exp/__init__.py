@@ -134,9 +134,6 @@ def tagInMemWrapper():
     return tagInMemInner
 
 
-DataFrame.tagInMem = tagInMemWrapper()
-
-
 def tagCreateSparkDataFrameFromPy(
         self,  # type: DataFrame
         name,  # type: str
@@ -197,7 +194,10 @@ def tagCreateDataFrameWrapper():
         return tagCreateSparkDataFrameFromPy(self, name=name, input_names=input_names)
     return tagInMemInner
 
-DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
+
+def add_tagInMem_operations():
+    DataFrame.tagInMem = tagInMemWrapper()
+    DataFrame.tagCreateDataFrame = tagCreateDataFrameWrapper()
 
 
 def create_publish_for_data_source(name, format, location, schema=None, **kwargs):
