@@ -1026,6 +1026,7 @@ def wrap_pandas_reader(reader):
             fmt = "unknown"
 
         df = reader(*args, **kwargs)
+
         read_ds = eventually_report_in_mem(kensu.extractors.extract_data_source(df, kensu.default_physical_location_ref,logical_data_source_naming_strategy=kensu.logical_naming))
         read_sc = eventually_report_in_mem(kensu.extractors.extract_schema(read_ds, df))
 
@@ -1039,6 +1040,15 @@ def wrap_pandas_reader(reader):
             location = args[0]
         else:
             location = get_absolute_path(args[0])
+        # Handle SQL reader read_sql_table
+        if fmt == 'sql_table':
+            from sqlalchemy.engine.base import Engine, Connection
+            engine = args[1]
+            #TODO: handle case it's kwarg
+            if isinstance(engine, Connection):
+                engine = engine.engine
+
+            location = "postgres://"+ engine.url.host +":"+ str(engine.url.port)+'/'+engine.url.database + '.public.' + args[0]
 
         df_kensu = DataFrame.using(df)
 
