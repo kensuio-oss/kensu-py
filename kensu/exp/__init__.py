@@ -82,6 +82,7 @@ def tagInMem(self,  # type: DataFrame
             in_mem_location=location,
             in_mem_name=name
         )
+        spark_df_schema._report()
 
         # report Spark lineage to Kensu
         # FIXME: check if self is Spark DataFrame
@@ -120,7 +121,6 @@ def report_spark_lineage(spark_lineage,
             k.name_schema_lineage_dict[input_name] = schema.to_guid()
 
         # report output (if needed)
-        result_schema._report()
         lineage_run = link(input_names=spark_input_names, output_name=output_name)
         lineage_run_id = lineage_run.to_guid()
         # ask spark to publish stats given a lineage-run
