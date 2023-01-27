@@ -99,7 +99,6 @@ def tagInMem(self,  # type: DataFrame
         #     register_output_orig_data=False
         # )
         # k.report_with_mapping()
-        # FIXME: this could be reported by spark itself, making this async!
         report_spark_lineage(spark_lineage, k=k, result_schema=spark_df_schema, output_name=name)
     except Exception as e:
         logging.warning(f"tagInMem for toPandas didnt succeed to extract lineage within given time limit", e)
