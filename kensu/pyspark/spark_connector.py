@@ -139,10 +139,15 @@ def patched_dataframe_toPandas(wrapped):
     return wrapper
 
 
-def get_jvm_from_df(dataframe, # type: DataFrame
+def get_spark_from_df(dataframe  # type: DataFrame
                     ):
-    sql_context = dataframe.sql_ctx # type: SQLContext
-    spark = sql_context.sparkSession
+    sql_context = dataframe.sql_ctx  # type: SQLContext
+    return sql_context.sparkSession
+
+
+def get_jvm_from_df(dataframe  # type: DataFrame
+                    ):
+    spark = get_spark_from_df(dataframe)
     return spark.sparkContext._jvm
 
 
@@ -312,8 +317,8 @@ def scala_ds_and_schema_to_py(kensu_instance, ds, schema):
     from kensu.client import DataSourcePK, DataSource, FieldDef, SchemaPK, Schema
     pl_ref = kensu_instance.UNKNOWN_PHYSICAL_LOCATION.to_ref()
     py_ds = DataSource(name=ds.name(),
-                       format=ds.format(),
-                       categories=list(ds.categories()),
+                       format=ds.format() or None,
+                       categories=list(ds.categories() or []), # NULLABLE
                        pk=DataSourcePK(location=ds.pk().location(), physical_location_ref=pl_ref))
 
     # schema
@@ -345,7 +350,7 @@ def j2py_dict_of_lists(jdict):
     return r
 
 
-def get_inputs_lineage_fn(kensu_instance, df):
+def get_inputs_lineage_fn(kensu_instance, df, virtual_ds_name=None, virtual_ds_logical_name=None):
     jvm = get_jvm_from_df(df)
     # call def fetchToPandasReport(
     #     df: DataFrame,
@@ -354,11 +359,14 @@ def get_inputs_lineage_fn(kensu_instance, df):
     #     datasourceType: String = InternalDatasourceTags.TAG_INPUT_LINEAGE_ONLY,
     #     timeout: Duration
     #   )
-    client_class = ref_scala_object(jvm, "io.kensu.third.integration.dataconversions.SparkToPandasConvTracker")
+    client_class = ref_scala_object(jvm, "io.kensu.sparkcollector.dataconversions.SparkToPandasConversionTracker")
     duration_300s =  ref_scala_object(jvm, "scala.concurrent.duration.Duration").apply(300, "second")
     # FIXME: it should NOT wait for datasts -> check
     import uuid
-    virtual_ds_name = str(uuid.uuid1())
+    if not virtual_ds_name:
+        virtual_ds_name = str(uuid.uuid1())
+    # FIXME: virtual_ds_logical_name
+    # FIXME: add format
     no_logical_name = jvm.scala.Option.apply(None)
     lineage_from_scala = client_class.fetchToPandasReport(
         df._jdf,
@@ -388,6 +396,52 @@ def get_inputs_lineage_fn(kensu_instance, df):
     logging.info('KENSU: lineage_info:', lineage_info)
     return GenericComputedInMemDs(inputs=list([x.input_ds for x in lineage_info]), lineage=lineage_info)
 
+
+def get_process_run_info(spark):
+    if spark is not None:
+        logging.info(f'Getting Process info from Kensu Spark Agent')
+        cls = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.pyspark.PySparkUtils")
+        # requires Kensu collector to be already initialized - if not yet, it returns None
+        # getProcessAndRunGuid(spark): ProcessRunInfo (nullable)
+        # case class ProcessRunInfo(processGuid: String, processRunGuid: String)
+        run_info = cls.getProcessAndRunGuid(spark._jsparkSession)
+        if run_info:
+            logging.info(f'Successfully retrieved the Process info from Kensu Spark Agent')
+            return {
+                "process_guid": run_info.processGuid(),
+                "process_run_guid": run_info.processRunGuid()
+            }
+    logging.info(f'Unable to get Process info from Kensu Spark Agent, maybe Spark Agent is not initialized yet?')
+    return None
+
+
+def get_df_with_inmem_tag(df,  # type: DataFrame
+                          df_tag  # type: str
+                          ):
+    jvm = get_jvm_from_df(df)
+    cls = ref_scala_object(jvm, "io.kensu.sparkcollector.lineage.CreateDataFrameLineage")
+    # def dataframeWithLineageTag(df: DataFrame, inputsId: String): DataFrame
+    jdf = cls.dataframeWithLineageTag(df._jdf, df_tag)
+    # finally convert Java DataFrame back to python DataFrame
+    spark = get_spark_from_df(df)
+    from pyspark.sql.dataframe import DataFrame
+    return DataFrame(jdf, spark)
+
+
+def register_manual_lineage(spark,
+                            output_df_tag,  # type: str
+                            inputs          # type: list[dict[str, object]]
+                            ):
+    # def registerLineage(spark: SparkSession, inputsId: String, inputDatasources: java.util.List[SimpleInputDsSchema])
+    cls_reporter = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.lineage.CreateDataFrameLineage")
+    # build inputDatasources
+    # case class SimpleInputDsSchema(path: String, format: String, schema: java.util.Map[String, String])
+    cls_inputobj = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.lineage.SimpleInputDsSchema")
+    inputDatasources = list([
+        cls_inputobj.apply(i.get('path'), i.get('format'), i.get('schema'))
+        for i in inputs
+    ])
+    cls_reporter.registerLineage(spark._jsparkSession, output_df_tag, inputDatasources)
 
 """
 Assuming Datasource name is /a/b/c.ext
@@ -469,7 +523,7 @@ def init_kensu_spark(
         project_name=None,
         h2o_support=None,
         h2o_create_virtual_training_datasource=None,
-        patch_pandas_conversions=None,
+        patch_pandas_conversions=False,
         pandas_to_spark_df_via_tmp_file=None,
         pandas_to_spark_tmp_dir=None,
         use_api_client=None,
@@ -555,7 +609,7 @@ def init_kensu_spark(
 
         patch_spark_data_frame = extract_config_property('patch_spark_data_frame', True, patch_spark_data_frame, kw=kwargs, conf=kensu_conf, tpe=bool)
 
-        patch_pandas_conversions = extract_config_property('patch_pandas_conversions', True, patch_pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
+        patch_pandas_conversions = extract_config_property('patch_pandas_conversions', False, patch_pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_df_via_tmp_file = extract_config_property('pandas_to_spark_df_via_tmp_file',True,pandas_to_spark_df_via_tmp_file, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_tmp_dir = extract_config_property('pandas_to_spark_tmp_dir','/tmp/spark-to-pandas-tmp',pandas_to_spark_tmp_dir, kw=kwargs, conf=kensu_conf)
 
@@ -800,7 +854,7 @@ def init_kensu_spark(
                     logging.info('KENSU: patching  spark.createDataFrame done')
                 except:
                     import traceback
-                    logging.warning("KENSU: unexpected issue when patching DataFrame.toPandas: {}".format(traceback.format_exc()))
+                    logging.warning("KENSU: unexpected issue when patching DataFrame.createDataFrame: {}".format(traceback.format_exc()))
                 try:
                     logging.info('KENSU: adding spark env var KSU_DISABLE_PY_COLLECTOR=true to disable kensu-py collector on executor nodes')
                     spark_session.conf.set("KSU_DISABLE_PY_COLLECTOR", 'true')
