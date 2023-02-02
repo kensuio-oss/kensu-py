@@ -239,12 +239,7 @@ def create_publish_for_csv(name, location):
     format='csv'
     import pandas as pd
     from kensu.pandas.extractor import KensuPandasSupport
-
-    try:
-        df = pd.read_csv(location)
-        schema_ = KensuPandasSupport().extract_schema_fields(df)
-    except:
-        schema_=None
+    schema_=None
     create_publish_for_data_source(ds=name, name=name, location=location, format=format, schema=schema_)
 
 def create_publish_for_sklearn_model(name, location):
