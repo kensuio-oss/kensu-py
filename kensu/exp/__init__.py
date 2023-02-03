@@ -283,10 +283,17 @@ def link(input_names, output_name):
     output_sc = get_schema(output_name)
     # create lineage
     lineage = create_lineage(input_scs,output_sc)._report()
-    # create lineage run
-    spark_run = get_process_run_info(get_spark_session())['process_run_guid']
+
+    #Definition of the process run
+    process_run_guid = get_process_run_info(get_spark_session())['process_run_guid']
+
     k = KensuProvider().instance()
-    lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=spark_run),
+    process_run_guid = k.process_run.to_guid()
+
+
+    # create lineage run
+    k = KensuProvider().instance()
+    lineage_run = LineageRun(LineageRunPK(process_run_ref=ProcessRunRef(by_guid=process_run_guid),
                                           lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                           # Should be int/long
                                           timestamp=int(k.timestamp)))
