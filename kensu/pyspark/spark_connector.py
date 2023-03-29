@@ -527,6 +527,11 @@ def init_kensu_spark(
         pandas_to_spark_df_via_tmp_file=None,
         pandas_to_spark_tmp_dir=None,
         use_api_client=None,
+        remote_conf_enabled=True,
+        remote_conf_timeout_secs=None,
+        remote_circuit_breaker_enabled=True,
+        remote_circuit_breaker_precheck_delay_secs=None,
+        datastats_send_timeout_secs=None,
         **kwargs
 ):
     import os
@@ -726,6 +731,20 @@ def init_kensu_spark(
             add_prop("output_stats_coalesce_enabled", output_stats_coalesce_enabled)
             add_prop("output_stats_coalesce_workers", output_stats_coalesce_workers)
 
+            def extract_prop(name, tpe, value):
+                return name, extract_config_property(key=name, default=None, arg=value, kw=kwargs, conf=kensu_conf, tpe=tpe)
+
+            properties_by_name = [
+                extract_prop('remote_conf_enabled', tpe=bool, value=remote_conf_enabled),
+                extract_prop('remote_conf_timeout_secs', tpe=int, value=remote_conf_timeout_secs),
+                extract_prop('remote_circuit_breaker_enabled', tpe=bool, value=remote_circuit_breaker_enabled),
+                extract_prop('remote_circuit_breaker_precheck_delay_secs', tpe=int, value=remote_circuit_breaker_precheck_delay_secs),
+                extract_prop('datastats_send_timeout_secs', tpe=int, value=datastats_send_timeout_secs),
+            ]
+            for prop_name, prop_value in properties_by_name:
+                if prop_value is not None:
+                    add_prop(prop_name, prop_value)
+
             if shutdown_timeout_sec is not None:
                 properties.add(t2("shutdown_timeout_sec", shutdown_timeout_sec))
             if enable_collector_log_file:
@@ -872,3 +891,19 @@ def init_kensu_spark(
             logging.warning("Error when initializing Kensu tracking: " + traceback.format_exc())
     else:
         logging.info("Tracking by Kensu is disabled")
+
+
+def check_spark_circuit_breakers_and_stop_if_broken(
+        spark,
+        stop_spark=True):
+    cls = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.KensuSparkCollector")
+    breakers_failed = cls.checkIfCircuitBreakersFailedAndPrepShutdown(spark._jsparkSession)
+    if breakers_failed:
+        logging.warning("Some kensu circuit breaker has failed (there are active unresolved tickets in a rule "
+                        "marked as a circuit breaker), so the app will shutdown now")
+        if stop_spark:
+            logging.warning("Shutting down Spark context now...")
+            spark.stop()
+        else:
+            logging.warning("Not shutting down Spark context as it was not requested.")
+    return breakers_failed
