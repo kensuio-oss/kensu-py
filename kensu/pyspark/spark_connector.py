@@ -279,13 +279,12 @@ def patch_kensu_df_helpers():
         ['report_as_kpi', report_df_as_kpi()]
     ]
     for fn_name, wrapper_builder in fns_to_patch:
-        # fn_name = wrapper_builder.__name__
         try:
-            log_and_print(logging.info, f'KENSU: Patching DataFrame.{fn_name}')
+            logging.info(f'KENSU: Patching DataFrame.{fn_name}')
             from pyspark.sql import DataFrame
             # can setattr behave differently than .somename = somevalue?
             setattr(DataFrame, fn_name, wrapper_builder)
-            log_and_print(logging.info, f'KENSU: done patching DataFrame.{fn_name}')
+            logging.info(f'KENSU: done patching DataFrame.{fn_name}')
         except:
             import traceback
             log_and_print(logging.warning,
@@ -933,9 +932,9 @@ def with_catch_errors(fn_name, default_result, fn_result_lambda):
     # TODO: check configurable decorators too https://stackoverflow.com/a/27446895 ?
     result = default_result
     try:
-        log_and_print(logging.info, f'KENSU: in {fn_name}')
+        logging.info(f'KENSU: in {fn_name}')
         result = fn_result_lambda(default_result)
-        log_and_print(logging.info, f'KENSU: {fn_name} done')
+        logging.info(f'KENSU: {fn_name} done')
     except:
         import traceback
         log_and_print(logging.warning, f"KENSU: unexpected issue in {fn_name}: {traceback.format_exc()}")
