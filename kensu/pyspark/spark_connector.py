@@ -268,30 +268,27 @@ def report_df_as_kpi():
 
 
 def patch_kensu_df_helpers():
-    try:
-        logging.info('KENSU: Adding DataFrame.report_as_kensu_datasource')
-        from pyspark.sql import DataFrame
-        DataFrame.report_as_kensu_datasource = report_df_as_kensu_datasource()
-        logging.info('KENSU: done adding DataFrame.report_as_kensu_datasource')
-    except:
-        import traceback
-        logging.warning("KENSU: unexpected issue when patching DataFrame.report_as_kensu_datasource: {}".format(traceback.format_exc()))
-    try:
-        logging.info('KENSU: Adding DataFrame.report_as_kensu_jdbc_datasource')
-        from pyspark.sql import DataFrame
-        DataFrame.report_as_kensu_jdbc_datasource = report_df_as_kensu_jdbc_datasource()
-        logging.info('KENSU: done adding DataFrame.report_as_kensu_jdbc_datasource')
-    except:
-        import traceback
-        logging.warning("KENSU: unexpected issue when patching DataFrame.report_as_kensu_jdbc_datasource: {}".format(traceback.format_exc()))
-    try:
-        logging.info('KENSU: Adding DataFrame.report_as_kpi')
-        from pyspark.sql import DataFrame
-        DataFrame.report_as_kpi = report_df_as_kpi()
-        logging.info('KENSU: done adding DataFrame.report_as_kpi')
-    except:
-        import traceback
-        logging.warning("KENSU: unexpected issue when patching DataFrame.report_as_kpi: {}".format(traceback.format_exc()))
+    fns_to_patch = list(map(lambda fn: [fn.__name__, fn], [
+        addOutputObservations,
+        addCustomObservationsToOutput,
+        reportCustomKafkaInputSchema,
+        reportCustomEventhubInputSchema
+    ])) + [
+        ['report_as_kensu_datasource', report_df_as_kensu_datasource()],
+        ['report_as_kensu_jdbc_datasource', report_df_as_kensu_jdbc_datasource()],
+        ['report_as_kpi', report_df_as_kpi()]
+    ]
+    for fn_name, wrapper_builder in fns_to_patch:
+        try:
+            logging.info(f'KENSU: Patching DataFrame.{fn_name}')
+            from pyspark.sql import DataFrame
+            # can setattr behave differently than .somename = somevalue?
+            setattr(DataFrame, fn_name, wrapper_builder)
+            logging.info(f'KENSU: done patching DataFrame.{fn_name}')
+        except:
+            import traceback
+            log_and_print(logging.warning,
+                          f"KENSU: unexpected issue when patching DataFrame.{fn_name}: {traceback.format_exc()}")
 
 
 def join_paths(maybe_directory, # type: str
@@ -532,6 +529,7 @@ def init_kensu_spark(
         remote_circuit_breaker_enabled=True,
         remote_circuit_breaker_precheck_delay_secs=None,
         datastats_send_timeout_secs=None,
+        conf_file_path=None,
         **kwargs
 ):
     import os
@@ -693,6 +691,8 @@ def init_kensu_spark(
             properties.add(repository)
             properties.add(version)
             properties.add(user)
+            if kensu_ingestion_url:
+                properties.add(t2("kensu_ingestion_url", kensu_ingestion_url))
             if kensu_ingestion_token:
                 properties.add(t2("kensu_ingestion_token", kensu_ingestion_token))
             if report_to_file is not None:
@@ -801,8 +801,14 @@ def init_kensu_spark(
             if (maybe_ds_path_sanitizer_search is not None) and (maybe_ds_path_sanitizer_replace is not None):
                 add_ds_path_sanitizer(spark_session, maybe_ds_path_sanitizer_search, maybe_ds_path_sanitizer_replace)
 
-            w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkSession(spark_session._jsparkSession)
-            w.track(ingestion_url, jvm.scala.Option.empty(), properties.toSeq())
+            if is_databricks():
+                print('Detected Databricks Notebook - initializing Kensu via DatabricksCollector.track()')
+                w = ref_scala_object(jvm, 'io.kensu.sparkcollector.environments.DatabricksCollector')
+                # FIXME: DON'T WE OVERRIDE SOME UNNEEDED CONF KEYS!?
+                w.track(spark_session._jsparkSession, conf_file_path or get_conf_path(), properties.toSeq())
+            else:
+                w = jvm.io.kensu.sparkcollector.KensuSparkCollector.KensuSparkSession(spark_session._jsparkSession)
+                w.track(ingestion_url, jvm.scala.Option.empty(), properties.toSeq())
 
             if (shutdown_timeout_sec is not None) and (shutdown_timeout_sec > 0):
                 logging.info('KENSU: patching spark.stop to wait for Kensu Spark-Collector reporting to finish')
@@ -907,3 +913,138 @@ def check_spark_circuit_breakers_and_stop_if_broken(
         else:
             logging.warning("Not shutting down Spark context as it was not requested.")
     return breakers_failed
+
+
+def is_databricks():
+    import os
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ
+
+
+def log_and_print(log_fn, msg):
+    log_fn(msg)
+    # in Databricks print to stdout too, so output is visible in the same notebook
+    # (default logging loglevel is WARNING, so logging.info would be lost)
+    if is_databricks():
+        print(msg)
+
+
+def with_catch_errors(fn_name, default_result, fn_result_lambda):
+    # TODO: check configurable decorators too https://stackoverflow.com/a/27446895 ?
+    result = default_result
+    try:
+        logging.info(f'KENSU: in {fn_name}')
+        result = fn_result_lambda(default_result)
+        logging.info(f'KENSU: {fn_name} done')
+    except:
+        import traceback
+        log_and_print(logging.warning, f"KENSU: unexpected issue in {fn_name}: {traceback.format_exc()}")
+    return result
+
+
+def catch_errors_with_default_self(func):
+    def new_func(*args, **kwargs):
+        default_self = args[0]
+        return with_catch_errors(
+            fn_name=func.__name__,
+            default_result=default_self,
+            fn_result_lambda=lambda default_result: func(*args, **kwargs))
+    new_func.__doc__ = func.__doc__
+    new_func.__name__ = func.__name__
+    try:
+        import inspect
+        new_func.__signature__ = inspect.signature(func)
+    except:
+        pass
+    return new_func
+
+
+@catch_errors_with_default_self
+def addOutputObservations(df,  # type: DataFrame
+                          compute_count_distinct=False  # not recommended due to likely performance impact
+                          ):
+    # FIXME: looks like we have a repeating pyspark DF -> JVM DF -> pyspark DF pattern here
+    spark = df.sql_ctx.sparkSession
+    jvm = spark.sparkContext._jvm
+    cls = ref_scala_object(jvm, "org.apache.spark.sql.kensu.KensuObserveMetrics")
+    #   def addOutputObservations(df: DataFrame, computeCountDistinct: Boolean = false): DataFrame
+    jdf = cls.addOutputObservations(df._jdf, compute_count_distinct)
+    # finally convert Java DataFrame back to python DataFrame
+    from pyspark.sql.dataframe import DataFrame
+    return DataFrame(jdf, spark)
+
+
+# a global var, used in addCustomObservationsToOutput
+next_observation_num = 0
+
+
+@catch_errors_with_default_self
+def addCustomObservationsToOutput(df,  # type: DataFrame
+                                  *exprs  # type: pyspark.sql.column.Column
+                                 ):
+    """
+    custom observations/metrics can be added at any stage of the stream DataFrame - and currently uses same semantics as
+     pyspark's own DataFrame.observe(), so can pass any Spark aggregation expressions.
+
+    just make sure that each expression:
+    - return a double datatype .cast("double")
+    - has a unique and meaningful alias within the whole stream DataFrame
+      because that will become metrics name in Kensu, e.g. expr.alias("someColumn.max_before_filtering")
+
+    see https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.DataFrame.observe.html
+    """
+    global next_observation_num
+    next_observation_num = next_observation_num + 1
+    return df.observe(
+        # observation ID must be unique and start with ksu_metrics_output_
+        f"ksu_metrics_output_custom_gen{next_observation_num}",
+       *exprs
+    )
+
+
+def pyspark_datatype_to_jvm(jvm, pyspark_datatype):
+    return ref_scala_object(jvm, "org.apache.spark.sql.types.DataType")\
+        .fromJson(pyspark_datatype.json())
+
+
+@catch_errors_with_default_self
+def reportCustomKafkaInputSchema(df,  # type: DataFrame
+                                 custom_schema=None,  # StructType, if None, will use current DataFrame schema
+                                 fieldNamePrefix="value.",
+                                 schemaDesc="after Kafka event value parsing"
+                                ):
+    """
+    this reports a custom schema for a Kafka read operations in Spark Streaming.
+    it works by finding all/any such source URIs in the provided `SparkStreaming DataFrame`,
+    and for each (if any), reporting the provided custom schema
+
+    P.S. custom schema may appear in Kensu a few minutes later if the source was not yet ingested before (ingestion delay)
+    """
+    jvm = get_jvm_from_df(df)
+    cls = ref_scala_object(jvm, "org.apache.spark.sql.kensu.KafkaStreamCustomSchema")
+    jvm_datatype = pyspark_datatype_to_jvm(jvm, custom_schema or df.schema())
+    #   def reportCustomSchema(df: DataFrame, custom_schema: StructType, fieldNamePrefix: String, schemaDesc: String): DataFrame
+    res = cls.reportCustomSchema(df._jdf, jvm_datatype, fieldNamePrefix, schemaDesc)
+    log_and_print(logging.info, f'Tried reporting custom Kafka schema: {res}')
+    return df
+
+
+@catch_errors_with_default_self
+def reportCustomEventhubInputSchema(df,  # type: DataFrame
+                                 custom_schema=None,  # StructType, if None, will use current DataFrame schema
+                                 fieldNamePrefix="body.",
+                                 schemaDesc="after EventHub event value parsing"
+                                 ):
+    """
+    this reports a custom schema for a EventHub read operations in Spark Streaming.
+    it works by finding all/any such source URIs in the provided `SparkStreaming DataFrame`,
+    and for each (if any), reporting the provided custom schema
+
+    P.S. custom schema may appear in Kensu a few minutes later if the source was not yet ingested before (ingestion delay)
+    """
+    jvm = get_jvm_from_df(df)
+    cls = ref_scala_object(jvm, "org.apache.spark.sql.kensu.EventHubsCustomSchema")
+    jvm_datatype = pyspark_datatype_to_jvm(jvm, custom_schema or df.schema())
+    #   def reportCustomSchema(df: DataFrame, custom_schema: StructType, fieldNamePrefix: String, schemaDesc: String): DataFrame
+    res = cls.reportCustomSchema(df._jdf, jvm_datatype, fieldNamePrefix, schemaDesc)
+    log_and_print(logging.info, f'Tried reporting custom EventHub schema: {res}')
+    return df
