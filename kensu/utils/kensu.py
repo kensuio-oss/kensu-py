@@ -272,6 +272,8 @@ class Kensu(object):
             self.project_refs = [project.to_ref()]
 
         process_run_name = process_name + "@" + datetime.datetime.now().isoformat()
+        if timestamp is not None:
+            process_run_name = process_name + "@" + str(timestamp)
         self.process_run = ProcessRun(
             pk=ProcessRunPK(process_ref=self.process.to_ref(), qualified_name=process_run_name)
             , launched_by_user_ref=self.user.to_ref()
