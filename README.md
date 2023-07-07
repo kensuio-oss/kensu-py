@@ -96,4 +96,4 @@ Dispatches to several reporters
 
 ## Data and Analytics Observability platform
 
-Check out [Kensu](https://kensu.io) and the [trial program](https://hubs.li/H0M3Jrd0).
+Check out [Kensu](https://kensu.io).
