@@ -98,6 +98,7 @@ class Kensu(object):
         self.extractors = Extractors()
 
         pandas_support = get_property("pandas_support", True)
+        numpy_support = get_property("numpy_support", True)
 
         sklearn_support = get_property("sklearn_support", False)
 
@@ -112,7 +113,7 @@ class Kensu(object):
 
         self.extractors.add_default_supports(pandas_support=pandas_support, sklearn_support=sklearn_support,
                                              bigquery_support=bigquery_support, tensorflow_support=tensorflow_support,
-                                             matplotlib_support=matplotlib_support)
+                                             matplotlib_support=matplotlib_support, numpy_support=numpy_support)
 
         project_name = get_property("project_name", None)
         environment = get_property("environment", None)
@@ -189,8 +190,11 @@ class Kensu(object):
         self.offline_file_name = offline_file_name
         self.kensu_sql_parser_url = kensu_sql_parser_url
 
-        self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION)
+        # assuming default physical location exists means that the physical location doesn't need to be reported to Kensu API
+        assume_default_physical_location_exists = get_property("assume_default_physical_location_exists", False)
         # can be updated using set_default_physical_location
+        self.set_default_physical_location(Kensu.UNKNOWN_PHYSICAL_LOCATION, not assume_default_physical_location_exists)
+
         self.init_context(process_name=process_name, user_name=user_name, code_location=code_location,
                           get_code_version=get_code_version, project_name=project_name, environment=environment,
                           timestamp=execution_timestamp, report_process_info=report_process_info)
@@ -285,8 +289,22 @@ class Kensu(object):
             self.report_process_info()
 
     def report_process_info(self):
-        for e in [self.user, self.code_base, self.code_version, self.process] + self.projects + [self.process_run]:
-            e._report()
+        b = BatchEntityReport()
+        if self.code_base:
+            b.code_bases = [BatchCodeBase(self.timestamp, self.code_base)]
+        if self.code_version:
+            b.code_versions = [BatchCodeVersion(self.timestamp, self.code_version)]
+        if self.user:
+            b.users = [BatchUser(self.timestamp, self.user)]
+        projects = [p for p in self.projects if p]
+        if projects:
+            b.projects = [BatchProject(self.timestamp, p) for p in projects]
+        if self.process:
+            b.processes = [BatchProcess(self.timestamp, self.process)]
+        if self.process_run:
+            b.process_runs = [BatchProcessRun(self.timestamp, self.process_run)]
+
+        Injection().REPORTER.apply(b, self.kensu_api, self.kensu_api.report_entity_batch)
 
     def set_reinit(self, bool = True):
         self.write_reinit = bool
@@ -299,14 +317,15 @@ class Kensu(object):
 
     def set_timestamp(self, timestamp):
         if timestamp is not None:
-            self.kensu_api.api_client.default_headers["X-Entity-Creation-Time"] = timestamp
+            self.kensu_api.api_client.default_headers["X-Entity-Creation-Time"] = round(timestamp)
         else:
             timestamp = datetime.datetime.now().timestamp()*1000
-        self.timestamp = timestamp
+        self.timestamp = round(timestamp)
 
-    def set_default_physical_location(self, pl):
+    def set_default_physical_location(self, pl, report=True):
         self.default_physical_location = pl
-        pl._report()
+        if report:
+            pl._report()
         self.default_physical_location_ref = pl.to_ref()
 
     def get_dependencies_mapping(self):
@@ -372,7 +391,7 @@ class Kensu(object):
                     lineage_run = LineageRun(pk=LineageRunPK(lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                                              process_run_ref=ProcessRunRef(
                                                                  by_guid=self.process_run.to_guid()),
-                                                             timestamp=round(self.timestamp)))._report()
+                                                             timestamp=self.timestamp))._report()
                     self.sent_runs.append(lineage.to_guid())
 
 
@@ -440,7 +459,7 @@ class Kensu(object):
                     lineage_run = LineageRun(pk=LineageRunPK(lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                                              process_run_ref=ProcessRunRef(
                                                                  by_guid=self.process_run.to_guid()),
-                                                             timestamp=round(self.timestamp)))._report()
+                                                             timestamp=self.timestamp))._report()
                     self.sent_runs.append(lineage.to_guid())
         else:
             dependencies_per_columns = {}
@@ -503,7 +522,7 @@ class Kensu(object):
                     lineage_run = LineageRun(
                         pk=LineageRunPK(lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                         process_run_ref=ProcessRunRef(by_guid=self.process_run.to_guid()),
-                                        timestamp=round(self.timestamp)))._report()
+                                        timestamp=self.timestamp))._report()
                     self.sent_runs.append(lineage.to_guid())
 
 
@@ -674,7 +693,8 @@ class Kensu(object):
                                  )._report()
 
         if self.timestamp is None:
-            self.timestamp=int(time.time()) * 1000
+            # reset
+            self.set_timestamp()
 
         lineage_run = LineageRun(pk=LineageRunPK(
             lineage_ref=lineage.to_ref(),
