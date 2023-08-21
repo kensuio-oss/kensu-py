@@ -75,6 +75,10 @@ class AbstractSDK(ABC):
     def get_datasources(self):
         pass
 
+    @abstractmethod
+    def get_logical_datasources(self):
+        pass
+
 
 def normalize_services_response(func):
     def wrapper(*args, **kwargs):
@@ -136,6 +140,9 @@ class DoNothingSDK(ABC):
         pass
 
     def get_datasources(self):
+        pass
+    
+    def get_logical_datasources(self):
         pass
 
 
@@ -351,3 +358,6 @@ class SDK(AbstractSDK):
 
     def get_datasources(self):
         return self.requests_get_json("/api/services/v1/resources/datasources")
+
+    def get_logical_datasources(self):
+        return self.requests_get_json("/business/services/views/v1/logical-datasources")
