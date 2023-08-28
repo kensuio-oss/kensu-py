@@ -79,6 +79,14 @@ class AbstractSDK(ABC):
     def get_logical_datasources(self):
         pass
 
+    @abstractmethod
+    def get_total_sent_data_mb(self):
+        pass
+
+    @abstractmethod
+    def get_detailed_sent_data(self):
+        pass
+
 
 def normalize_services_response(func):
     def wrapper(*args, **kwargs):
@@ -143,6 +151,12 @@ class DoNothingSDK(ABC):
         pass
     
     def get_logical_datasources(self):
+        pass
+
+    def get_total_sent_data_mb(self):
+        pass
+
+    def get_detailed_sent_data(self):
         pass
 
 
@@ -361,3 +375,25 @@ class SDK(AbstractSDK):
 
     def get_logical_datasources(self):
         return self.requests_get_json("/business/services/views/v1/logical-datasources")
+
+    def get_total_sent_data_mb(self):
+        return self.requests_get_json("/business/services/v1/ingestion-log")['entitiesSentKbTotal'] / 1000
+
+    def get_detailed_sent_data(self):
+        ingestion_log_details = self.requests_get_json("/business/services/v1/ingestion-log")['entitiesSentByToken']
+        tokens = self.requests_get_json("/services/v1/preferences/tokens")
+        ingestion_list = []
+        for ingestion_log_detail in ingestion_log_details:
+            ingestion_dict = {}
+            if ingestion_log_detail['entitiesSent'] > 0:
+                token = next(token for token in tokens if token['id'] == ingestion_log_detail['ingestionTokenId'])
+                ingestion_dict = {
+                    'week': datetime.fromtimestamp(ingestion_log_detail['ingestedAt'] / 1000).strftime('%Y/%V'),
+                    'sizeMb': ingestion_log_detail['entitiesSentKbSize'] / 1000,
+                    'entities': ingestion_log_detail['entitiesSent'],
+                    'tokenId': token['id'],
+                    'tokenDescription': token['tokenDescription'],
+                    'appGroup': token['appGroupName']
+                }
+                ingestion_list.append(ingestion_dict)
+        return ingestion_list
