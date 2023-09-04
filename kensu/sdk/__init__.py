@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 
 import requests
 
@@ -381,6 +382,7 @@ class SDK(AbstractSDK):
 
     def get_detailed_sent_data(self):
         ingestion_log_details = self.requests_get_json("/business/services/v1/ingestion-log")['entitiesSentByToken']
+        self.cookie = self.get_cookie()
         tokens = self.requests_get_json("/services/v1/preferences/tokens")
         ingestion_list = []
         for ingestion_log_detail in ingestion_log_details:
