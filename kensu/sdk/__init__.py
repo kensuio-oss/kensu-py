@@ -1,11 +1,11 @@
 import logging
 import os
 from datetime import datetime
+import re
 
 import requests
 
 from abc import ABC, abstractmethod
-
 
 # we could reuse the reporters instead
 from kensu.utils.exceptions import SdkError
@@ -61,7 +61,7 @@ class AbstractSDK(ABC):
         pass
 
     @abstractmethod
-    def get_latest_schema_in_logical(self, logical,n=-1):
+    def get_latest_schema_in_logical(self, logical, n=-1):
         pass
 
     @abstractmethod
@@ -95,6 +95,7 @@ def normalize_services_response(func):
         if res and 'data' not in res:
             return {'data': res}
         return res
+
     wrapper.__doc__ = func.__doc__
     return wrapper
 
@@ -105,52 +106,52 @@ class DoNothingSDK(ABC):
 
     def get_cookie(self):
         pass
-    
+
     def get_lineages_in_project(self, project, process, env, code_version):
         pass
-    
+
     def create_rule(self, lds_id, lineage_id, project_id, process_id, env_name, field_name, fun):
         pass
-    
+
     def update_rule(self, predicate, fun):
         pass
-    
+
     def get_rules(self):
         pass
 
     def get_all_rules_for_ds(self, ds_id):
         pass
-    
+
     def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
         pass
-    
+
     def get_datasources_in_logical(self, logical):
         pass
-    
+
     def get_datasource(self, dsId):
         pass
-    
+
     def get_latest_datasource_in_logical(self, logical, n=-1):
         pass
-    
+
     def get_schema(self, schema_id):
         pass
-    
+
     def get_latest_schema_in_datasource(self, ds):
         pass
-    
+
     def get_latest_schema_in_logical(self, logical, n=-1):
         pass
-    
+
     def get_latest_stats_for_ds(self, projectId, env, linId, dsId):
         pass
-    
+
     def get_logical_ds_name_from_ds(self, dsId):
         pass
 
     def get_datasources(self):
         pass
-    
+
     def get_logical_datasources(self):
         pass
 
@@ -245,17 +246,20 @@ class SDK(AbstractSDK):
         # FIXME: this works only when explicit environment was specified (and maybe same about code version)
         # FIXME: use proper URLencode
         if self.is_legacy_srv():
-            uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (project,process,env,code_version)
+            uri = "/business/api/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&logical=true&environment=%s&codeVersionId=%s" % (
+                project, process, env, code_version)
             return self.requests_get_json(uri)
         else:
-            uri = "/business/services/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&environment=%s&codeVersionId=%s" % (project, process, env, code_version)
-            return {'data':self.requests_get_json(uri)}
+            uri = "/business/services/views/v1/project-catalog/process/data-flow?projectId=%s&processId=%s&environment=%s&codeVersionId=%s" % (
+                project, process, env, code_version)
+            return {'data': self.requests_get_json(uri)}
 
     def get_business_services_version(self):
         uri = '/business/services/v1/code-version'
         return self.requests_get_json(uri)['version']
 
-    def create_rule(self, lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None, fun=None, context="DATA_STATS"):
+    def create_rule(self, lds_id, lineage_id=None, project_id=None, process_id=None, env_name=None, field_name=None,
+                    fun=None, context="DATA_STATS"):
         if self.is_legacy_srv():
             uri = "/business/api/v1/predicates"
         else:
@@ -313,7 +317,7 @@ class SDK(AbstractSDK):
     def get_rules_for_ds_in_project(self, ds_id, lineage_id, project_id, env):
         if self.is_legacy_srv():
             uri = "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=true&environment=%s" % (
-            ds_id, lineage_id, project_id, env)
+                ds_id, lineage_id, project_id, env)
         else:
             uri = f"/business/services/views/v2/performance/data/{ds_id}/{lineage_id}?projectId={project_id}&environment={env}"
         return self.requests_get_json(uri)
@@ -325,7 +329,7 @@ class SDK(AbstractSDK):
         else:
             uri = "/business/services/views/v1/rules?logical_data_source_id=%s&context=LOGICAL_DATA_SOURCE" % (ds_id)
             r = self.requests_get_json(uri)
-            return {'data':{'predicates':r}}
+            return {'data': {'predicates': r}}
 
     def get_datasources_in_logical(self, logical):
         # FIXME: 404
@@ -338,7 +342,7 @@ class SDK(AbstractSDK):
         js = self.get_datasources_in_logical(logical)
         sorted_js = (sorted((i for i in js), key=lambda k: k['timestamp']))
 
-        if len(sorted_js)>=abs(n):
+        if len(sorted_js) >= abs(n):
             uuid = sorted_js[n]["uuid"]
             ds = self.get_datasource(uuid)
             return ds
@@ -353,7 +357,7 @@ class SDK(AbstractSDK):
             schemas = ds['schemas']
             schema_uuid = (max((i for i in schemas), key=lambda k: k['timestamp']))['schemaId']
             schema = self.get_schema(schema_uuid)
-            return {x["columnName"]:x["columnType"] for x in schema['schema']}
+            return {x["columnName"]: x["columnType"] for x in schema['schema']}
         else:
             return None
 
@@ -363,7 +367,9 @@ class SDK(AbstractSDK):
         return schema
 
     def get_latest_stats_for_ds(self, projectId, env, linId, dsId):
-        resp_json = self.requests_get_json("/business/api/v1/performance/data/%s/%s?projectId=%s&logical=false&environment=%s" % (dsId,linId,projectId,env))
+        resp_json = self.requests_get_json(
+            "/business/api/v1/performance/data/%s/%s?projectId=%s&logical=false&environment=%s" % (
+                dsId, linId, projectId, env))
         stats_json = sorted(resp_json['data']['stats'], key=lambda k: k['timestamp'])[-1]
         return stats_json['stats']
 
@@ -399,3 +405,54 @@ class SDK(AbstractSDK):
                 }
                 ingestion_list.append(ingestion_dict)
         return ingestion_list
+
+    def disable_all_metrics(self, ds_reg_ex):
+        dss = self.get_logical_datasources()
+        for ds in dss:
+            x = re.search(ds_reg_ex, ds['name'])  # check if ds name match with the regular exp
+            if x:
+                apps = self.requests_get_json(  # get list of all applications involved
+                    "/business/services/views/v2/performance/stats/attributes?logicalDataSourceId=%s" % ds['id'])[
+                    'applications']
+                for app in apps:
+                    logging.info("Disable metrics for " + ds['name'] + " and application " + app['name'])
+                    self.requests_patch_json(
+                        "/business/services/views/v1/logical-datasources/" + ds['id'] + "/configuration/processes/" +
+                        app['id'] + "/metrics",
+                        {"isMetricsConfigurationEnabled": True, "activeMetrics": [], "circuitBreakerRuleIds": []})
+
+    def set_metrics(self, ds_reg_ex, attributes_reg_ex, whitelist=True):
+        dss = self.get_logical_datasources()
+        for ds in dss:
+            x = re.search(ds_reg_ex, ds['name'])  # check if ds name match with the regular exp
+            if x:
+                apps = self.requests_get_json(  # get list of all applications involved
+                    "/business/services/views/v2/performance/stats/attributes?logicalDataSourceId=%s" % ds['id'])[
+                    'applications']
+                schema = self.requests_get_json(  # get list of all the possible metrics
+                    "/business/services/views/v1/logical-datasources/%s/schemas" % ds['id'])
+                attributes = []
+                for field in schema:
+                    attributes.append(field['columnName'] + ".nullrows")
+                    attributes.append(field['columnName'] + ".nrows")
+                    if field['metricType'] == "NUMERIC":
+                        attributes.append(field['columnName'] + ".min")
+                        attributes.append(field['columnName'] + ".max")
+                        attributes.append(field['columnName'] + ".mean")
+                        attributes.append(field['columnName'] + ".stddev")
+                    if field['metricType'] == "TIMESTAMP":
+                        attributes.append(field['columnName'] + ".first")
+                        attributes.append(field['columnName'] + ".last")
+                filter_attributes = re.compile(attributes_reg_ex)
+                if whitelist:  # whitelisting
+                    attributes = list(filter(filter_attributes.search, attributes))
+                else:  # blacklisting
+                    attributes = list(filter(lambda x: not filter_attributes.search(x), attributes))
+                attributes.append('nrows')
+                for app in apps:
+                    logging.info("Enable specified metrics for " + ds['name'] + " and application " + app['name'])
+                    # CB rules are preserved
+                    payload = {"isMetricsConfigurationEnabled": True, "activeMetrics": attributes}
+                    self.requests_patch_json(
+                        "/business/services/views/v1/logical-datasources/" + ds['id'] + "/configuration/processes/" +
+                        app['id'] + "/metrics", payload)
