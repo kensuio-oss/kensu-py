@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 import re
+import json
 
 import requests
 
@@ -88,6 +89,22 @@ class AbstractSDK(ABC):
     def get_detailed_sent_data(self):
         pass
 
+    @abstractmethod
+    def disable_all_metrics(self, ds_reg_ex):
+        pass
+
+    @abstractmethod
+    def set_metrics(self, ds_reg_ex, attributes_reg_ex, whitelist):
+        pass
+
+    @abstractmethod
+    def get_tickets(self, status):
+        pass
+
+    @abstractmethod
+    def set_ticket_status(self, id):
+        pass
+
 
 def normalize_services_response(func):
     def wrapper(*args, **kwargs):
@@ -161,6 +178,17 @@ class DoNothingSDK(ABC):
     def get_detailed_sent_data(self):
         pass
 
+    def disable_all_metrics(self, ds_reg_ex):
+        pass
+
+    def get_tickets(self, status):
+        pass
+
+    def set_ticket_status(self, id):
+        pass
+
+    def set_metrics(self, ds_reg_ex, attributes_reg_ex, whitelist):
+        pass
 
 class SDK(AbstractSDK):
     def __init__(self, url, sdk_token, verify_ssl):
@@ -456,3 +484,28 @@ class SDK(AbstractSDK):
                     self.requests_patch_json(
                         "/business/services/views/v1/logical-datasources/" + ds['id'] + "/configuration/processes/" +
                         app['id'] + "/metrics", payload)
+
+    def get_tickets(self, status='OPEN'):
+        limit = 20
+        payload = {
+            "limit": limit,
+            "status": status,
+            "sortBy": "CREATION_TIMESTAMP",
+            "order": "DESC",
+            "offset": 0
+        }
+        result = self.requests_post_json("/business/services/views/v1/tickets", payload=payload)
+        tickets = result.json()['data']
+        pointer = result.json()['pagination']
+        while pointer['hasNext']:
+            payload['offset'] = payload['offset'] + limit
+            result = self.requests_post_json("/business/services/views/v1/tickets", payload=payload)
+            tickets.extend(result.json()['data'])
+            pointer = result.json()['pagination']
+        return tickets
+
+    def set_ticket_status(self, id):
+        payload = {
+            "resolution":"Resolved","status":"CLOSED","ticketIds":[id]
+        }
+        return self.requests_put_json("/business/services/views/v1/tickets/status", payload=payload)
