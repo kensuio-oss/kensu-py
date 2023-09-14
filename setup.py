@@ -6,7 +6,7 @@ import os
 
 NAME = "kensu"
 
-
+SPARK_MINIMAL_FLAVOR = "spark-minimal"
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
 # https://semver.org/
@@ -64,6 +64,16 @@ def get_install_requires(path):
                 deps.append(l)
         return deps
 
+
+def maybe_filter_py35packages(package):
+    if BUILD_FLAVOR == SPARK_MINIMAL_FLAVOR:
+        return package.startswith("kensu.pyspark.spark_connector") or \
+            package.startswith("kensu.utils.remote.circuit_breakers") or \
+            package.startswith("kensu.utils.helpers")
+    else:
+        return True
+
+
 setup(
     name=NAME,
     version=VERSION,
@@ -74,7 +84,7 @@ setup(
     packages=[
         package
         for package in setuptools.PEP420PackageFinder.find()
-        if package.startswith("kensu")
+        if package.startswith("kensu") and maybe_filter_py35packages(package)
     ],
     install_requires=get_install_requires('common-requirements.txt'),
     extras_require=get_extra_requires('extra.requirements'),
