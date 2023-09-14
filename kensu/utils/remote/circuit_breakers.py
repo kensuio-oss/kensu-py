@@ -13,17 +13,17 @@ def kill_app_on_circuit_breaker(
         raise_exception_fn=lambda msg: raise_default_circuit_breaker_exception(msg)
 ):
     if spark is not None:
-        logging.info(f'Going to check the circuit breakers for Spark datasources')
+        logging.info('Going to check the circuit breakers for Spark datasources')
         from kensu.pyspark.spark_connector import check_spark_circuit_breakers_and_stop_if_broken
         breakers_failed = check_spark_circuit_breakers_and_stop_if_broken(spark=spark, stop_spark=stop_spark)
 
         if breakers_failed:
             if sys_exit:
                 import sys
-                logging.warning(f"Some kensu circuit breaker has failed - killing the app with exit_code={exit_code}")
+                logging.warning("Some kensu circuit breaker has failed - killing the app with exit_code={}".format(exit_code))
                 sys.exit(exit_code)
             else:
-                msg = f"Some kensu circuit breaker has failed - raising an Exception to stop the default app flow"
+                msg = "Some kensu circuit breaker has failed - raising an Exception to stop the default app flow"
                 logging.warning(msg)
                 raise_exception_fn(msg)
                 return False
@@ -31,7 +31,7 @@ def kill_app_on_circuit_breaker(
             logging.info("Circuit breakers did not fail")
         return breakers_failed
     else:
-        logging.info(f'Not checking any Circuit breakers (spark=None)')
+        logging.info('Not checking any Circuit breakers (spark=None)')
         return True
 
 
