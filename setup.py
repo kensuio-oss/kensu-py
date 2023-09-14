@@ -6,7 +6,7 @@ import os
 
 NAME = "kensu"
 
-SPARK_MINIMAL_FLAVOR = "_sparkminimal"
+SPARK_MINIMAL_FLAVOR = "sparkminimal"
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
 # https://semver.org/
