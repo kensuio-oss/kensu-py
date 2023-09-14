@@ -1,5 +1,5 @@
 import logging
-from kensu.utils.helpers.conf_file import extract_config_property, get_conf_path
+from kensu.utils.conf_file import extract_config_property, get_conf_path
 
 # This function takes the fully classified object name, say: <package>.<name>.
 # Returns the static object instance on the heap

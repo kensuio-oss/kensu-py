@@ -3,7 +3,7 @@ import re
 from hashlib import sha1
 import os
 
-from kensu.utils.helpers.conf_file import extract_config_property as extract_config_property_py35, get_conf_path as get_conf_path_py35
+from kensu.utils.conf_file import extract_config_property as extract_config_property_py35, get_conf_path as get_conf_path_py35
 
 # fixme: circular import, so need to inline in each fn?
 # from kensu.utils.kensu_provider import KensuProvider
