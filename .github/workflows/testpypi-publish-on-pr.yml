@@ -41,7 +41,7 @@ jobs:
       env:
         BUILD_FLAVOR: .alpha${{ github.event.number }}
       run: >-
-        BUILD_FLAVOR=spark-minimal python -m
+        BUILD_FLAVOR=_sparkminimal python -m
         build
         --sdist
         --wheel
