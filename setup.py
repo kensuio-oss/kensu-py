@@ -8,7 +8,7 @@ NAME = "kensu"
 
 # Can only use https://peps.python.org/pep-0440/#public-version-identifiers here, no custom strings except dev, post, rc
 # so to indicate py35, .dev35 or .post35
-SPARK_MINIMAL_FLAVOR = ".dev35"
+SPARK_MINIMAL_FLAVOR = "post35"
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
 # https://semver.org/
@@ -68,7 +68,7 @@ def get_install_requires(path):
 
 
 def maybe_filter_py35packages(package):
-    if BUILD_FLAVOR == SPARK_MINIMAL_FLAVOR:
+    if SPARK_MINIMAL_FLAVOR in BUILD_FLAVOR:
         package_ok = package.startswith("kensu.pyspark") or \
             package.startswith("kensu.utils.remote") or \
             package.startswith("kensu.utils.kensu_conf_file")

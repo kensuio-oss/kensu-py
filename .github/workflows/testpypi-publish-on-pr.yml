@@ -41,7 +41,7 @@ jobs:
       env:
         BUILD_FLAVOR: .alpha${{ github.event.number }}
       run: >-
-        BUILD_FLAVOR=".dev35" python -m
+        BUILD_FLAVOR="post35.dev0" python -m
         build
         --sdist
         --wheel
