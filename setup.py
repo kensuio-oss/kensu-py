@@ -6,6 +6,8 @@ import os
 
 NAME = "kensu"
 
+# Can only use https://peps.python.org/pep-0440/#public-version-identifiers here, no custom strings except dev, post, rc
+# so to indicate py35, .dev35 or .post35
 SPARK_MINIMAL_FLAVOR = ".dev35"
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
@@ -67,11 +69,13 @@ def get_install_requires(path):
 
 def maybe_filter_py35packages(package):
     if BUILD_FLAVOR == SPARK_MINIMAL_FLAVOR:
-        return package.startswith("kensu.pyspark.spark_connector") or \
-            package.startswith("kensu.utils.remote.circuit_breakers") or \
-            package.startswith("kensu.utils.helpers")
+        package_ok = package.startswith("kensu.pyspark") or \
+            package.startswith("kensu.utils.remote") or \
+            package.startswith("kensu.utils.kensu_conf_file")
     else:
-        return True
+        package_ok = True
+    print("Got package: {}, include={}".format(package, package_ok))
+    return package_ok
 
 
 setup(
@@ -84,12 +88,13 @@ setup(
     packages=[
         package
         for package in setuptools.PEP420PackageFinder.find()
-        if package.startswith("kensu") and maybe_filter_py35packages(package)
+        if (package.startswith("kensu") and maybe_filter_py35packages(package)) or \
+            package == "kensu"
     ],
     install_requires=get_install_requires('common-requirements.txt'),
     extras_require=get_extra_requires('extra.requirements'),
     platforms="Posix; MacOS X; Windows",
-    include_package_data=True,
+    include_package_data=False,
     long_description="""\
     DODD Python Agent: enable Data Observability Driven Development in your Python script\
     """
