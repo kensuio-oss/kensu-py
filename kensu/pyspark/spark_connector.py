@@ -1,3 +1,8 @@
+# this file should not use f-strings syntax
+# because f-strings are not supported in python 3.5
+# so instead of: f"my formatted {text}" # py3.6+
+# we use: "my formatted {}".format(text) # py3.5+
+
 import logging
 from kensu.utils.kensu_conf_file.conf_file import extract_config_property, get_conf_path
 
