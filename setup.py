@@ -4,15 +4,33 @@ import setuptools
 from setuptools import setup, find_packages
 import os
 
-NAME = "kensu"
+# Provide option to deliver only a subset of the packages related to pyspark for python3.5 to a different artifact name, so
+# we have these builds:
+# - pyspark build - kensu-pyspark, include only a few packages
+# - normal build - kensu, include everything
+DELIVERY_ARTIFACT_NAME = os.environ["DELIVERY_ARTIFACT_NAME"] if "DELIVERY_ARTIFACT_NAME" in os.environ else ""
+PYSPARK_ARTIFACT_NAME = "kensu-pyspark"
+REGULAR_ARTIFACT_NAME = "kensu"
 
-# Can only use https://peps.python.org/pep-0440/#public-version-identifiers here, no custom strings except dev, post, rc
-# so to indicate py35, .dev35 or .post35
-SPARK_MINIMAL_FLAVOR = "post35"
+
+def is_pyspark_delivery():
+    return PYSPARK_ARTIFACT_NAME in DELIVERY_ARTIFACT_NAME
+
+
+def artifact_name():
+    if is_pyspark_delivery():
+        return PYSPARK_ARTIFACT_NAME
+    else:
+        return REGULAR_ARTIFACT_NAME
+
+
+NAME = artifact_name()
+
+
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
 # https://semver.org/
-VERSION = "2.6.8" + BUILD_FLAVOR + BUILD_NUMBER
+VERSION = "2.6.dev9" + BUILD_FLAVOR + BUILD_NUMBER
 
 
 
@@ -68,7 +86,7 @@ def get_install_requires(path):
 
 
 def maybe_filter_py35packages(package):
-    if SPARK_MINIMAL_FLAVOR in BUILD_FLAVOR:
+    if is_pyspark_delivery():
         package_ok = package.startswith("kensu.pyspark") or \
             package.startswith("kensu.utils.remote") or \
             package.startswith("kensu.utils.kensu_conf_file")

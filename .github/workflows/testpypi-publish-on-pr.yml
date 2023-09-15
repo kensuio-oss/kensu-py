@@ -41,7 +41,7 @@ jobs:
       env:
         BUILD_FLAVOR: .alpha${{ github.event.number }}
       run: >-
-        BUILD_FLAVOR="post35.dev0" python -m
+        DELIVERY_ARTIFACT_NAME="kensu-pyspark" python -m
         build
         --sdist
         --wheel
