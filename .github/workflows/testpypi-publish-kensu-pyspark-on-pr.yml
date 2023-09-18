@@ -1,4 +1,4 @@
-name: Test Kensu Python 🐍 Agent on PRs
+name: Test Kensu-PySpark 🐍 Agent on PRs
 
 on:
   pull_request:
