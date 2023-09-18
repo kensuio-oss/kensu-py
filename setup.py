@@ -112,7 +112,7 @@ setup(
     install_requires=get_install_requires('common-requirements.txt'),
     extras_require=get_extra_requires('extra.requirements'),
     platforms="Posix; MacOS X; Windows",
-    include_package_data=True,
+    include_package_data=False,
     long_description="""\
     DODD Python Agent: enable Data Observability Driven Development in your Python script\
     """
