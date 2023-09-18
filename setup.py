@@ -4,13 +4,33 @@ import setuptools
 from setuptools import setup, find_packages
 import os
 
-NAME = "kensu"
+# Provide option to deliver only a subset of the packages related to pyspark for python3.5 to a different artifact name, so
+# we have these builds:
+# - pyspark build - kensu-pyspark, include only a few packages
+# - normal build - kensu, include everything
+DELIVERY_ARTIFACT_NAME = os.environ["DELIVERY_ARTIFACT_NAME"] if "DELIVERY_ARTIFACT_NAME" in os.environ else ""
+PYSPARK_ARTIFACT_NAME = "kensu-pyspark"
+REGULAR_ARTIFACT_NAME = "kensu"
+
+
+def is_pyspark_delivery():
+    return PYSPARK_ARTIFACT_NAME in DELIVERY_ARTIFACT_NAME
+
+
+def artifact_name():
+    if is_pyspark_delivery():
+        return PYSPARK_ARTIFACT_NAME
+    else:
+        return REGULAR_ARTIFACT_NAME
+
+
+NAME = artifact_name()
 
 
 BUILD_FLAVOR = os.environ["BUILD_FLAVOR"] if "BUILD_FLAVOR" in os.environ else ""
 BUILD_NUMBER = os.environ["BUILD_NUMBER"] if "BUILD_NUMBER" in os.environ else ""
 # https://semver.org/
-VERSION = "2.6.8" + BUILD_FLAVOR + BUILD_NUMBER
+VERSION = "2.6.9" + BUILD_FLAVOR + BUILD_NUMBER
 
 
 
@@ -64,6 +84,18 @@ def get_install_requires(path):
                 deps.append(l)
         return deps
 
+
+def maybe_filter_py35packages(package):
+    if is_pyspark_delivery():
+        package_ok = package.startswith("kensu.pyspark") or \
+            package.startswith("kensu.utils.remote") or \
+            package.startswith("kensu.utils.kensu_conf_file")
+    else:
+        package_ok = True
+    print("Got package: {}, include={}".format(package, package_ok))
+    return package_ok
+
+
 setup(
     name=NAME,
     version=VERSION,
@@ -74,7 +106,8 @@ setup(
     packages=[
         package
         for package in setuptools.PEP420PackageFinder.find()
-        if package.startswith("kensu")
+        if (package.startswith("kensu") and maybe_filter_py35packages(package)) or \
+            package == "kensu"
     ],
     install_requires=get_install_requires('common-requirements.txt'),
     extras_require=get_extra_requires('extra.requirements'),

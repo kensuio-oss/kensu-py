@@ -1,5 +1,10 @@
+# this file should not use f-strings syntax
+# because f-strings are not supported in python 3.5
+# so instead of: f"my formatted {text}" # py3.6+
+# we use: "my formatted {}".format(text) # py3.5+
+
 import logging
-from kensu.utils.helpers import extract_config_property, get_conf_path
+from kensu.utils.kensu_conf_file.conf_file import extract_config_property, get_conf_path
 
 # This function takes the fully classified object name, say: <package>.<name>.
 # Returns the static object instance on the heap
@@ -280,15 +285,17 @@ def patch_kensu_df_helpers():
     ]
     for fn_name, wrapper_builder in fns_to_patch:
         try:
-            logging.info(f'KENSU: Patching DataFrame.{fn_name}')
+            logging.info('KENSU: Patching DataFrame.{}'.format(fn_name))
             from pyspark.sql import DataFrame
             # can setattr behave differently than .somename = somevalue?
             setattr(DataFrame, fn_name, wrapper_builder)
-            logging.info(f'KENSU: done patching DataFrame.{fn_name}')
+            logging.info('KENSU: done patching DataFrame.{}'.format(fn_name))
         except:
             import traceback
             log_and_print(logging.warning,
-                          f"KENSU: unexpected issue when patching DataFrame.{fn_name}: {traceback.format_exc()}")
+                          "KENSU: unexpected issue when patching DataFrame.{}: {}".format(
+                              fn_name, traceback.format_exc()
+                          ))
 
 
 def join_paths(maybe_directory, # type: str
@@ -396,19 +403,19 @@ def get_inputs_lineage_fn(kensu_instance, df, virtual_ds_name=None, virtual_ds_l
 
 def get_process_run_info(spark):
     if spark is not None:
-        logging.info(f'Getting Process info from Kensu Spark Agent')
+        logging.info('Getting Process info from Kensu Spark Agent')
         cls = ref_scala_object(spark.sparkContext._jvm, "io.kensu.sparkcollector.pyspark.PySparkUtils")
         # requires Kensu collector to be already initialized - if not yet, it returns None
         # getProcessAndRunGuid(spark): ProcessRunInfo (nullable)
         # case class ProcessRunInfo(processGuid: String, processRunGuid: String)
         run_info = cls.getProcessAndRunGuid(spark._jsparkSession)
         if run_info:
-            logging.info(f'Successfully retrieved the Process info from Kensu Spark Agent')
+            logging.info('Successfully retrieved the Process info from Kensu Spark Agent')
             return {
                 "process_guid": run_info.processGuid(),
                 "process_run_guid": run_info.processRunGuid()
             }
-    logging.info(f'Unable to get Process info from Kensu Spark Agent, maybe Spark Agent is not initialized yet?')
+    logging.info('Unable to get Process info from Kensu Spark Agent, maybe Spark Agent is not initialized yet?')
     return None
 
 
@@ -545,7 +552,7 @@ def init_kensu_spark(
         try:
             config.read(conf_path)
         except:
-            logging.warning(f"Cannot load config from file `%s`" % (conf_path))
+            logging.warning("Cannot load config from file `%s`" % (conf_path))
 
         kensu_conf = config['kensu'] if config.has_section('kensu') else config['DEFAULT']
 
@@ -932,12 +939,14 @@ def with_catch_errors(fn_name, default_result, fn_result_lambda):
     # TODO: check configurable decorators too https://stackoverflow.com/a/27446895 ?
     result = default_result
     try:
-        logging.info(f'KENSU: in {fn_name}')
+        logging.info('KENSU: in {}'.format(fn_name))
         result = fn_result_lambda(default_result)
-        logging.info(f'KENSU: {fn_name} done')
+        logging.info('KENSU: {} done'.format(fn_name))
     except:
         import traceback
-        log_and_print(logging.warning, f"KENSU: unexpected issue in {fn_name}: {traceback.format_exc()}")
+        log_and_print(logging.warning, "KENSU: unexpected issue in {}: {}".format(
+            fn_name, traceback.format_exc()
+        ))
     return result
 
 
@@ -996,7 +1005,7 @@ def addCustomObservationsToOutput(df,  # type: DataFrame
     next_observation_num = next_observation_num + 1
     return df.observe(
         # observation ID must be unique and start with ksu_metrics_output_
-        f"ksu_metrics_output_custom_gen{next_observation_num}",
+        "ksu_metrics_output_custom_gen{}".format(next_observation_num),
        *exprs
     )
 
@@ -1024,7 +1033,7 @@ def reportCustomKafkaInputSchema(df,  # type: DataFrame
     jvm_datatype = pyspark_datatype_to_jvm(jvm, custom_schema or df.schema())
     #   def reportCustomSchema(df: DataFrame, custom_schema: StructType, fieldNamePrefix: String, schemaDesc: String): DataFrame
     res = cls.reportCustomSchema(df._jdf, jvm_datatype, fieldNamePrefix, schemaDesc)
-    log_and_print(logging.info, f'Tried reporting custom Kafka schema: {res}')
+    log_and_print(logging.info, 'Tried reporting custom Kafka schema: {}'.format(res))
     return df
 
 
@@ -1046,5 +1055,5 @@ def reportCustomEventhubInputSchema(df,  # type: DataFrame
     jvm_datatype = pyspark_datatype_to_jvm(jvm, custom_schema or df.schema())
     #   def reportCustomSchema(df: DataFrame, custom_schema: StructType, fieldNamePrefix: String, schemaDesc: String): DataFrame
     res = cls.reportCustomSchema(df._jdf, jvm_datatype, fieldNamePrefix, schemaDesc)
-    log_and_print(logging.info, f'Tried reporting custom EventHub schema: {res}')
+    log_and_print(logging.info, 'Tried reporting custom EventHub schema: {}'.format(res))
     return df
