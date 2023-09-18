@@ -13,12 +13,12 @@ PYSPARK_ARTIFACT_NAME = "kensu-pyspark"
 REGULAR_ARTIFACT_NAME = "kensu"
 
 
-def is_pyspark_delivery():
+def is_py35_pyspark_delivery():
     return PYSPARK_ARTIFACT_NAME in DELIVERY_ARTIFACT_NAME
 
 
 def artifact_name():
-    if is_pyspark_delivery():
+    if is_py35_pyspark_delivery():
         return PYSPARK_ARTIFACT_NAME
     else:
         return REGULAR_ARTIFACT_NAME
@@ -86,7 +86,7 @@ def get_install_requires(path):
 
 
 def maybe_filter_py35packages(package):
-    if is_pyspark_delivery():
+    if is_py35_pyspark_delivery():
         package_ok = package.startswith("kensu.pyspark") or \
             package.startswith("kensu.utils.remote") or \
             package.startswith("kensu.utils.kensu_conf_file")
@@ -112,7 +112,10 @@ setup(
     install_requires=get_install_requires('common-requirements.txt'),
     extras_require=get_extra_requires('extra.requirements'),
     platforms="Posix; MacOS X; Windows",
-    include_package_data=True,
+    # - when delivering only kensu-pyspark (minimal sub-set of kensu-py compatible with py3.5),
+    # we have to use include_package_data=False to exclude uneeded .py files which are not compatible with py3.5
+    # - when delivering regular kensu-py, we have to use include_package_data=True to include all .py files as normal
+    include_package_data=not is_py35_pyspark_delivery(),
     long_description="""\
     DODD Python Agent: enable Data Observability Driven Development in your Python script\
     """
