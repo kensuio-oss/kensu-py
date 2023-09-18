@@ -33,7 +33,13 @@ jobs:
         pip install
         build
         --user
+    - name: Store unix timestamp in BUILD_NUMBER env var
+      run: echo "BUILD_NUMBER=.dev$(date +%s)" >> $GITHUB_ENV
     - name: Build a binary wheel and a source tarball
+      # store PR number in BUILD_FLAVOR env var
+      # so we'll get version like 0.0.1.123.dev1694786623 where 123 is PR number
+      env:
+        BUILD_FLAVOR: .alpha${{ github.event.number }}
       run: >-
         python -m
         build
