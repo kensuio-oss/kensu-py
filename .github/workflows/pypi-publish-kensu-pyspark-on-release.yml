@@ -1,9 +1,8 @@
 name: Publish kensu-pyspark minimal Python 🐍 Agent
 
 on:
-  push:
-    branches: [ release/py3.5-kensu-pyspark ]
-  workflow_dispatch:
+  release:
+    types: [created]
 
 jobs:
   deploy:
