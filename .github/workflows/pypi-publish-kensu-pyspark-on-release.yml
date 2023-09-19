@@ -21,7 +21,7 @@ jobs:
         --user
     - name: Build a binary wheel and a source tarball
       run: >-
-        DELIVERY_ARTIFACT_NAME="kensu-pyspark" python -m
+        BUILD_FLAVOR=alpha BUILD_NUMBER=1 DELIVERY_ARTIFACT_NAME="kensu-pyspark" python -m
         build
         --sdist
         --wheel
