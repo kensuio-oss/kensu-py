@@ -281,7 +281,9 @@ def patch_kensu_df_helpers():
     ])) + [
         ['report_as_kensu_datasource', report_df_as_kensu_datasource()],
         ['report_as_kensu_jdbc_datasource', report_df_as_kensu_jdbc_datasource()],
-        ['report_as_kpi', report_df_as_kpi()]
+        ['report_as_kpi', report_df_as_kpi()],
+        ['write', kensuEfficientWriteProp],
+        ['kensuEfficientWrite', kensuEfficientWriteProp]
     ]
     for fn_name, wrapper_builder in fns_to_patch:
         try:
@@ -1008,6 +1010,21 @@ def addCustomObservationsToOutput(df,  # type: DataFrame
         "ksu_metrics_output_custom_gen{}".format(next_observation_num),
        *exprs
     )
+
+
+from pyspark.sql.dataframe import DataFrameWriter, DataFrame
+
+def kensuEfficientWrite(self) -> DataFrameWriter:
+    """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
+    # FIXME: make compute_count_distinct=False parameterizable
+    # FIXME: implement remote conf -- need output path for that, so will need much more complex wrapper .parquet .csv etc
+    return DataFrameWriter(addOutputObservations(self, compute_count_distinct=False))
+
+
+@property
+def kensuEfficientWriteProp(self) -> DataFrameWriter:
+    """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
+    return kensuEfficientWrite(self)
 
 
 def pyspark_datatype_to_jvm(jvm, pyspark_datatype):
