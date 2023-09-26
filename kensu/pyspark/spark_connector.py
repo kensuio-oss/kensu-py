@@ -272,7 +272,13 @@ def report_df_as_kpi():
     return report_as_kpi
 
 
-def patch_kensu_df_helpers():
+def patch_kensu_df_helpers(patch_spark_data_frame_write,
+                           kensu_efficient_write_compute_count_distinct):
+    kensu_efficient_write_fn = make_kensu_efficient_write_fn(
+        kensu_efficient_write_compute_count_distinct=kensu_efficient_write_compute_count_distinct)
+    optional_patches = []
+    if patch_spark_data_frame_write:
+        optional_patches.append(['write', kensu_efficient_write_fn])
     fns_to_patch = list(map(lambda fn: [fn.__name__, fn], [
         addOutputObservations,
         addCustomObservationsToOutput,
@@ -282,9 +288,8 @@ def patch_kensu_df_helpers():
         ['report_as_kensu_datasource', report_df_as_kensu_datasource()],
         ['report_as_kensu_jdbc_datasource', report_df_as_kensu_jdbc_datasource()],
         ['report_as_kpi', report_df_as_kpi()],
-        ['write', kensuEfficientWriteProp],
-        ['kensuEfficientWrite', kensuEfficientWriteProp]
-    ]
+        ['kensu_efficient_write', kensu_efficient_write_fn]
+    ] + optional_patches
     for fn_name, wrapper_builder in fns_to_patch:
         try:
             logging.info('KENSU: Patching DataFrame.{}'.format(fn_name))
@@ -523,6 +528,8 @@ def init_kensu_spark(
         logical_data_source_naming_strategy_rules=None,
         missing_column_lineage_strategy=None,
         patch_spark_data_frame=None,
+        patch_spark_data_frame_write=None,
+        kensu_efficient_write_compute_count_distinct=None,
         disable_spark_writes=None,
         environment=None,
         execution_timestamp=None,
@@ -615,6 +622,8 @@ def init_kensu_spark(
         h2o_create_virtual_training_datasource = extract_config_property('h2o_create_virtual_training_datasource',True,h2o_create_virtual_training_datasource, kw=kwargs, conf=kensu_conf, tpe=bool)
 
         patch_spark_data_frame = extract_config_property('patch_spark_data_frame', True, patch_spark_data_frame, kw=kwargs, conf=kensu_conf, tpe=bool)
+        patch_spark_data_frame_write = extract_config_property('patch_spark_data_frame_write', True, patch_spark_data_frame_write, kw=kwargs, conf=kensu_conf, tpe=bool)
+        kensu_efficient_write_compute_count_distinct = extract_config_property('kensu_efficient_write_compute_count_distinct', False, kensu_efficient_write_compute_count_distinct, kw=kwargs, conf=kensu_conf, tpe=bool)
 
         patch_pandas_conversions = extract_config_property('patch_pandas_conversions', False, patch_pandas_conversions, kw=kwargs, conf=kensu_conf, tpe=bool)
         pandas_to_spark_df_via_tmp_file = extract_config_property('pandas_to_spark_df_via_tmp_file',True,pandas_to_spark_df_via_tmp_file, kw=kwargs, conf=kensu_conf, tpe=bool)
@@ -843,7 +852,8 @@ def init_kensu_spark(
                     logging.warning("KENSU: unexpected issue when patching DataFrame.write: {}".format(traceback.format_exc()))
 
             if patch_spark_data_frame:
-                patch_kensu_df_helpers()
+                patch_kensu_df_helpers(patch_spark_data_frame_write=patch_spark_data_frame_write,
+                                       kensu_efficient_write_compute_count_distinct=kensu_efficient_write_compute_count_distinct)
 
             if patch_pandas_conversions:
                 try:
@@ -1012,19 +1022,27 @@ def addCustomObservationsToOutput(df,  # type: DataFrame
     )
 
 
-from pyspark.sql.dataframe import DataFrameWriter, DataFrame
+def make_kensu_efficient_write_fn(kensu_efficient_write_compute_count_distinct=False):
+    from pyspark.sql.dataframe import DataFrameWriter, DataFrame
 
-def kensuEfficientWrite(self) -> DataFrameWriter:
-    """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
-    # FIXME: make compute_count_distinct=False parameterizable
-    # FIXME: implement remote conf -- need output path for that, so will need much more complex wrapper .parquet .csv etc
-    return DataFrameWriter(addOutputObservations(self, compute_count_distinct=False))
+    def kensu_efficient_write(self):
+        """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
+        # FIXME: make observe_compute_count_distinct=False parameterizable
+        # FIXME: implement remote conf -- need output path for that, so will need much more complex wrapper .parquet .csv etc
+        df = self
+        try:
+            df = addOutputObservations(self, compute_count_distinct=kensu_efficient_write_compute_count_distinct)
+        except:
+            import traceback
+            logging.info("KENSU: unexpected issue when adding output observations, are you using old kensu Jar?: {}".format(traceback.format_exc()))
+        return DataFrameWriter(df)
 
+    @property
+    def kensu_efficient_write_property(self):
+        """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
+        return kensu_efficient_write(self)
 
-@property
-def kensuEfficientWriteProp(self) -> DataFrameWriter:
-    """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
-    return kensuEfficientWrite(self)
+    return kensu_efficient_write_property
 
 
 def pyspark_datatype_to_jvm(jvm, pyspark_datatype):
