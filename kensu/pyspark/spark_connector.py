@@ -1027,7 +1027,6 @@ def make_kensu_efficient_write_fn(kensu_efficient_write_compute_count_distinct=F
 
     def kensu_efficient_write(self):
         """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
-        # FIXME: make observe_compute_count_distinct=False parameterizable
         # FIXME: implement remote conf -- need output path for that, so will need much more complex wrapper .parquet .csv etc
         df = self
         try:
