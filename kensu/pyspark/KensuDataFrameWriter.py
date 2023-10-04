@@ -1,21 +1,13 @@
 import sys
-from typing import cast, overload, Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import overload, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
-from py4j.java_gateway import JavaClass, JavaObject
-
-from pyspark import RDD, since
-from pyspark.sql.column import _to_seq, _to_java_column, Column
-from pyspark.sql.types import StructType
-from pyspark.sql import utils
 from pyspark.sql.utils import to_str
 
 from pyspark.sql.dataframe import DataFrameWriter
 
 if TYPE_CHECKING:
-    from pyspark.sql._typing import OptionalPrimitiveType, ColumnOrName
-    from pyspark.sql.session import SparkSession
+    from pyspark.sql._typing import OptionalPrimitiveType
     from pyspark.sql.dataframe import DataFrame
-    from pyspark.sql.streaming import StreamingQuery
 
 __all__ = ["KensuDataFrameWriter"]
 
@@ -26,16 +18,6 @@ TupleOrListOfString = Union[List[str], Tuple[str, ...]]
 # limitation: partition columns are not supported for LDS name for remote config
 
 class KensuDataFrameWriter:
-    """
-    Interface used to write a :class:`DataFrame` to external storage systems
-    (e.g. file systems, key-value stores, etc). Use :attr:`DataFrame.write`
-    to access this.
-
-    .. versionadded:: 1.4.0
-
-    .. versionchanged:: 3.4.0
-        Supports Spark Connect.
-    """
 
     def __init__(self, df: "DataFrame"):
         self._df = df
@@ -119,28 +101,26 @@ class KensuDataFrameWriter:
                                    path: Optional[str] = None,
                                    format: Optional[str] = None
                                    ):
-        # is format needed?
+        # FIXME: implement when path is not passed explicitly
         if path is not None:
-            # FIXME: impl observe
-            pass
-        df = self._df
-        try:
-            from kensu.pyspark.spark_connector import addOutputObservationsWithRemoteConf
-            kensu_efficient_write_compute_count_distinct = False  # FIXME: configure in a different way, if needed
-            import logging
-            logging.info("KENSU: DataFrameWriter for output path={} format={}, will be automatically updated with Kensu observations via .observe() using remote config if enabled".format(path, format))
-            df = addOutputObservationsWithRemoteConf(df,
-                                                     path=path,
-                                                     qualified_table_name=None,
-                                                     compute_count_distinct=kensu_efficient_write_compute_count_distinct)
-            logging.info("KENSU: DataFrameWriter for output path={} format={}, was updated with Kensu observations via .observe() using remote config if enabled".format(path, format))
-        except:
-            import traceback
-            import logging
-            logging.info(
-                "KENSU: unexpected issue when adding output observations, are you using old kensu Jar?: {}".format(
-                    traceback.format_exc()))
-        self._update_df(df)
+            df = self._df
+            try:
+                from kensu.pyspark.spark_connector import addOutputObservationsWithRemoteConf
+                kensu_efficient_write_compute_count_distinct = False  # FIXME: configure in a different way, if needed
+                import logging
+                logging.info("KENSU: DataFrameWriter for output path={} format={}, will be automatically updated with Kensu observations via .observe() using remote config if enabled".format(path, format))
+                df = addOutputObservationsWithRemoteConf(df,
+                                                         path=path,
+                                                         qualified_table_name=None,
+                                                         compute_count_distinct=kensu_efficient_write_compute_count_distinct)
+                logging.info("KENSU: DataFrameWriter for output path={} format={}, was updated with Kensu observations via .observe() using remote config if enabled".format(path, format))
+            except:
+                import traceback
+                import logging
+                logging.info(
+                    "KENSU: unexpected issue when adding output observations, are you using old kensu Jar?: {}".format(
+                        traceback.format_exc()))
+            self._update_df(df)
         self._call_deferred_fns()
 
     def save(
