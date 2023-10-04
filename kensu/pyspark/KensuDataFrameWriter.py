@@ -154,7 +154,6 @@ class KensuDataFrameWriter:
         self._handle_simple_format_save(path, format)
         return self._df_writer.save(path=path, format=format, mode=mode, partitionBy=partitionBy, **options)
 
-
     def insertInto(self, tableName: str, overwrite: Optional[bool] = None) -> None:
         # fixme: impl observe
         return self._df_writer.insertInto(tableName, overwrite)
@@ -180,7 +179,7 @@ class KensuDataFrameWriter:
 
     def text(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="text")
-        return self._df_writer.text(path=path, compression=compression, lineSep=lineSep)
+        return self._df_writer.text(path=path, *args, **kwargs)
 
     def csv(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="csv")
