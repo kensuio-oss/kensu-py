@@ -1008,7 +1008,7 @@ def addOutputObservationsWithRemoteConf(df,  # type: DataFrame
     #                                           maybeDsPath: String,
     #                                           maybeQualifiedTableName: String,
     #                                           computeCountDistinct: Boolean = false): DataFrame
-    jdf = cls.addOutputObservations(df._jdf, path, qualified_table_name, compute_count_distinct)
+    jdf = cls.addOutputObservationsWithRemoteConf(df._jdf, path, qualified_table_name, compute_count_distinct)
     # finally convert Java DataFrame back to python DataFrame
     from pyspark.sql.dataframe import DataFrame
     return DataFrame(jdf, spark)
