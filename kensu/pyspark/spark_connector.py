@@ -994,6 +994,26 @@ def addOutputObservations(df,  # type: DataFrame
     return DataFrame(jdf, spark)
 
 
+@catch_errors_with_default_self
+def addOutputObservationsWithRemoteConf(df,  # type: DataFrame
+                                        path=None,  # type: str
+                                        qualified_table_name=None,  # type: str
+                                        compute_count_distinct=False  # not recommended due to likely performance impact
+                          ):
+    # FIXME: looks like we have a repeating pyspark DF -> JVM DF -> pyspark DF pattern here
+    spark = df.sql_ctx.sparkSession
+    jvm = spark.sparkContext._jvm
+    cls = ref_scala_object(jvm, "org.apache.spark.sql.kensu.KensuObserveMetrics")
+    #   def addOutputObservationsWithRemoteConf(df: DataFrame,
+    #                                           maybeDsPath: String,
+    #                                           maybeQualifiedTableName: String,
+    #                                           computeCountDistinct: Boolean = false): DataFrame
+    jdf = cls.addOutputObservations(df._jdf, path, qualified_table_name, compute_count_distinct)
+    # finally convert Java DataFrame back to python DataFrame
+    from pyspark.sql.dataframe import DataFrame
+    return DataFrame(jdf, spark)
+
+
 # a global var, used in addCustomObservationsToOutput
 next_observation_num = 0
 
@@ -1026,15 +1046,11 @@ def make_kensu_efficient_write_fn(kensu_efficient_write_compute_count_distinct=F
     from pyspark.sql.dataframe import DataFrameWriter, DataFrame
 
     def kensu_efficient_write(self):
-        """Same as Spark DataFrame.write but adds efficient Kensu Observations"""
-        # FIXME: implement remote conf -- need output path for that, so will need much more complex wrapper .parquet .csv etc
-        df = self
-        try:
-            df = addOutputObservations(self, compute_count_distinct=kensu_efficient_write_compute_count_distinct)
-        except:
-            import traceback
-            logging.info("KENSU: unexpected issue when adding output observations, are you using old kensu Jar?: {}".format(traceback.format_exc()))
-        return DataFrameWriter(df)
+        """Returns KensuDataFrameWriter,
+        which is mostly same as Spark DataFrame.write, but adds Kensu Observations via .observe()"""
+        from kensu.pyspark.KensuDataFrameWriter import KensuDataFrameWriter
+        df_writer = KensuDataFrameWriter(self)
+        return df_writer
 
     @property
     def kensu_efficient_write_property(self):
