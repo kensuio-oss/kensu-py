@@ -170,43 +170,23 @@ class KensuDataFrameWriter:
         # fixme: impl observe
         return self._df_writer.saveAsTable(name=name, format=format, mode=mode, partitionBy=partitionBy, **options)
 
-    def json(
-        self,
-        path: str,
-        *args, **kwargs
-    ) -> None:
+    def json(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="json")
         return self._df_writer.json(path, *args, **kwargs)
 
-    def parquet(
-        self,
-        path: str,
-        mode: Optional[str] = None,
-        partitionBy: Optional[Union[str, List[str]]] = None,
-        compression: Optional[str] = None,
-    ) -> None:
+    def parquet(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="parquet")
-        return self._df_writer.parquet(path=path, mode=mode, partitionBy=partitionBy, compression=compression)
+        return self._df_writer.parquet(path=path, *args, **kwargs)
 
-    def text(
-        self, path: str, compression: Optional[str] = None, lineSep: Optional[str] = None
-    ) -> None:
+    def text(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="text")
         return self._df_writer.text(path=path, compression=compression, lineSep=lineSep)
 
-    def csv(
-        self,
-        path: str,
-        *args, **kwargs
-    ) -> None:
+    def csv(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="csv")
         return self._df_writer.csv(path, *args, **kwargs)
 
-    def orc(
-        self,
-        path: str,
-        *args, **kwargs
-    ) -> None:
+    def orc(self, path: str, *args, **kwargs) -> None:
         self._handle_simple_format_save(path, format="orc")
         return self._df_writer.orc(path, *args, **kwargs)
 
