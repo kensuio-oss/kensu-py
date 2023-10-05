@@ -41,6 +41,16 @@ class KensuDataFrameWriter:
         for fn in self._delayed_calls:
             fn()
 
+    @staticmethod
+    def _path_from_args(args, kwargs):
+        """
+        Allow to call methods:
+        - .parquet("abc.parquet") - args
+        - .parquet(path="abc.parquet") - kwargs
+
+        :return: path for first arg or from kwargs
+        """
+        return kwargs.get('path') or (args and args[0])
 
     def mode(self, saveMode: Optional[str]) -> "KensuDataFrameWriter":
         self._delay_fn_call(lambda: self._df_writer.mode(saveMode))
@@ -153,25 +163,25 @@ class KensuDataFrameWriter:
         # fixme: impl observe
         return self._df_writer.saveAsTable(name=name, format=format, mode=mode, partitionBy=partitionBy, **options)
 
-    def json(self, path: str, *args, **kwargs) -> None:
-        self._handle_simple_format_save(path, format="json")
-        return self._df_writer.json(path, *args, **kwargs)
+    def json(self, *args, **kwargs) -> None:
+        self._handle_simple_format_save(path=self._path_from_args(args, kwargs), format="json")
+        return self._df_writer.json(*args, **kwargs)
 
-    def parquet(self, path: str, *args, **kwargs) -> None:
-        self._handle_simple_format_save(path, format="parquet")
-        return self._df_writer.parquet(path=path, *args, **kwargs)
+    def parquet(self, *args, **kwargs) -> None:
+        self._handle_simple_format_save(path=self._path_from_args(args, kwargs), format="parquet")
+        return self._df_writer.parquet(*args, **kwargs)
 
-    def text(self, path: str, *args, **kwargs) -> None:
-        self._handle_simple_format_save(path, format="text")
-        return self._df_writer.text(path=path, *args, **kwargs)
+    def text(self, *args, **kwargs) -> None:
+        self._handle_simple_format_save(path=self._path_from_args(args, kwargs), format="text")
+        return self._df_writer.text(*args, **kwargs)
 
-    def csv(self, path: str, *args, **kwargs) -> None:
-        self._handle_simple_format_save(path, format="csv")
-        return self._df_writer.csv(path, *args, **kwargs)
+    def csv(self, *args, **kwargs) -> None:
+        self._handle_simple_format_save(path=self._path_from_args(args, kwargs), format="csv")
+        return self._df_writer.csv(*args, **kwargs)
 
-    def orc(self, path: str, *args, **kwargs) -> None:
-        self._handle_simple_format_save(path, format="orc")
-        return self._df_writer.orc(path, *args, **kwargs)
+    def orc(self, *args, **kwargs) -> None:
+        self._handle_simple_format_save(path=self._path_from_args(args, kwargs), format="orc")
+        return self._df_writer.orc(*args, **kwargs)
 
     def jdbc(
         self,
