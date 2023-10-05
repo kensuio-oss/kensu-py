@@ -24,6 +24,7 @@ class KensuDataFrameWriter:
         self._spark = df.sparkSession
         self._df_writer = DataFrameWriter(df)  # mutable as we modify df at last moment before write
         self._delayed_calls = []
+        self._options = {}
 
     # FIXME: implement  __getattr__(self, item) for unknown field names to defer to self._df_writer
 
@@ -50,10 +51,12 @@ class KensuDataFrameWriter:
         return self
 
     def option(self, key: str, value: "OptionalPrimitiveType") -> "KensuDataFrameWriter":
+        self._options[key] = value
         self._delay_fn_call(lambda: self._df_writer.option(key, to_str(value)))
         return self
 
     def options(self, **options: "OptionalPrimitiveType") -> "KensuDataFrameWriter":
+        self._options.update(options)
         self._delay_fn_call(lambda: self._df_writer.options(**options))
         return self
 
@@ -101,7 +104,8 @@ class KensuDataFrameWriter:
                                    path: Optional[str] = None,
                                    format: Optional[str] = None
                                    ):
-        # FIXME: implement when path is not passed explicitly
+        if path is None:
+            path = self._options.get("path", None)
         if path is not None:
             df = self._df
             try:
