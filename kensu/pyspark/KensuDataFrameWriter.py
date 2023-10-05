@@ -127,7 +127,8 @@ class KensuDataFrameWriter:
                 logging.info("KENSU: DataFrameWriter for output path={} format={}, will be automatically updated with Kensu observations via .observe() using remote config if enabled".format(path, format))
                 df = addOutputObservationsWithRemoteConf(df,
                                                          path=path,
-                                                         qualified_table_name=None,
+                                                         table_name=None,
+                                                         format=format,
                                                          compute_count_distinct=kensu_efficient_write_compute_count_distinct)
                 logging.info("KENSU: DataFrameWriter for output path={} format={}, was updated with Kensu observations via .observe() using remote config if enabled".format(path, format))
             except:
@@ -147,7 +148,7 @@ class KensuDataFrameWriter:
         partitionBy: Optional[Union[str, List[str]]] = None,
         **options: "OptionalPrimitiveType",
     ) -> None:
-        self._handle_simple_format_save(path, format)
+        self._handle_simple_format_save(path, format or self._options.get('format'))
         return self._df_writer.save(path=path, format=format, mode=mode, partitionBy=partitionBy, **options)
 
     def insertInto(self, tableName: str, overwrite: Optional[bool] = None) -> None:

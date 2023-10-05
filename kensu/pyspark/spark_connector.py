@@ -997,18 +997,21 @@ def addOutputObservations(df,  # type: DataFrame
 @catch_errors_with_default_self
 def addOutputObservationsWithRemoteConf(df,  # type: DataFrame
                                         path=None,  # type: str
-                                        qualified_table_name=None,  # type: str
+                                        table_name=None,  # type: str
+                                        format=None,
                                         compute_count_distinct=False  # not recommended due to likely performance impact
-                          ):
+                                        ):
     # FIXME: looks like we have a repeating pyspark DF -> JVM DF -> pyspark DF pattern here
     spark = df.sql_ctx.sparkSession
     jvm = spark.sparkContext._jvm
     cls = ref_scala_object(jvm, "org.apache.spark.sql.kensu.KensuObserveMetrics")
-    #   def addOutputObservationsWithRemoteConf(df: DataFrame,
+    #   addOutputObservationsWithRemoteConf(df: DataFrame,
     #                                           maybeDsPath: String,
-    #                                           maybeQualifiedTableName: String,
-    #                                           computeCountDistinct: Boolean = false): DataFrame
-    jdf = cls.addOutputObservationsWithRemoteConf(df._jdf, path, qualified_table_name, compute_count_distinct)
+    #                                           maybeTableName: String,
+    #                                           format: String,
+    #                                           computeCountDistinct: Boolean
+    #                                          )
+    jdf = cls.addOutputObservationsWithRemoteConf(df._jdf, path, table_name, format, compute_count_distinct)
     # finally convert Java DataFrame back to python DataFrame
     from pyspark.sql.dataframe import DataFrame
     return DataFrame(jdf, spark)
