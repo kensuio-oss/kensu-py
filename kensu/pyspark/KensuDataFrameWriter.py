@@ -46,7 +46,9 @@ class KensuDataFrameWriter:
         """
         Allow to call methods:
         - .parquet("abc.parquet") - args
+        - .parquet("abc.parquet", mode="overwrite") - args + kwargs
         - .parquet(path="abc.parquet") - kwargs
+        - .parquet(mode="overwrite", path="abc.parquet") - kwargs in weird order - wouldn't work with `def parquet(path, *args, **kwrags)`
 
         :return: path for first arg or from kwargs
         """
