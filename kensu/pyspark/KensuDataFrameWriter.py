@@ -125,7 +125,7 @@ class KensuDataFrameWriter:
                             ):
         if path is None:
             path = self._path_from_options()
-        if path is not None:
+        if path is not None or table_name is not None:
             df = self._df
             try:
                 from kensu.pyspark.spark_connector import addOutputObservationsWithRemoteConf
