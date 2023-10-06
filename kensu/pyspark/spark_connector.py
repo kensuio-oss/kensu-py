@@ -1009,7 +1009,7 @@ def addOutputObservationsWithRemoteConf(df,  # type: DataFrame
     #   addOutputObservationsWithRemoteConf(df: DataFrame,
     #                                           maybeDsPath: String,
     #                                           maybeTableName: String,
-    #                                           maybeJdbcOptions: Map[String, String],
+    #                                           maybeJdbcOptions: java.util.HashMap[String, String],
     #                                           format: String,
     #                                           computeCountDistinct: Boolean
     #                                          )
