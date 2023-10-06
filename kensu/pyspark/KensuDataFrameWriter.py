@@ -121,11 +121,12 @@ class KensuDataFrameWriter:
     def _handle_simple_save(self,
                             path: Optional[str] = None,
                             format: Optional[str] = None,
-                            table_name: Optional[str] = None
+                            table_name: Optional[str] = None,
+                            jdbc_options: Optional[Dict[str, str]] = None
                             ):
         if path is None:
             path = self._path_from_options()
-        if path is not None or table_name is not None:
+        if path is not None or table_name is not None or jdbc_options is not None:
             df = self._df
             try:
                 from kensu.pyspark.spark_connector import addOutputObservationsWithRemoteConf
@@ -135,6 +136,7 @@ class KensuDataFrameWriter:
                 df = addOutputObservationsWithRemoteConf(df,
                                                          path=path,
                                                          table_name=table_name,
+                                                         jdbc_options=jdbc_options,
                                                          format=format,
                                                          compute_count_distinct=kensu_efficient_write_compute_count_distinct)
                 logging.info("KENSU: DataFrameWriter for output path={}  table_name={} format={}, was updated with Kensu observations via .observe() using remote config if enabled".format(path, table_name, format))
@@ -201,5 +203,10 @@ class KensuDataFrameWriter:
         mode: Optional[str] = None,
         properties: Optional[Dict[str, str]] = None,
     ) -> None:
-        # FIXME: impl observe
+        jdbc_options = self._options.copy()
+        jdbc_options.update(properties or {})
+        jdbc_options.update({'url': url, 'dbtable': table})
+        self._handle_simple_save(
+            jdbc_options=dict([(k, v) for k, v in jdbc_options.items() if isinstance(v, str)]),
+            format="jdbc")
         return self._df_writer.jdbc(url=url, table=table, mode=mode, properties=properties)

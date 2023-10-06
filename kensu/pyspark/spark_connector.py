@@ -998,6 +998,7 @@ def addOutputObservations(df,  # type: DataFrame
 def addOutputObservationsWithRemoteConf(df,  # type: DataFrame
                                         path=None,  # type: str
                                         table_name=None,  # type: str
+                                        jdbc_options=None, # type: Optional[Dict[str, str]]
                                         format=None,
                                         compute_count_distinct=False  # not recommended due to likely performance impact
                                         ):
@@ -1008,10 +1009,11 @@ def addOutputObservationsWithRemoteConf(df,  # type: DataFrame
     #   addOutputObservationsWithRemoteConf(df: DataFrame,
     #                                           maybeDsPath: String,
     #                                           maybeTableName: String,
+    #                                           maybeJdbcOptions: Map[String, String],
     #                                           format: String,
     #                                           computeCountDistinct: Boolean
     #                                          )
-    jdf = cls.addOutputObservationsWithRemoteConf(df._jdf, path, table_name, format, compute_count_distinct)
+    jdf = cls.addOutputObservationsWithRemoteConf(df._jdf, path, table_name, jdbc_options or {}, format, compute_count_distinct)
     # finally convert Java DataFrame back to python DataFrame
     from pyspark.sql.dataframe import DataFrame
     return DataFrame(jdf, spark)
