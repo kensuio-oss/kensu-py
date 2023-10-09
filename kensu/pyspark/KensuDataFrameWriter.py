@@ -203,10 +203,13 @@ class KensuDataFrameWriter:
         mode: Optional[str] = None,
         properties: Optional[Dict[str, str]] = None,
     ) -> None:
-        jdbc_options = self._options.copy()
-        jdbc_options.update(properties or {})
-        jdbc_options.update({'url': url, 'dbtable': table})
-        self._handle_simple_save(
-            jdbc_options=dict([(k, v) for k, v in jdbc_options.items() if isinstance(v, str)]),
-            format="jdbc")
+        # Observe is unsupported for jdbc writes due a known Apache Spark bug, see:
+        # - https://issues.apache.org/jira/browse/SPARK-42034
+        # - https://github.com/apache/spark/pull/39976#issuecomment-1752930380
+        # jdbc_options = self._options.copy()
+        # jdbc_options.update(properties or {})
+        # jdbc_options.update({'url': url, 'dbtable': table})
+        # self._handle_simple_save(
+        #     jdbc_options=dict([(k, v) for k, v in jdbc_options.items() if isinstance(v, str)]),
+        #     format="jdbc")
         return self._df_writer.jdbc(url=url, table=table, mode=mode, properties=properties)
