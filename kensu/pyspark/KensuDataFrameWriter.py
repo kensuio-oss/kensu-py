@@ -17,6 +17,20 @@ TupleOrListOfString = Union[List[str], Tuple[str, ...]]
 
 # limitation: partition columns are not supported for LDS name for remote config
 
+# copied from: from pyspark.sql.utils import to_str
+def to_str(value) -> Optional[str]:
+    """
+    A wrapper over str(), but converts bool values to lower case strings.
+    If None is given, just returns None, instead of converting it to string "None".
+    """
+    if isinstance(value, bool):
+        return str(value).lower()
+    elif value is None:
+        return value
+    else:
+        return str(value)
+
+
 class KensuDataFrameWriter:
 
     def __init__(self, df: "DataFrame"):
@@ -63,12 +77,13 @@ class KensuDataFrameWriter:
         return self
 
     def option(self, key: str, value: "OptionalPrimitiveType") -> "KensuDataFrameWriter":
-        self._options[key] = value
+        self._options[key] = to_str(value)
         self._delay_fn_call(lambda: self._df_writer.option(key, to_str(value)))
         return self
 
     def options(self, **options: "OptionalPrimitiveType") -> "KensuDataFrameWriter":
-        self._options.update(options)
+        for k in options:
+            self._options[k] = to_str(options[k])
         self._delay_fn_call(lambda: self._df_writer.options(**options))
         return self
 
