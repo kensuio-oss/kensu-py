@@ -39,6 +39,7 @@ class KensuDataFrameWriter:
         self._df_writer = DataFrameWriter(df)  # mutable as we modify df at last moment before write
         self._delayed_calls = []
         self._options = {}
+        self._format = None
 
     # FIXME: implement  __getattr__(self, item) for unknown field names to defer to self._df_writer
 
@@ -73,6 +74,7 @@ class KensuDataFrameWriter:
         return self
 
     def format(self, source: str) -> "KensuDataFrameWriter":
+        self._format = source
         self._delay_fn_call(lambda: self._df_writer.format(source))
         return self
 
@@ -89,9 +91,6 @@ class KensuDataFrameWriter:
 
     def _path_from_options(self):
         return self._options.get('path')
-
-    def _format_from_options(self):
-        return self._options.get('format')
 
     @overload
     def partitionBy(self, *cols: str) -> "KensuDataFrameWriter":
@@ -173,7 +172,7 @@ class KensuDataFrameWriter:
         partitionBy: Optional[Union[str, List[str]]] = None,
         **options: "OptionalPrimitiveType",
     ) -> None:
-        self._handle_simple_save(path, format or self._format_from_options())
+        self._handle_simple_save(path, format or self._format)
         return self._df_writer.save(path=path, format=format, mode=mode, partitionBy=partitionBy, **options)
 
     def insertInto(self, tableName: str, overwrite: Optional[bool] = None) -> None:
@@ -188,7 +187,7 @@ class KensuDataFrameWriter:
         partitionBy: Optional[Union[str, List[str]]] = None,
         **options: "OptionalPrimitiveType",
     ) -> None:
-        self._handle_simple_save(path=None, table_name=name, format=format or self._format_from_options())
+        self._handle_simple_save(path=None, table_name=name, format=format or self._format)
         return self._df_writer.saveAsTable(name=name, format=format, mode=mode, partitionBy=partitionBy, **options)
 
     def json(self, *args, **kwargs) -> None:
