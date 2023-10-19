@@ -33,13 +33,16 @@ def to_str(value) -> Optional[str]:
 
 class KensuDataFrameWriter:
 
-    def __init__(self, df: "DataFrame"):
+    def __init__(self,
+                 df: "DataFrame",
+                 compute_count_distinct: bool = False):
         self._df = df
         self._spark = df.sparkSession
         self._df_writer = DataFrameWriter(df)  # mutable as we modify df at last moment before write
         self._delayed_calls = []
         self._options = {}
         self._format = None
+        self._compute_count_distinct = compute_count_distinct
 
     # FIXME: implement  __getattr__(self, item) for unknown field names to defer to self._df_writer
 
@@ -144,7 +147,6 @@ class KensuDataFrameWriter:
             df = self._df
             try:
                 from kensu.pyspark.spark_connector import addOutputObservationsWithRemoteConf
-                kensu_efficient_write_compute_count_distinct = False  # FIXME: configure in a different way, if needed
                 import logging
                 logging.info("KENSU: DataFrameWriter for output path={} table_name={} format={}, will be automatically updated with Kensu observations via .observe() using remote config if enabled".format(path, table_name, format))
                 df = addOutputObservationsWithRemoteConf(df,
@@ -152,7 +154,7 @@ class KensuDataFrameWriter:
                                                          table_name=table_name,
                                                          jdbc_options=jdbc_options,
                                                          format=format,
-                                                         compute_count_distinct=kensu_efficient_write_compute_count_distinct)
+                                                         compute_count_distinct=self._compute_count_distinct)
                 logging.info("KENSU: DataFrameWriter for output path={}  table_name={} format={}, was updated with Kensu observations via .observe() using remote config if enabled".format(path, table_name, format))
             except:
                 import traceback

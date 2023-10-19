@@ -1054,7 +1054,7 @@ def make_kensu_efficient_write_fn(kensu_efficient_write_compute_count_distinct=F
         """Returns KensuDataFrameWriter,
         which is mostly same as Spark DataFrame.write, but adds Kensu Observations via .observe()"""
         from kensu.pyspark.KensuDataFrameWriter import KensuDataFrameWriter
-        df_writer = KensuDataFrameWriter(self)
+        df_writer = KensuDataFrameWriter(self, compute_count_distinct=kensu_efficient_write_compute_count_distinct)
         return df_writer
 
     @property
