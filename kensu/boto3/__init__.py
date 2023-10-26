@@ -253,7 +253,6 @@ def measures_schema(rec):
 
 # returns a dict: {fieldName -> fieldType}
 def extract_timestream_write_schema(records, common_attributes):
-    # FIXME: take into account CommonAttributes
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-write.html#TimestreamWrite.Client.write_records
     if len(records) == 0:
         return {}
