@@ -762,73 +762,74 @@ class Kensu(object):
                 cv = sandbox_prefix + cv
             else:
                 sandbox_prefix = ''
-            for map in self.rules:
-                for lds_id in map:
-                    field_name = map[lds_id]['field']
-                    fun = map[lds_id]['fun']
-                    context = map[lds_id]['context']
+            if not self.report_to_file:
+                for map in self.rules:
+                    for lds_id in map:
+                        field_name = map[lds_id]['field']
+                        fun = map[lds_id]['fun']
+                        context = map[lds_id]['context']
 
-                    data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
-                    try:
-                        lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
-                            'id']
-                    except:
+                        data = self.sdk.get_lineages_in_project(project_id, process_id, env_name, cv)
                         try:
-                            from kensu.utils.kensu_class_handlers import KensuClassHandlers
-                            from kensu.client.models.logical_data_source import LogicalDataSourcePK
-                            lds_guid = sandbox_prefix + KensuClassHandlers.guid_pk(LogicalDataSourcePK(name=lds_id,location=lds_id))
+                            lds_guid = [e['datasource'] for e in data['data']['nodes'] if e['datasource']['name'] == lds_id][0][
+                                'id']
                         except:
-                            lds_guid = None
-                            logging.info("LDS Guid %s not in this lineage"%lds_id)
+                            try:
+                                from kensu.utils.kensu_class_handlers import KensuClassHandlers
+                                from kensu.client.models.logical_data_source import LogicalDataSourcePK
+                                lds_guid = sandbox_prefix + KensuClassHandlers.guid_pk(LogicalDataSourcePK(name=lds_id,location=lds_id))
+                            except:
+                                lds_guid = None
+                                logging.info("LDS Guid %s not in this lineage"%lds_id)
 
-                    if lds_guid is not None:
-                        if context == "DATA_STATS":
-                            lineage_ids = set(
-                                [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
-                            lineage_id_for_ds={}
-                            for link in data['data']['links']:
-                                for lineage_id in lineage_ids:
-                                    if link['lineage']['id'] == lineage_id:
-                                        lineage_id_for_ds.setdefault(lineage_id,[])
-                                        lineage_id_for_ds[lineage_id] = set(list(lineage_id_for_ds[lineage_id]) + [link['sourceDatasourceId']] + [link['targetDatasourceId']])
+                        if lds_guid is not None:
+                            if context == "DATA_STATS":
+                                lineage_ids = set(
+                                    [data['data']['links'][i]['lineage']['id'] for i in range(len(data['data']['links']))])
+                                lineage_id_for_ds={}
+                                for link in data['data']['links']:
+                                    for lineage_id in lineage_ids:
+                                        if link['lineage']['id'] == lineage_id:
+                                            lineage_id_for_ds.setdefault(lineage_id,[])
+                                            lineage_id_for_ds[lineage_id] = set(list(lineage_id_for_ds[lineage_id]) + [link['sourceDatasourceId']] + [link['targetDatasourceId']])
 
-                            for lineage_id in lineage_id_for_ds:
-                                if lds_guid in lineage_id_for_ds[lineage_id]:
-                                    current_rules = self.sdk.get_rules_for_ds_in_project(lds_guid, lineage_id, project_id,
-                                                                                         env_name)
-                                    current_range_rules = {i['fieldName']: i['uuid']
-                                                           for i in current_rules['data']['predicates']
-                                                           if i['functionName'] == 'Range' and (i['environment'] == env_name) }
-                                    current_frequency_rule = [i['uuid']
-                                                              for i in current_rules['data']['predicates']
-                                                              if i['functionName'] == 'Frequency' and (
-                                                                          i['environment'] == env_name)]
-                                    if fun['name'] == 'Range' and (field_name in current_range_rules):
-                                        self.sdk.update_rule(current_range_rules[field_name], fun)
-                                    elif fun['name'] == 'Frequency' and current_frequency_rule:
-                                        self.sdk.update_rule(current_frequency_rule[0], fun)
+                                for lineage_id in lineage_id_for_ds:
+                                    if lds_guid in lineage_id_for_ds[lineage_id]:
+                                        current_rules = self.sdk.get_rules_for_ds_in_project(lds_guid, lineage_id, project_id,
+                                                                                             env_name)
+                                        current_range_rules = {i['fieldName']: i['uuid']
+                                                               for i in current_rules['data']['predicates']
+                                                               if i['functionName'] == 'Range' and (i['environment'] == env_name) }
+                                        current_frequency_rule = [i['uuid']
+                                                                  for i in current_rules['data']['predicates']
+                                                                  if i['functionName'] == 'Frequency' and (
+                                                                              i['environment'] == env_name)]
+                                        if fun['name'] == 'Range' and (field_name in current_range_rules):
+                                            self.sdk.update_rule(current_range_rules[field_name], fun)
+                                        elif fun['name'] == 'Frequency' and current_frequency_rule:
+                                            self.sdk.update_rule(current_frequency_rule[0], fun)
 
-                                    else:
-                                        self.sdk.create_rule(lds_guid, lineage_id, project_id, process_id, env_name, field_name,
-                                                             fun)
+                                        else:
+                                            self.sdk.create_rule(lds_guid, lineage_id, project_id, process_id, env_name, field_name,
+                                                                 fun)
 
-                        elif context == "LOGICAL_DATA_SOURCE":
-                            current_rules = self.sdk.get_all_rules_for_ds(lds_guid)
+                            elif context == "LOGICAL_DATA_SOURCE":
+                                current_rules = self.sdk.get_all_rules_for_ds(lds_guid)
 
-                            current_range_rules = {i['fieldName']: i['uuid']
-                                                   for i in current_rules['data']['predicates']
-                                                   if i['functionName'] == 'Range'}
-                            current_variation_rules = {i['fieldName']: i['uuid']
+                                current_range_rules = {i['fieldName']: i['uuid']
                                                        for i in current_rules['data']['predicates']
-                                                       if i['functionName'] == 'Variability'}
-                            if fun['name'] == 'Range' and (field_name in current_range_rules):
-                                self.sdk.update_rule(current_range_rules[field_name], fun)
-                            elif fun['name'] == 'Variability' and (field_name in current_variation_rules):
-                                self.sdk.update_rule(current_variation_rules[field_name], fun)
+                                                       if i['functionName'] == 'Range'}
+                                current_variation_rules = {i['fieldName']: i['uuid']
+                                                           for i in current_rules['data']['predicates']
+                                                           if i['functionName'] == 'Variability'}
+                                if fun['name'] == 'Range' and (field_name in current_range_rules):
+                                    self.sdk.update_rule(current_range_rules[field_name], fun)
+                                elif fun['name'] == 'Variability' and (field_name in current_variation_rules):
+                                    self.sdk.update_rule(current_variation_rules[field_name], fun)
 
-                            else:
-                                self.sdk.create_rule(lds_id=lds_guid, field_name=field_name,
-                                                     fun=fun,context = "LOGICAL_DATA_SOURCE")
+                                else:
+                                    self.sdk.create_rule(lds_id=lds_guid, field_name=field_name,
+                                                         fun=fun,context = "LOGICAL_DATA_SOURCE")
 
 
 
