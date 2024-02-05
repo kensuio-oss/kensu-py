@@ -1,0 +1,19 @@
+{
+  "packages": ["python37@latest"],
+  "env": {
+    "VENV_DIR": ".venv",
+    "CONF_FILE": "tests/unit/conf.ini"
+  },
+  "shell": {
+    "init_hook": ". $VENV_DIR/bin/activate",
+    "scripts": {
+      "test": [
+        "pip install \".[all]\"",
+        "pytest"
+      ],
+      "build": [
+        "pip install \".[all]\""
+      ]
+    }
+  }
+}
