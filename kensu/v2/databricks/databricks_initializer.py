@@ -8,6 +8,7 @@
 # - [ ] improve the way we patch the `ipykernel_launcher.py`
 
 import logging
+import inspect
 
 spark_initialized = False
 initialized = False
@@ -101,7 +102,7 @@ def patched_to_parquet(wrapped, fn_name, format_name):
         return result
 
     wrapper.__doc__ = wrapped.__doc__
-    wrapped.__signature__ = wrapped.__signature__
+    wrapped.__signature__ = inspect.signature(wrapped)
     return wrapper
 
 
@@ -131,7 +132,7 @@ def patched_read_parquet(wrapped, fn_name, format_name):
         return result
 
     wrapper.__doc__ = wrapped.__doc__
-    wrapped.__signature__ = wrapped.__signature__
+    wrapped.__signature__ = inspect.signature(wrapped)
     return wrapper
 
 
