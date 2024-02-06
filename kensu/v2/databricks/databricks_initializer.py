@@ -76,6 +76,7 @@ def monkey_patch_readers_writers():
     #    * mlflow
     # - the reader and writer functions will call the lazy_init() function to ensure that Kensu is fully initialized
     monkey_patch_pandas()
+    monkey_patch_spark_dataframe()
 
 
 def patched_to_parquet(wrapped, fn_name, format_name):
@@ -169,3 +170,48 @@ def monkey_patch_pandas():
         import traceback
         traceback.print_exc()
 
+
+toPandas_idx = 0
+
+
+def patched_to_df_toPandas(wrapped, fn_name, format_name):
+    def wrapper(self, *args, **kwargs):
+        # call original .toPandas() from Spark
+        result = wrapped(self, *args, **kwargs)
+        try:
+            logging.info(f'KENSU: in {fn_name} - original impl done, trying to lazy init Kensu')
+            lazy_init()
+            spark_df = self
+            global toPandas_idx
+            global inputs_read
+            toPandas_idx += 1
+            toPandas_in_mem_name = f'spark_df.toPandas{toPandas_idx}'  # FIXME: do we have a better way of naming - FIXME: add process-name at least!!!
+            # retrieve lineage, and store via random name
+            spark_df.tagInMem(name=toPandas_in_mem_name)
+            inputs_read.append(toPandas_in_mem_name)
+            logging.info(f'KENSU: in {fn_name}, done reporting')
+        except:
+            import traceback
+            logging.warning("KENSU: unexpected issue in {}: {}".format(fn_name, traceback.format_exc()))
+        return result
+
+    wrapper.__doc__ = wrapped.__doc__
+    wrapped.__signature__ = inspect.signature(wrapped)
+    return wrapper
+
+
+def monkey_patch_spark_dataframe():
+    from kensu.exp import add_tagInMem_operations
+    add_tagInMem_operations()  # this adds spark_df.tagInMem()
+    from pyspark.sql import DataFrame
+    # from pyspark.sql import SparkSession
+    # this replaces .toPandas() by this: spark_df.tagInMem(name="spark_df.toPandas123").toPandas()
+    try:
+        setattr(DataFrame, 'toPandas', patched_to_df_toPandas(DataFrame.toPandas, 'pyspark.sql.DataFrame.toPandas', 'Spark.toPandas()'))
+    except Exception as e:
+        print("Kensu-py patching Spark DataFrame.toPandas() failed: " + str(e))
+        # print stacktrace
+        import traceback
+        traceback.print_exc()
+
+    # TODO: spark.createDataFrame(pandas_df).tagCreateDataFrame('created_df',input_names = None)
