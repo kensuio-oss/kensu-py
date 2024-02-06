@@ -10,6 +10,8 @@
 import logging
 import inspect
 
+from kensu.client import FieldDef
+
 spark_initialized = False
 initialized = False
 
@@ -90,11 +92,11 @@ def patched_to_parquet(wrapped, fn_name, format_name):
             from kensu.exp import create_publish_for_data_source, link
             # import pandas as pd
             from kensu.pandas.extractor import KensuPandasSupport
-            schema_fields = KensuPandasSupport().extract_schema_fields(self)
+            schema_fields = KensuPandasSupport().extract_schema_fields(self) + [FieldDef('unknown', 'unknown', True)]
             ds_name = qualified_path
             create_publish_for_data_source(ds=ds_name, name=qualified_path, location=qualified_path, format=format_name, schema=schema_fields)
             global inputs_read
-            link(inputs_read, ds_name)
+            link(list(set(inputs_read)), ds_name)
             logging.info(f'KENSU: in {fn_name}, done reporting')
         except:
             import traceback
@@ -120,7 +122,7 @@ def patched_read_parquet(wrapped, fn_name, format_name):
             from kensu.exp import create_publish_for_data_source
             # import pandas as pd
             from kensu.pandas.extractor import KensuPandasSupport
-            schema_fields = KensuPandasSupport().extract_schema_fields(result)
+            schema_fields = KensuPandasSupport().extract_schema_fields(result) + [FieldDef('unknown', 'unknown', True)]
             ds_name = qualified_path
             create_publish_for_data_source(ds=ds_name, name=qualified_path, location=qualified_path, format=format_name, schema=schema_fields)
             global inputs_read

@@ -21,9 +21,12 @@ def get_spark_session():
         for obj in gc.get_objects():
             if isinstance(obj, SparkSession):
                 kensu_spark_session = obj
-    except:
+    except Exception as err:
+        logging.info(f"Error while trying to get Spark session: {err}")
         return None
     else:
+        if kensu_spark_session is None:
+            logging.info("No Spark session found")
         return kensu_spark_session
 
 
@@ -312,8 +315,10 @@ def link(input_names, output_name):
 
     # Definition of the process run
     if get_spark_session() != None:
+        logging.info('Spark session found, using process run for Spark')
         process_run_guid = get_process_run_info(get_spark_session())['process_run_guid']
     else:
+        logging.info('No Spark session found, using Kensu process run')
         k = KensuProvider().instance()
         process_run_guid = k.process_run.to_guid()
 
