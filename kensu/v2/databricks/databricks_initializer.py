@@ -63,7 +63,7 @@ def lazy_init():
     if not initialized:
         from kensu.exp import get_spark_session
         spark = get_spark_session() # FIXME: any better way to get spark variable, gc, global, etc!? cache it?
-        init_scala_spark(spark)
+        # FIXME: init_scala_spark(spark)
         init_kensu_py(spark)
         initialized = True
 

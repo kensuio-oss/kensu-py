@@ -291,7 +291,7 @@ def create_lineage(inputs, output):
                                             column_data_dependencies={'unknown': ['unknown']}) for i in inputs]
 
     # Definition of the process
-    if get_spark_session() != None:
+    if get_spark_session() is not None:
         process_guid = get_process_run_info(get_spark_session())['process_guid']
     else:
         k = KensuProvider().instance()
@@ -314,7 +314,7 @@ def link(input_names, output_name):
     lineage = create_lineage(input_scs, output_sc)._report()
 
     # Definition of the process run
-    if get_spark_session() != None:
+    if get_spark_session() is not None:
         logging.info('Spark session found, using process run for Spark')
         process_run_guid = get_process_run_info(get_spark_session())['process_run_guid']
     else:
