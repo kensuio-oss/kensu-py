@@ -21,9 +21,12 @@ def get_spark_session():
         for obj in gc.get_objects():
             if isinstance(obj, SparkSession):
                 kensu_spark_session = obj
-    except:
+    except Exception as err:
+        logging.info(f"Error while trying to get Spark session: {err}")
         return None
     else:
+        if kensu_spark_session is None:
+            logging.info("No Spark session found")
         return kensu_spark_session
 
 
@@ -288,7 +291,7 @@ def create_lineage(inputs, output):
                                             column_data_dependencies={'unknown': ['unknown']}) for i in inputs]
 
     # Definition of the process
-    if get_spark_session() != None:
+    if get_spark_session() is not None:
         process_guid = get_process_run_info(get_spark_session())['process_guid']
     else:
         k = KensuProvider().instance()
@@ -311,9 +314,11 @@ def link(input_names, output_name):
     lineage = create_lineage(input_scs, output_sc)._report()
 
     # Definition of the process run
-    if get_spark_session() != None:
+    if get_spark_session() is not None:
+        logging.info('Spark session found, using process run for Spark')
         process_run_guid = get_process_run_info(get_spark_session())['process_run_guid']
     else:
+        logging.info('No Spark session found, using Kensu process run')
         k = KensuProvider().instance()
         process_run_guid = k.process_run.to_guid()
 
