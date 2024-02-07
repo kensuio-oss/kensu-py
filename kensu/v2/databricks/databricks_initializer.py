@@ -9,6 +9,7 @@
 
 import logging
 import inspect
+import time
 
 from kensu.client import FieldDef
 
@@ -17,17 +18,34 @@ initialized = False
 
 inputs_read = []
 
+def run_fake_spark_job_to_init(spark):
+    from pyspark.sql.types import StringType, IntegerType, StructField, StructType
+    data = [('Alice', 25, 'New York'),
+            ('Bob', 30, 'London'),
+            ('Charlie', 35, 'Sydney')]
+    schema = StructType([
+        StructField("name", StringType(), True),
+        StructField("age", IntegerType(), True),
+        StructField("city", StringType(), True)
+    ])
+    # Convert RDD to DataFrame using the specified schema
+    rdd = spark.sparkContext.parallelize(data)
+    df = spark.createDataFrame(rdd, schema)
+    df.collect()
+
+
 def init_scala_spark(spark  # type: pyspark.sql.SparkSession
                      ):
     global spark_initialized
     try:
         print("Trying to explicitly init Spark collector")
         from kensu.pyspark.spark_connector import ref_scala_object
-        # entry_point seems JVM object, so we can use it to get JVM
-        #sc = spark.sparkContext
-        jvm = spark.sparkContext._jvm
-        client_class = ref_scala_object(jvm, "org.apache.spark.sql.kensu.KensuZeroCodeListener")
-        client_class.explicitlyInitKensuForAliveSession(spark._jsparkSession)  # fixme: this should also check if not initialized already
+        # fixme: this could also check if not initialized already, and skip the job if so
+        run_fake_spark_job_to_init(spark)
+        # fixme: do I need to call computeDelayedStats to trigger initialization? probably not?
+        #  just to wait for long enough
+        # FIXME: use iterative waiting which checks if initialized already
+        time.sleep(90)
         spark_initialized = True
     except Exception as e:
         print("Trying to explicitly init Spark collector failed: " + str(e))
@@ -47,9 +65,6 @@ def init_kensu_py(spark):
         from kensu.utils.kensu_provider import KensuProvider
         kensu_instance = KensuProvider().initKensu(report_process_info=not spark_initialized, allow_reinit=True)
         print("Kensu-py initialation succeeded.")
-        # FIXME: test patching pandas
-        import pandas as pd
-        pd.kensu = 'Kensu'
     except Exception as e:
         print("Kensu-py initialation failed: " + str(e))
         # print stacktrace
