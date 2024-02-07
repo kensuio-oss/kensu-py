@@ -404,7 +404,7 @@ def get_inputs_lineage_fn(kensu_instance, df, virtual_ds_name=None, virtual_ds_l
             lineage=j2py_dict_of_lists(e.lineage())
         ) for e in lineage_from_scala.lineage()
     ]
-    logging.info('KENSU: lineage_info:', lineage_info)
+    logging.info('KENSU: lineage_info:' + str(lineage_info))
     return GenericComputedInMemDs(inputs=list([x.input_ds for x in lineage_info]), lineage=lineage_info)
 
 
