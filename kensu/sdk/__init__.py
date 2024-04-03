@@ -417,7 +417,6 @@ class SDK(AbstractSDK):
     
         while ds['data']:
             try:
-                print(f"{offset}: {limit}")
                 ds = self.requests_get_json(f"/business/services/views/v1/logical-datasources?offset={offset}&limit={limit}")
                 logical_data_sources['data'].extend(ds['data'])
                 offset += limit
