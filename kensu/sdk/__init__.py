@@ -409,7 +409,24 @@ class SDK(AbstractSDK):
         return self.requests_get_json("/api/services/v1/resources/datasources")
 
     def get_logical_datasources(self):
-        return self.requests_get_json("/business/services/views/v1/logical-datasources")
+        logical_data_sources = {'data': []}
+        limit = 500
+        offset = 0
+
+        ds = {'data': [None]} 
+    
+        while ds['data']:
+            try:
+                print(f"{offset}: {limit}")
+                ds = self.requests_get_json(f"/business/services/views/v1/logical-datasources?offset={offset}&limit={limit}")
+                logical_data_sources['data'].extend(ds['data'])
+                offset += limit
+                
+            except Exception as e:
+                print(f"Error fetching data: {e}")
+                break # Exit loop on error
+   
+        return logical_data_sources
 
     def get_total_sent_data_mb(self):
         return self.requests_get_json("/business/services/v1/ingestion-log")['entitiesSentKbTotal'] / 1000
