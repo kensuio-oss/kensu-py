@@ -1,7 +1,6 @@
-from kensu.utils.kensu_provider import KensuProvider
-import warnings
 import logging
 
+from kensu.utils.kensu_provider import KensuProvider
 
 
 def add_rule(data_source, field, type, parameters,context="DATA_STATS"):
@@ -85,46 +84,6 @@ def add_variability_rule(data_source, field, variation_in_percent, hours = None,
 def add_variability_constraint_data_source(data_source, field, variation_in_percent, hours = None, days = None, weeks = None, months = None):
     context = "LOGICAL_DATA_SOURCE"
     return add_variability_rule(data_source, field, variation_in_percent, hours, days, weeks, months,context)
-
-
-def check_format_consistency(data_source):
-    k_sdk = KensuProvider().instance().sdk
-    checked_format = k_sdk.get_latest_datasource_in_logical(data_source)['format']
-    previous_ds = k_sdk.get_latest_datasource_in_logical(data_source, n=-2)
-
-    if checked_format and previous_ds:
-        previous_format = previous_ds['format']
-        bool = checked_format == previous_format
-        if bool:
-            pass
-        else:
-            logging.warning("KENSU: The format of the datasource {} is not consistent, expected {}, got {}".format(data_source,previous_format, checked_format))
-
-
-def check_schema_consistency(data_source):
-    k_sdk = KensuProvider().instance().sdk
-    checked_schema = k_sdk.get_latest_schema_in_logical(data_source, n=-1)
-    previous_schema = k_sdk.get_latest_schema_in_logical(data_source, n=-2)
-
-    if checked_schema and previous_schema:
-        # Check of field changes
-        missing_keys = previous_schema.keys() - checked_schema.keys()
-        if missing_keys:
-            logging.warning("KENSU: The following key(s) are missing from {} : {}".format(data_source,list(missing_keys)))
-
-        new_keys =  checked_schema.keys() - previous_schema.keys()
-        if new_keys:
-            logging.warning("KENSU: The following key(s) are new in {} : {}".format(data_source,list(new_keys)))
-
-        all_changed_fields = list(missing_keys)+list(new_keys)
-
-        type_diff = dict(set(checked_schema.items())-set(previous_schema.items()))
-        for x in all_changed_fields:
-            if x in type_diff:
-                del type_diff[x]
-        if type_diff:
-            for y in type_diff.keys():
-                logging.warning("KENSU: The following field in {} has a wrong type: {} Expected {}, got {}".format(data_source,y,previous_schema[y],checked_schema[y]))
 
 
 # TODO WIP check nrows
