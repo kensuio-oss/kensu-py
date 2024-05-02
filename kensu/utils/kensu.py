@@ -755,13 +755,14 @@ class Kensu(object):
             token_content = jwt.decode(self.kensu_api.api_client.default_headers["X-Auth-Token"],
                                        options={"verify_signature": False})
 
-            if 'SANDBOX_USER_HASH' in token_content:
-                sandbox_prefix = token_content['SANDBOX_USER_HASH'] + "-"
-                project_id = sandbox_prefix + project_id
-                process_id = sandbox_prefix + process_id
-                cv = sandbox_prefix + cv
+            # SANDBOX_USER_HASH is deprecated
+            if 'SANDBOX_USER_HASH' in token_content or "discriminator" in token_content:
+                guid_discriminator = token_content.get("discriminator", token_content.get('SANDBOX_USER_HASH')) + "-"
+                project_id = guid_discriminator + project_id
+                process_id = guid_discriminator + process_id
+                cv = guid_discriminator + cv
             else:
-                sandbox_prefix = ''
+                guid_discriminator = ''
             if not self.report_to_file:
                 for map in self.rules:
                     for lds_id in map:
@@ -777,7 +778,7 @@ class Kensu(object):
                             try:
                                 from kensu.utils.kensu_class_handlers import KensuClassHandlers
                                 from kensu.client.models.logical_data_source import LogicalDataSourcePK
-                                lds_guid = sandbox_prefix + KensuClassHandlers.guid_pk(LogicalDataSourcePK(name=lds_id,location=lds_id))
+                                lds_guid = guid_discriminator + KensuClassHandlers.guid_pk(LogicalDataSourcePK(name=lds_id,location=lds_id))
                             except:
                                 lds_guid = None
                                 logging.info("LDS Guid %s not in this lineage"%lds_id)
