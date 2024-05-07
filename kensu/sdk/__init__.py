@@ -12,9 +12,6 @@ from kensu.utils.exceptions import SdkError
 
 
 class AbstractSDK(ABC):
-    @abstractmethod
-    def get_cookie(self):
-        pass
 
     @abstractmethod
     def get_lineages_in_project(self, project, process, env, code_version):
@@ -84,9 +81,6 @@ class DoNothingSDK(ABC):
     def __init__(self):
         pass
 
-    def get_cookie(self):
-        pass
-
     def get_lineages_in_project(self, project, process, env, code_version):
         pass
 
@@ -133,15 +127,16 @@ class SDK(AbstractSDK):
         self.verify_ssl = verify_ssl
         self.debug_requests = os.environ.get('KENSU_DEBUG_HTTP_REQUESTS', 'False') == 'True'
 
+    def _auth_headers(self):
+        return {"Authorization": f"Bearer {self.PAT}"}
+
     def requests_get_json(self, uri_suffix):
         # FIXME: proper URI concat
-        # FIXME: verify if this update the cookie jar?
-        # FIXME: what if cookie expired?
         uri = self.url + uri_suffix
         resp = self.debug_request(
             uri=uri,
             method='GET',
-            fn=lambda: requests.get(uri, headers={"Authorization": f"Bearer ${self.PAT}"}, verify=self.verify_ssl)
+            fn=lambda: requests.get(uri, headers=self._auth_headers(), verify=self.verify_ssl)
         )
         if not (200 <= resp.status_code <= 299):
             msg = f"Failed to query Kensu SDK for uri={uri_suffix} status={resp.status_code}:\n{resp.text}"
@@ -169,7 +164,7 @@ class SDK(AbstractSDK):
             uri=full_uri,
             payload=payload,
             method='POST',
-            fn=lambda: requests.post(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+            fn=lambda: requests.post(full_uri, headers=self._auth_headers(), json=payload, verify=self.verify_ssl)
         )
 
     def requests_put_json(self, uri, payload):
@@ -178,7 +173,7 @@ class SDK(AbstractSDK):
             uri=full_uri,
             payload=payload,
             method='PUT',
-            fn=lambda: requests.put(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+            fn=lambda: requests.put(full_uri, headers=self._auth_headers(), json=payload, verify=self.verify_ssl)
         )
 
     def requests_patch_json(self, uri, payload):
@@ -187,7 +182,7 @@ class SDK(AbstractSDK):
             uri=full_uri,
             payload=payload,
             method='PATCH',
-            fn=lambda: requests.patch(full_uri, json=payload, cookies=self.cookie, verify=self.verify_ssl)
+            fn=lambda: requests.patch(full_uri, headers=self._auth_headers(), json=payload, verify=self.verify_ssl)
         )
 
     def get_lineages_in_project(self, project, process, env, code_version):
@@ -280,7 +275,6 @@ class SDK(AbstractSDK):
 
     def get_detailed_sent_data(self):
         ingestion_log_details = self.requests_get_json("/business/services/v1/ingestion-log")['entitiesSentByToken']
-        self.cookie = self.get_cookie()
         tokens = self.requests_get_json("/business/services/v1/tokens/app-groups")
         ingestion_list = []
         for ingestion_log_detail in ingestion_log_details:
