@@ -595,41 +595,49 @@ class Kensu(object):
 
     def create_dependencies(self,destination_guid, guid, origin_column, column, all_deps,
                             dependencies_per_columns_rt):
-        visited = list()
-        visited.append((guid,column))
-        self.dependencies_per_columns = dependencies_per_columns_rt
-        filtered_dependencies = all_deps[all_deps['GUID'] == guid]
+        # simulate recursion without recursive calls - loop until queue is empty
+        q = [(destination_guid, guid, origin_column, column, all_deps, dependencies_per_columns_rt)]
+        while True:
+            try:
+                destination_guid, guid, origin_column, column, all_deps, dependencies_per_columns_rt = q.pop()
+            except IndexError:
+                break
 
-        filtered_dependencies = filtered_dependencies[filtered_dependencies['COLUMNS'] == str(column)]
-        if destination_guid in self.dependencies_per_columns:
-            for row in filtered_dependencies.iterrows():
-                row = row[1]
+            visited = list() # fixme: visited probably could be shared among recursion branches
+            visited.append((guid,column))
+            self.dependencies_per_columns = dependencies_per_columns_rt # FIXME: this is questionable action to store in self?!
+            filtered_dependencies = all_deps[all_deps['GUID'] == guid]
 
-                if row['FROM_ID'] in self.real_schema_df:
-                    if origin_column in self.dependencies_per_columns[destination_guid]:
-                        if row['FROM_ID'] in self.dependencies_per_columns[destination_guid][origin_column]:
-                            self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] = \
-                            self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] + \
-                            row['FROM_COLUMNS']
+            filtered_dependencies = filtered_dependencies[filtered_dependencies['COLUMNS'] == str(column)]
+            if destination_guid in self.dependencies_per_columns:
+                for row in filtered_dependencies.iterrows():
+                    row = row[1]
+
+                    if row['FROM_ID'] in self.real_schema_df:
+                        if origin_column in self.dependencies_per_columns[destination_guid]:
+                            if row['FROM_ID'] in self.dependencies_per_columns[destination_guid][origin_column]:
+                                self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] = \
+                                self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] + \
+                                row['FROM_COLUMNS']
+                            else:
+                                self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] = row[
+                                    'FROM_COLUMNS']
                         else:
+                            self.dependencies_per_columns[destination_guid][origin_column] = {}
                             self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] = row[
                                 'FROM_COLUMNS']
+                            # dependencies_per_columns[guid][row['FROM_ID']] = row['FROM_COLUMNS']
                     else:
-                        self.dependencies_per_columns[destination_guid][origin_column] = {}
-                        self.dependencies_per_columns[destination_guid][origin_column][row['FROM_ID']] = row[
-                            'FROM_COLUMNS']
-                        # dependencies_per_columns[guid][row['FROM_ID']] = row['FROM_COLUMNS']
-                else:
-                    guid = row['FROM_ID']
-                    columns = row['FROM_COLUMNS']
-                    for column in columns:
-                        if (guid,column) not in visited:
-                            self.create_dependencies(destination_guid, guid, origin_column, column, all_deps,
-                                                self.dependencies_per_columns)
-        else:
-            self.dependencies_per_columns[destination_guid] = {}
-            self.create_dependencies(destination_guid, guid, origin_column, column, all_deps,
-                                self.dependencies_per_columns)
+                        guid = row['FROM_ID']
+                        columns = row['FROM_COLUMNS']
+                        for column in columns:
+                            if (guid,column) not in visited:
+                                q.append((destination_guid, guid, origin_column, column, all_deps,
+                                                    self.dependencies_per_columns))
+            else:
+                self.dependencies_per_columns[destination_guid] = {}
+                q.append((destination_guid, guid, origin_column, column, all_deps,
+                                  self.dependencies_per_columns))
 
     def get_dependencies(self):
         return self.dependencies
