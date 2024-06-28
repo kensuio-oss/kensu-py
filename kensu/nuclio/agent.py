@@ -8,6 +8,8 @@ from json import JSONDecodeError
 from typing import Set, Optional, Dict
 from dataclasses import dataclass
 
+from kensu.utils.helpers import to_datasource
+
 from kensu.client import DataStats, DataStatsPK, DataSourcePK, DataSource, SchemaPK, Schema, PhysicalLocationRef, \
     DataSourceRef, FieldDef, LineageRun, LineageRunPK, ProcessLineage, ProcessLineagePK, ProcessRef, \
     SchemaLineageDependencyDef, SchemaRef, ProcessRun, Process, ProcessRunRef, ProcessLineageRef, LineageRunRef, \
@@ -31,12 +33,13 @@ FREQ = timedelta(minutes=1)  # FIXME: make this configurable
 from kensu.utils.kensu_provider import KensuProvider
 
 
-def init_kensu_py(process_name):
+def init_kensu_py(process_name, logical_data_source_naming_strategy):
     KensuProvider().initKensu(
         process_name=process_name,
         pandas_support=False,
         numpy_support=False,
         allow_reinit=True,
+        logical_data_source_naming_strategy=logical_data_source_naming_strategy
     )
 
 
@@ -210,9 +213,12 @@ class KafkaDatasource:
         physical_location_ref = PhysicalLocationRef(by_guid=k.UNKNOWN_PHYSICAL_LOCATION.to_guid())
 
         ds_pk = DataSourcePK(location=self.location, physical_location_ref=physical_location_ref)
-        ds = DataSource(name=self.location,
-                        format='kafka',
-                        categories=None, pk=ds_pk)
+        logical_naming = k.logical_naming
+        ds = to_datasource(ds_pk=ds_pk,
+                              format='kafka',
+                              location=self.location,
+                              logical_data_source_naming_strategy=logical_naming,
+                              name=self.location)._report()
 
         schema_pk = SchemaPK(data_source_ref=DataSourceRef(by_pk=ds_pk),
                              fields=[FieldDef(name=field_name, field_type=field_dt, nullable=True)
@@ -468,7 +474,7 @@ def send_report_if_exists(context: Context, dt: datetime):
     context.user_data.last_report_time = dt  # Reset report time FIXME: should this be start or end time of func()?
 
 
-def track_kensu(process_name=None):
+def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
     """
     :param process_name: if None, will use package::handler_func_name as default
     :return:
@@ -491,7 +497,7 @@ def track_kensu(process_name=None):
             # otherwise reporting wouldn't work the way it is implemented now
             context.user_data.current_event = event
             if not hasattr(context.user_data, "last_report_time"):
-                init_kensu_py(process_name)
+                init_kensu_py(process_name, logical_data_source_naming_strategy)
                 # if this is the first invocation of the handler
                 context.user_data.last_report_time = now
                 context.user_data.accumulated_info = KensuLineage.empty(process_name=process_name)

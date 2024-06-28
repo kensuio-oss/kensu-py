@@ -12,7 +12,18 @@ def kafka_delivery_report(err, msg):
         print('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
 
 
-@track_kensu()
+def normalize_kafka_cluster_name(kafka_name: str):
+    """normalize kafka cluster name for:
+     - inputs (only nuclio kafka name available)
+     - outputs (only bootstrap.servers available)"""
+    kafka_bootstrap_server = 'host.docker.internal:9094'
+    kafka_cluster_name = 'kafka-local' # as in hello.yaml
+    if kafka_bootstrap_server in kafka_name:
+        return kafka_name.replace(kafka_bootstrap_server, kafka_cluster_name)
+    return kafka_name
+
+
+@track_kensu(logical_data_source_naming_strategy=normalize_kafka_cluster_name)
 def handler_confluent(context, event):
     event_data = event.body
 
@@ -64,15 +75,3 @@ def handler_confluent(context, event):
         content_type="text/plain",
         status_code=200,
     )
-
-# Examples of manual reporting of output info:
-# there might be multiple targets in same handler invocation
-# kensu_add_kafka_output(context,
-#                        topic=random_topic,
-#                        cluster_name='kafka',
-#                        schema={"field1": "str", "field2": "int"},
-#                        output_data={"o_int": 1, "o_str_null": None, "o_str": "abc"}
-#                        )
-# kensu_add_kafka_output(context,
-#                        topic='c',
-#                        cluster_name='kafka2')
