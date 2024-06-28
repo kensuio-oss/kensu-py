@@ -10,8 +10,16 @@
     ```
   * add `producer.kensu_set_nuclio_context(context)`
 
-### Setup kensu configuration
-FIXME
+### Kensu configuration
+
+Kensu agent configured in regular way, just make sure `KSU_CONF_FILE` environment variable is passed to nuclio function, 
+and it points to a accessible Kensu config file (mounted volume).
+
+#### configuring reporting interval
+
+Lineage and data observability metrics about multiple nuclio events are aggregated and sent to Kensu only once per specified time period.
+
+Set environment variable `KSU_NUCLIO_REPORTING_INTERVAL_SECONDS=123`.
 
 # Limitations / Pecularities
 
