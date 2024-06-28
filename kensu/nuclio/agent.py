@@ -1,6 +1,7 @@
 import atexit
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 import functools
 import random
@@ -27,7 +28,7 @@ from nuclio_sdk.event import Event
 # - define which metrics to compute
 
 
-FREQ = timedelta(minutes=1)  # FIXME: make this configurable
+FREQ = timedelta(seconds=int(os.environ.get('KSU_NUCLIO_REPORTING_INTERVAL_SECONDS') or 60))
 
 # FIXME: move init kensu inside decorator?
 from kensu.utils.kensu_provider import KensuProvider
