@@ -25,7 +25,7 @@ from nuclio_sdk.event import Event
 # - define which metrics to compute
 
 
-FREQ = timedelta(minutes=1)  # FIXME
+FREQ = timedelta(minutes=1)  # FIXME: make this configurable
 
 # FIXME: move init kensu inside decorator?
 from kensu.utils.kensu_provider import KensuProvider
