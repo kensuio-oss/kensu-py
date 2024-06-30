@@ -493,25 +493,31 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
 
         @functools.wraps(handler_func)
         def wrapper_timed_report(context, event):
-            now: datetime = datetime.now()
-            # P.S. `.current_event` and `.accumulated_info` must be set before running the `handler_func()`
-            # otherwise reporting wouldn't work the way it is implemented now
-            context.user_data.current_event = event
-            if not hasattr(context.user_data, "last_report_time"):
-                init_kensu_py(process_name, logical_data_source_naming_strategy)
-                # if this is the first invocation of the handler
-                context.user_data.last_report_time = now
-                context.user_data.accumulated_info = KensuLineage.empty(process_name=process_name)
-                # report fn needs to have context, so register a python shutdown hook on first invocation
-                atexit.register(report_on_shutdown, context)
+            try:
+                now: datetime = datetime.now()
+                # P.S. `.current_event` and `.accumulated_info` must be set before running the `handler_func()`
+                # otherwise reporting wouldn't work the way it is implemented now
+                context.user_data.current_event = event
+                if not hasattr(context.user_data, "last_report_time"):
+                    init_kensu_py(process_name, logical_data_source_naming_strategy)
+                    # if this is the first invocation of the handler
+                    context.user_data.last_report_time = now
+                    context.user_data.accumulated_info = KensuLineage.empty(process_name=process_name)
+                    # report fn needs to have context, so register a python shutdown hook on first invocation
+                    atexit.register(report_on_shutdown, context)
+            except Exception as e:
+                logging.warning(f"unable to initialize Kensu Nuclio agent: {e}")
 
             # Run the regular handler function logic
             result = handler_func(context, event)
 
-            context.user_data.current_event = None
-            # Check if the reporting period has passed
-            if now - context.user_data.last_report_time >= FREQ:
-                send_report_if_exists(context=context, dt=now)
+            try:
+                context.user_data.current_event = None
+                # Check if the reporting period has passed
+                if now - context.user_data.last_report_time >= FREQ:
+                    send_report_if_exists(context=context, dt=now)
+            except Exception as e:
+                logging.warning(f"An issue occured while trying to report information to Kensu: {e}")
 
             return result
 
