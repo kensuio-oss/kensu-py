@@ -33,7 +33,7 @@ Set environment variable `KSU_NUCLIO_REPORTING_INTERVAL_SECONDS=123`.
 ### start Kafka in docker
 
 ```bash
-docker-compose up -d -f ./kafka-docker-compose.yml
+docker-compose -f kafka-docker-compose.yml up -d
 ```
 this will start Kafka in standalone mode (without Zookeeper), and Kafka UI at http://localhost:8080/
 
@@ -54,4 +54,7 @@ P.S. only Python 3.8 seemed to work out of the box
 
 ### send some events to kafka
 
-run `./produce_kafka_events.sh` inside Kafka docker
+run `./produce_kafka_events.sh`.
+
+this will exec the `_produce_kafka_events.sh` inside Kafka docker which will send some
+sample events to the input topics to be consumed by nuclio functions
