@@ -51,7 +51,7 @@ spec:
   build:
     path: "./sample_function.py"
     commands:
-      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a178.dev1719584971 confluent-kafka
+      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a178.dev1719763095 confluent-kafka
     noCache: true
     onbuildImage: "quay.io/nuclio/handler-builder-python-onbuild:unstable-arm64"
     runtimeAttributes:
