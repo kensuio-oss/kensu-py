@@ -44,10 +44,10 @@ download `nuctl-1.13.4-darwin-arm64` from https://github.com/nuclio/nuclio/relea
 
 create/modify kensu-conf.ini and run the following:
 ```bash
-KSU_CONF_FILE=$(PWD)/kensu-conf.ini ./nuclio_deploy_sample_function.sh
+KSU_CONF_FILE=$(PWD)/kensu-conf.ini ./nuclio_deploy_sample_functions.sh
 ```
 
-this will build and start docker container with the sample nuclio job, 
+this will build and start docker containers with the sample nuclio jobs, 
 passing through the Kensu config file to a sample nuclio function
 
 P.S. only Python 3.8 seemed to work out of the box
