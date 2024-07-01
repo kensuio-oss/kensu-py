@@ -2,7 +2,7 @@
 
 KAFKA_BIN_DIR="/opt/bitnami/kafka/bin"
 BROKER_LIST="localhost:9092"
-TOPIC="hello"
+TOPIC="raw_events"
 
 JSON_MESSAGES=(
 '{"a_str": "lala"}'

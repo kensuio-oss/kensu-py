@@ -44,8 +44,7 @@ spec:
           user: ""
         sessionTimeout: 10s
         topics:
-          - hello
-          - goodbye
+          - raw_events
         workerAllocationMode: pool
       maxWorkers: 1
   build:
