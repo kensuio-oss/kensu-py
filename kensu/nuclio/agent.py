@@ -4,7 +4,6 @@ import logging
 import os
 from datetime import datetime, timedelta
 import functools
-import random
 from json import JSONDecodeError
 from typing import Set, Optional, Dict
 from dataclasses import dataclass
@@ -19,13 +18,6 @@ from kensu.utils.kensu import Kensu
 
 from nuclio_sdk.context import Context
 from nuclio_sdk.event import Event
-
-#from kensu.utils import KensuProvider
-
-# Status:
-# - shutdown hook - implemented, not tested
-# - estimation +/- done, define kafka DS broker + topic + consumer_group? no partition?
-# - define which metrics to compute
 
 
 FREQ = timedelta(seconds=int(os.environ.get('KSU_NUCLIO_REPORTING_INTERVAL_SECONDS') or 60))
@@ -110,11 +102,7 @@ class MinMaxAggregator(GenericAggregator):
 @dataclass
 class MetricsAccumulator:
     nrows: int
-    # FIXME: MIN,MAX OFFSET
-    # nullrows? of root keys?
-    # .min/.max of numeric
     aggregators_by_id: Dict[str, GenericAggregator]
-
     schema: Dict[str, str]  # field_name -> datatype
 
     @staticmethod
@@ -188,15 +176,8 @@ class MetricsAccumulator:
 class KafkaDatasource:
     brokers: str
     topic: str
-    # FIXME: a single Kafka topic quite often (e.g in event ingestion) has multiple different schemas
-    #  based on some `event_type` discriminator field, do we need to group by that?
-    # event_type: str
-
     metrics: MetricsAccumulator
-
-
     consumer_group: Optional[str] = None
-
 
     @property
     def sorted_brokers(self):
@@ -295,7 +276,6 @@ def extract_event_fields(event_body,
     return schema_items
 
 
-
 @dataclass
 class KensuOutputLineageInfo:
     # FIXME: generalize these, to more DS types
@@ -350,7 +330,6 @@ class KensuOutputLineageInfo:
             values=self.extract_values_for_metrics(input_event=input_event, event_body=output_data)
         ))
 
-
     def report_to_kensu(self, process: Process, process_run: ProcessRun):
         # FIXME: report unknown output if none was reported explicitly; maybe same for unknown input(s)?
         out_ds, out_schema = self.output.report_to_kensu()
@@ -389,9 +368,6 @@ class KensuOutputLineageInfo:
                 continue
             input.report_datastats(schema_ref=SchemaRef(by_guid=input_schema.to_guid()),
                                    lineage_run_ref=lineage_run_ref)
-
-
-
 
 
 @dataclass
