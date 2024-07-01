@@ -30,7 +30,6 @@ from nuclio_sdk.event import Event
 
 FREQ = timedelta(seconds=int(os.environ.get('KSU_NUCLIO_REPORTING_INTERVAL_SECONDS') or 60))
 
-# FIXME: move init kensu inside decorator?
 from kensu.utils.kensu_provider import KensuProvider
 
 
@@ -197,7 +196,6 @@ class KafkaDatasource:
 
 
     consumer_group: Optional[str] = None
-    # FIXME: offset is per consumer_group & partition, might be interesting to track minInputOffset, maxInputOffset !
 
 
     @property
@@ -206,7 +204,6 @@ class KafkaDatasource:
 
     @property
     def location(self):
-        # FIXME: brokers and consumer group not avail; but we have kafka name
         return f"kafka://{self.sorted_brokers}/topic={self.topic}"
 
     def report_to_kensu(self):
@@ -239,8 +236,6 @@ class KafkaDatasource:
     @staticmethod
     def from_topic(topic: str, cluster_name: Optional[str]):
         return KafkaDatasource(
-            # FIXME: no consumer group in event?
-            # FIXME: no broker url in event?
             brokers=cluster_name or 'unknown-kafka-cluster',
             topic=topic,
             metrics=MetricsAccumulator.zero()
@@ -274,11 +269,10 @@ def extract_event_fields(event_body,
         for k, v in event_body.items():
             schema_items[k] = value_extractor_fn(v)
     elif isinstance(event_body, str):
-        # FIXME: try to parse str as JSON
+        # try to parse str as JSON
         if try_parse_str_as_json:
             try:
                 import json
-                # FIXME: add prefix
                 schema_items.update(
                     dict([("event_body." + k, v)
                           for k, v in extract_event_fields(
@@ -290,6 +284,7 @@ def extract_event_fields(event_body,
                 logging.info(f"Unable to parse string as JSON")
         schema_items['event_body'] = value_extractor_fn(event_body)
     elif isinstance(event_body, bytes):
+        # try to decode bytes as utf-8 string, and then parse as JSON
         try:
             decoded_str = event_body.decode("utf-8")
             return extract_event_fields(event_body=decoded_str,
@@ -311,8 +306,6 @@ class KensuOutputLineageInfo:
     def extract_values_for_metrics(input_event: Event, event_body):
         # add schema and metrics for reporting in future
         stream_processing_metrics = {
-            # FIXME: these might be always 0. nuclio bug?
-            # https://stackoverflow.com/questions/78126285/why-is-the-event-offset-always-0-for-my-kafka-triggered-nuclio-function
             f"nuclio_stream.shard{input_event.shard_id}.offset": input_event.offset,
             f"nuclio_stream.num_shards": input_event.num_shards,
         }
@@ -364,11 +357,10 @@ class KensuOutputLineageInfo:
         input_schemas_by_input_path = {}
         for input in self.inputs.values():
             input_ds, input_schema = input.report_to_kensu()
-            input_schemas_by_input_path[input.location] = input_schema  # FIXME: should these be properties of KafkaDatasource ?
+            input_schemas_by_input_path[input.location] = input_schema
 
         k = KensuProvider().instance()
-        # FIXME: use custom process or from k.process?
-        process_guid = process.to_guid() # k.process.to_guid()
+        process_guid = process.to_guid()
         output_schema_ref = SchemaRef(by_guid=out_schema.to_guid())
         # lineage
         data_flow = [SchemaLineageDependencyDef(from_schema_ref=SchemaRef(by_guid=i_schema.to_guid()),
@@ -384,7 +376,7 @@ class KensuOutputLineageInfo:
         timestamp_now = int(round(datetime.now().timestamp()*1000))
         lineage_run = LineageRun(pk=LineageRunPK(process_run_ref=ProcessRunRef(by_guid=process_run.to_guid()),
                                  lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
-                                                 # FIXME: shall we use max event timestamp instead?
+                                                 # FIXME: shall we use max event timestamp from nuclio instead?
                                  timestamp=timestamp_now))._report()
         lineage_run_ref = LineageRunRef(by_guid=lineage_run.to_guid())
 
@@ -431,21 +423,10 @@ class KensuLineage:
 
     def report_to_kensu(self):
         k: Kensu = KensuProvider().instance()
-        # process_name = self.process_name
-        # process = Process(pk=ProcessPK(qualified_name=process_name))._report()
-        # process_run = ProcessRun(pk=ProcessRunPK(process_ref=ProcessRef(by_pk=process.pk),
-        #                                          qualified_name=process_name),
-        #                          launched_by_user_ref=None,
-        #                          executed_code_version_ref=None,
-        #                          environment=None,
-        #                          projects_refs=None
-        #                          )._report()
-        # FIXME: do I need new process run for each reporting? probably yes. if so reinit Kensu?
-        # if it's a long running Nuclio job, and we don't reinit or resend process/process-run etc,
+        # if it's a long-running Nuclio job, and we don't reinit or resend process/process-run etc,
         # performing delete by token would not allow to continue ingesting without restarting the Nuclio stream/jobs
         # thus need to call k.report_process_info() each time
         k.report_process_info()
-        # init_kensu_py(k.process.pk.qualified_name)
         for ds_loc, output_info in self.lineage_by_output.items():
             output_info.report_to_kensu(process=k.process, process_run=k.process_run)
 
@@ -462,7 +443,6 @@ def report_on_shutdown(context):
 
 
 def send_report_if_exists(context: Context, dt: datetime):
-    # FIXME: timing of this looks fishy
     lineage = context.user_data.accumulated_info
     if lineage:
         send_report(
@@ -472,7 +452,7 @@ def send_report_if_exists(context: Context, dt: datetime):
         )
         context.user_data.accumulated_info = KensuLineage.empty(lineage.process_name)
 
-    context.user_data.last_report_time = dt  # Reset report time FIXME: should this be start or end time of func()?
+    context.user_data.last_report_time = dt  # Reset report time
 
 
 def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
@@ -481,15 +461,12 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
     :return:
     """
     def actual_decorator(handler_func):
-        # FIXME: add try catch
-        # FIXME: if that's in current file, it has no package
         qualname_handler = handler_func.__qualname__
         fn_filename = handler_func.__code__.co_filename
 
         nonlocal process_name  # Indicate that process_name is non-local
         if not process_name:
             process_name = f"Nuclio :: {fn_filename} :: {qualname_handler}()"
-        # FIXME: is this called multiple times?
 
         @functools.wraps(handler_func)
         def wrapper_timed_report(context, event):
@@ -551,6 +528,6 @@ def kensu_add_kafka_output(context, topic, cluster_name=None, output_data=None, 
             input_event=input_event,
             output_ds=KafkaDatasource.from_topic(topic=topic,
                                                  cluster_name=cluster_name),
-            output_schema=schema,  # FIXME: extract output schema & values from event_body
-            output_data=output_data  # FIXME: extract output values from event_body
+            output_schema=schema,
+            output_data=output_data,
         )
