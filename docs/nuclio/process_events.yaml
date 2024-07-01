@@ -1,9 +1,9 @@
 metadata:
-  name: hello
+  name: process-events
   labels:
     nuclio.io/project-name: default
 spec:
-  handler: "sample_function:handler_confluent"
+  handler: "process_events:handler_confluent"
   runtime: "python:3.8"
   # mount kensu config file
   volumeMounts:
@@ -32,7 +32,7 @@ spec:
       attributes:
         brokers:
           - 'host.docker.internal:9094'
-        consumerGroup: hello-1
+        consumerGroup: process-events-2
         fetchDefault: 1048576
         heartbeatInterval: 3s
         initialOffset: earliest
@@ -44,14 +44,14 @@ spec:
           user: ""
         sessionTimeout: 10s
         topics:
-          - hello
-          - goodbye
+          - ingested_events1
+          - ingested_events2
         workerAllocationMode: pool
       maxWorkers: 1
   build:
-    path: "./sample_function.py"
+    path: "./process_events.py"
     commands:
-      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a178.dev1719763095 confluent-kafka
+      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a178.dev1719763777 confluent-kafka
     noCache: true
     onbuildImage: "quay.io/nuclio/handler-builder-python-onbuild:unstable-arm64"
     runtimeAttributes:

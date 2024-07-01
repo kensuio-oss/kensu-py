@@ -17,7 +17,7 @@ def normalize_kafka_cluster_name(kafka_name: str):
      - inputs (only nuclio kafka name available)
      - outputs (only bootstrap.servers available)"""
     kafka_bootstrap_server = 'host.docker.internal:9094'
-    kafka_cluster_name = 'kafka-local' # as in hello.yaml
+    kafka_cluster_name = 'kafka-local' # as in ingest_raw_events.yaml
     if kafka_bootstrap_server in kafka_name:
         return kafka_name.replace(kafka_bootstrap_server, kafka_cluster_name)
     return kafka_name
@@ -28,9 +28,9 @@ def handler_confluent(context, event):
     event_data = event.body
 
     if random.random() > 0.5:
-        random_topic = "output_topic1"
+        random_topic = "processed_events3"
     else:
-        random_topic = "output_topic2"
+        random_topic = "processed_events4"
 
     # https://github.com/confluentinc/confluent-kafka-python
     import socket
