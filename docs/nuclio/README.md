@@ -8,7 +8,6 @@
     - from confluent_kafka import Producer
     + from kensu.nuclio.confluent_kafka import Producer
     ```
-  * add `producer.kensu_set_nuclio_context(context)`
 
 ### Kensu configuration
 

@@ -41,7 +41,6 @@ def handler_confluent(context, event):
     # use this instead of: from confluent_kafka import Producer
     from kensu.nuclio.confluent_kafka import Producer
     producer = Producer(conf)
-    producer.kensu_set_nuclio_context(context)
 
     output_data = [
         {
