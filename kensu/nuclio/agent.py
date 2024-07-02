@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import functools
 from json import JSONDecodeError
 from typing import Set, Optional, Dict
+from threading import local
 from dataclasses import dataclass
 
 from kensu.utils.helpers import to_datasource
@@ -373,7 +374,6 @@ class KensuOutputLineageInfo:
 @dataclass
 class KensuLineage:
     lineage_by_output: Dict[str, KensuOutputLineageInfo]
-    process_name: str
 
     def add_output_lineage(self,
                            input_event: Event,
@@ -407,28 +407,34 @@ class KensuLineage:
             output_info.report_to_kensu(process=k.process, process_run=k.process_run)
 
     @staticmethod
-    def empty(process_name: str):
-        return KensuLineage(lineage_by_output={},
-                            process_name=process_name)
+    def empty():
+        return KensuLineage(lineage_by_output={})
 
 
-def report_on_shutdown(context):
+@dataclass
+class KensuData:
+    accumulated_info: KensuLineage = KensuLineage.empty()
+    current_event: Optional[Event] = None # FIXME: weak ref?
+    last_report_time: Optional[datetime] = None
+
+
+thread_local_store = local()
+thread_local_store.kensu_data = KensuData()
+
+
+def report_on_shutdown(kensu_data: KensuData):
     print("Reporting Kensu events on Python process exit...")
-    send_report_if_exists(context=context, dt=datetime.now())
+    send_report_if_exists(kensu_data=kensu_data, dt=datetime.now())
     print("Done reporting Kensu events on Python process exit.")
 
 
-def send_report_if_exists(context: Context, dt: datetime):
-    lineage = context.user_data.accumulated_info
+def send_report_if_exists(kensu_data: KensuData, dt: datetime):
+    lineage = kensu_data.accumulated_info
     if lineage:
-        send_report(
-            context,
-            context.user_data.last_report_time,
-            lineage,
-        )
-        context.user_data.accumulated_info = KensuLineage.empty(lineage.process_name)
-
-    context.user_data.last_report_time = dt  # Reset report time
+        logging.info(f"Reporting data[{kensu_data.last_report_time}]: {lineage}")
+        lineage.report_to_kensu()
+        kensu_data.accumulated_info = KensuLineage.empty()
+    kensu_data.last_report_time = dt  # Reset report time
 
 
 def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
@@ -448,17 +454,19 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
         def wrapper_timed_report(context, event):
             now: datetime = datetime.now()
             init_succeeded = False
+            # kensu_data = context.user_data
+            kensu_data = thread_local_store.kensu_data
             try:
                 # P.S. `.current_event` and `.accumulated_info` must be set before running the `handler_func()`
                 # otherwise reporting wouldn't work the way it is implemented now
-                context.user_data.current_event = event
-                if not hasattr(context.user_data, "last_report_time"):
+                kensu_data.current_event = event
+                if not hasattr(kensu_data, "last_report_time") or kensu_data.last_report_time is None:
                     init_kensu_py(process_name, logical_data_source_naming_strategy)
                     # if this is the first invocation of the handler
-                    context.user_data.last_report_time = now
-                    context.user_data.accumulated_info = KensuLineage.empty(process_name=process_name)
-                    # report fn needs to have context, so register a python shutdown hook on first invocation
-                    atexit.register(report_on_shutdown, context)
+                    kensu_data.last_report_time = now
+                    kensu_data.accumulated_info = KensuLineage.empty()
+                    # report fn needs to have kensu_data, so register a python shutdown hook on first invocation
+                    atexit.register(report_on_shutdown, kensu_data)
                 init_succeeded = True
             except Exception as e:
                 logging.warning(f"unable to initialize Kensu Nuclio agent: {e}")
@@ -469,10 +477,10 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
             try:
                 # not much point in trying to report to Kensu if initialization failed
                 if init_succeeded:
-                    context.user_data.current_event = None
+                    kensu_data.current_event = None
                     # Check if the reporting period has passed
-                    if now - context.user_data.last_report_time >= FREQ:
-                        send_report_if_exists(context=context, dt=now)
+                    if now - kensu_data.last_report_time >= FREQ:
+                        send_report_if_exists(kensu_data=kensu_data, dt=now)
             except Exception as e:
                 logging.warning(f"An issue occured while trying to report information to Kensu: {e}")
 
@@ -482,24 +490,15 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
     return actual_decorator
 
 
-def send_report(context: Context, last_report_time, data: KensuLineage):
-    context.logger.info(f"Reporting data[{last_report_time}]: {data}")
-    data.report_to_kensu()
-
-
-KAFKA = 'kafka'
-
-
-def add_target(context, tpe, info):
-    if tpe == KAFKA:
-        kensu_add_kafka_output(context, info)
-
-
 # {"field": "type"}
-def kensu_add_kafka_output(context, topic, cluster_name=None, output_data=None, schema=None):
-    if hasattr(context.user_data, "accumulated_info") and hasattr(context.user_data, "current_event"):
-        accumulated_info = context.user_data.accumulated_info
-        input_event = context.user_data.current_event
+def kensu_add_kafka_output(topic, cluster_name=None, output_data=None, schema=None, context=None, kensu_data: Optional[KensuData]=None):
+    # if not kensu_data and context is not None and isinstance(context, Context):
+    #     kensu_data = context.user_data
+    if not kensu_data:
+        kensu_data = thread_local_store.kensu_data
+    if hasattr(kensu_data, "accumulated_info") and hasattr(kensu_data, "current_event"):
+        accumulated_info = kensu_data.accumulated_info
+        input_event = kensu_data.current_event
         accumulated_info.add_output_lineage(
             input_event=input_event,
             output_ds=KafkaDatasource.from_topic(topic=topic,
