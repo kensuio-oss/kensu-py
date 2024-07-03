@@ -127,11 +127,11 @@ class MetricsAccumulator:
                         # MinMax only makes sense for numeric values
                         MinMaxAggregator.create(field_name=name, value=value),
                      ] if (isinstance(value, float) or isinstance(value, int)) else []
-                     ) + [
+                     ) + ([
                         # FIXME: redo how null-counter works, if value not present, it should still consider it NULL
                         # so we need NonNullCounter and then compute difference between nrows
                         NullCounterAggregator.create(field_name=name, value=value),
-                    ] if ('nuclio_stream.' not in name) else []
+                    ] if ('nuclio_stream.' not in name) else [])
                 )
             ])
         )
