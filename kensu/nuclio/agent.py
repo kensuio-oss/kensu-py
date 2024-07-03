@@ -352,7 +352,7 @@ class KensuOutputLineageInfo:
                                  pk=ProcessLineagePK(process_ref=ProcessRef(
                                      by_guid=process_guid),
                                      data_flow=data_flow))._report()
-        timestamp_now = int(round(dt.now().timestamp()*1000))
+        timestamp_now = int(round(dt.timestamp()*1000))
         lineage_run = LineageRun(pk=LineageRunPK(process_run_ref=ProcessRunRef(by_guid=process_run.to_guid()),
                                  lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                                  # FIXME: shall we use max event timestamp from nuclio instead?
@@ -431,8 +431,8 @@ def report_on_shutdown(kensu_data: KensuData):
 def send_report_if_exists(kensu_data: KensuData, dt: datetime):
     lineage = kensu_data.accumulated_info
     if lineage:
-        logging.info(f"Reporting data[{kensu_data.last_report_time}]: {lineage}")
         rounded_dt = dt.replace(second=0, microsecond=0)
+        logging.info(f"Reporting data[{rounded_dt}]: {lineage}")
         # FIXME: improve for a better time interval assignment
         lineage.report_to_kensu(rounded_dt)
         kensu_data.accumulated_info = KensuLineage.empty()
