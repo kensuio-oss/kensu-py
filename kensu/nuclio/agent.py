@@ -423,17 +423,19 @@ thread_local_store = local()
 thread_local_store.kensu_data = KensuData()
 
 
-def report_on_shutdown(kensu_data: KensuData):
+def report_on_shutdown(kensu_data: KensuData, logger):
     print("Reporting Kensu events on Python process exit...")
-    send_report_if_exists(kensu_data=kensu_data, dt=datetime.now())
+    send_report_if_exists(kensu_data=kensu_data, dt=datetime.now(), logger=logger)
     print("Done reporting Kensu events on Python process exit.")
 
 
-def send_report_if_exists(kensu_data: KensuData, dt: datetime):
+def send_report_if_exists(kensu_data: KensuData, dt: datetime, logger):
     lineage = kensu_data.accumulated_info
     if lineage:
         rounded_dt = dt.replace(second=0, microsecond=0)
-        logging.info(f"Reporting data[{rounded_dt}]: {lineage}")
+        if logger:
+            logger.info(f"Reporting lineage at [dt: {dt}, rounded_dt: {rounded_dt}]")
+            logger.debug(f"Reporting lineage: {lineage}")
         # FIXME: improve for a better time interval assignment
         lineage.report_to_kensu(rounded_dt)
         kensu_data.accumulated_info = KensuLineage.empty()
@@ -469,7 +471,7 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
                     kensu_data.last_report_time = now
                     kensu_data.accumulated_info = KensuLineage.empty()
                     # report fn needs to have kensu_data, so register a python shutdown hook on first invocation
-                    atexit.register(report_on_shutdown, kensu_data)
+                    atexit.register(report_on_shutdown, kensu_data, context.logger)
                 init_succeeded = True
             except Exception as e:
                 logging.warning(f"unable to initialize Kensu Nuclio agent: {e}")
@@ -483,7 +485,7 @@ def track_kensu(process_name=None, logical_data_source_naming_strategy=None):
                     kensu_data.current_event = None
                     # Check if the reporting period has passed
                     if now - kensu_data.last_report_time >= FREQ:
-                        send_report_if_exists(kensu_data=kensu_data, dt=now)
+                        send_report_if_exists(kensu_data=kensu_data, dt=now, logger=context.logger)
             except Exception as e:
                 logging.warning(f"An issue occured while trying to report information to Kensu: {e}")
 
