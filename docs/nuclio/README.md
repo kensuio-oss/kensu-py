@@ -1,6 +1,6 @@
 # How to use
 
-- `pip install kensu` 
+- install kensu-py where nuclio functions run: `pip install kensu`
 - Add `@track_kensu()` decorator to handler function
 - If using confluent Kafka producer:
   * change your code to import a Kensu wrapper of `confluent_kafka` producer
@@ -29,6 +29,17 @@ Set environment variable `KSU_NUCLIO_REPORTING_INTERVAL_SECONDS=123`.
 
 # Run example nuclio function locally with kafka
 
+The example Nuclio setup consists of the following Kafka `topics` and Nuclio functions (marked `fn:`):
+```
+[topic: raw_events] ==> (fn: ingest-raw-events) ==> [topic: ingested_events{1|2}]
+                    ==> (fn: process-events)    ==> [topic: processed_events{1|2}]
+```
+
+Events sent to the input topic `raw_events` are consumed by the first nuclio function `ingest-raw-events`.
+Subsequently, the events produced in Kafka by this function will be consumed by another nuclio function `process-events` 
+and the final results are written to Kafka topic `processed_events`.
+
+
 ### start Kafka in docker
 
 ```bash
@@ -53,15 +64,5 @@ P.S. only Python 3.8 seemed to work out of the box
 
 ### send some events to kafka
 
-run `./produce_kafka_events.sh`.
-
-this will exec the `_produce_kafka_events.sh` inside Kafka docker which will send some
-sample events to the input topics to be consumed by the first nuclio function `ingest-raw-events`.
-
-Subsequently, the events produced by this function will be consumed by another function `process-events`.
-Thus, we have a dataflow as following:
-
-```
-[topic: raw_events] ==> (fn: ingest-raw-events) ==> [topic: ingested_events{1|2}]
-                    ==> (fn: process-events)    ==> [topic: processed_events{1|2}]
-```
+To produce some events for `raw_events` topic, run `./produce_kafka_events.sh`. 
+This will execute the `_produce_kafka_events.sh` inside Kafka docker.
