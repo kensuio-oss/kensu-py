@@ -50,7 +50,7 @@ spec:
   build:
     path: "./ingest_raw_events.py"
     commands:
-      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a178.dev1719763777 confluent-kafka
+      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a0.dev1719908074 confluent-kafka
     noCache: true
     onbuildImage: "quay.io/nuclio/handler-builder-python-onbuild:unstable-arm64"
     runtimeAttributes:
