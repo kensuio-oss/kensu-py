@@ -12,6 +12,8 @@ spec:
   env:
     - name: KSU_CONF_FILE
       value: /opt/nuclio/kensu.ini
+    - name: KSU_KAFKA_CLUSTER_NAME
+      value: kafka-local
   resources:
     requests:
       cpu: 25m

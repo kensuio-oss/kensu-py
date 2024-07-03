@@ -175,18 +175,14 @@ class MetricsAccumulator:
 
 @dataclass
 class KafkaDatasource:
-    brokers: str
+    cluster_name: str
     topic: str
     metrics: MetricsAccumulator
     consumer_group: Optional[str] = None
 
     @property
-    def sorted_brokers(self):
-        return ','.join(sorted(self.brokers.split(',')))
-
-    @property
     def location(self):
-        return f"kafka://{self.sorted_brokers}/topic={self.topic}"
+        return f"kafka://{self.cluster_name}/{self.topic}"
 
     def report_to_kensu(self):
         k = KensuProvider().instance()
@@ -218,18 +214,18 @@ class KafkaDatasource:
     @staticmethod
     def from_topic(topic: str, cluster_name: Optional[str]):
         return KafkaDatasource(
-            brokers=cluster_name or 'unknown-kafka-cluster',
+            cluster_name=cluster_name or 'unknown-kafka-cluster',
             topic=topic,
             metrics=MetricsAccumulator.zero()
         )
 
     @staticmethod
-    def from_event(event: Event):
+    def from_event(event: Event, cluster_name: Optional[str]):
         topic = event.topic
-        event_timestamp = event.timestamp  # FIXME: use this somehow
         offset = event.offset
         if topic and offset:
-            return KafkaDatasource.from_topic(topic=topic, cluster_name=event.trigger.name)
+            return KafkaDatasource.from_topic(topic=topic,
+                                              cluster_name=cluster_name or event.trigger.name)
         return None
 
 
@@ -290,6 +286,9 @@ class KensuOutputLineageInfo:
             f"nuclio_stream.shard{input_event.shard_id}.offset": input_event.offset,
             f"nuclio_stream.num_shards": input_event.num_shards,
         }
+        # FIXME: report input_event.timestamp as metric!! processing lag? but not sure the semantics of timestamp
+        #  is exactly what one might expect
+        # event_timestamp = input_event.timestamp
         decoded_data = extract_event_fields(
             event_body=event_body,
             value_extractor_fn=extract_value)
@@ -303,9 +302,9 @@ class KensuOutputLineageInfo:
                      for (k, v) in schema_fields.items()
                      if v and v != 'NoneType'])
 
-    def add_input_event(self, event: Event):
+    def add_input_event(self, event: Event, kafka_cluster_name: str):
         # extract kafka info input from event
-        input_ds_tmp = KafkaDatasource.from_event(event)
+        input_ds_tmp = KafkaDatasource.from_event(event, cluster_name=kafka_cluster_name)
         if not input_ds_tmp:
             return None
         input_location = input_ds_tmp.location
@@ -331,7 +330,7 @@ class KensuOutputLineageInfo:
             values=self.extract_values_for_metrics(input_event=input_event, event_body=output_data)
         ))
 
-    def report_to_kensu(self, process: Process, process_run: ProcessRun):
+    def report_to_kensu(self, process: Process, process_run: ProcessRun, dt: datetime):
         # FIXME: report unknown output if none was reported explicitly; maybe same for unknown input(s)?
         out_ds, out_schema = self.output.report_to_kensu()
         input_schemas_by_input_path = {}
@@ -353,7 +352,7 @@ class KensuOutputLineageInfo:
                                  pk=ProcessLineagePK(process_ref=ProcessRef(
                                      by_guid=process_guid),
                                      data_flow=data_flow))._report()
-        timestamp_now = int(round(datetime.now().timestamp()*1000))
+        timestamp_now = int(round(dt.now().timestamp()*1000))
         lineage_run = LineageRun(pk=LineageRunPK(process_run_ref=ProcessRunRef(by_guid=process_run.to_guid()),
                                  lineage_ref=ProcessLineageRef(by_guid=lineage.to_guid()),
                                                  # FIXME: shall we use max event timestamp from nuclio instead?
@@ -377,6 +376,7 @@ class KensuLineage:
 
     def add_output_lineage(self,
                            input_event: Event,
+                           input_cluster_name: str,
                            output_ds: KafkaDatasource,
                            output_schema: Optional[Dict[str, str]],
                            output_data: Optional[object]):
@@ -392,19 +392,19 @@ class KensuLineage:
             )
             self.lineage_by_output[input_location] = existing_output
 
-        existing_output.add_input_event(input_event)
+        existing_output.add_input_event(input_event, kafka_cluster_name=input_cluster_name)
         existing_output.add_output_info(input_event=input_event,
                                         output_data=output_data,
                                         explicit_schema=output_schema)
 
-    def report_to_kensu(self):
+    def report_to_kensu(self, dt: datetime):
         k: Kensu = KensuProvider().instance()
         # if it's a long-running Nuclio job, and we don't reinit or resend process/process-run etc,
         # performing delete by token would not allow to continue ingesting without restarting the Nuclio stream/jobs
         # thus need to call k.report_process_info() each time
         k.report_process_info()
         for ds_loc, output_info in self.lineage_by_output.items():
-            output_info.report_to_kensu(process=k.process, process_run=k.process_run)
+            output_info.report_to_kensu(process=k.process, process_run=k.process_run, dt=dt)
 
     @staticmethod
     def empty():
@@ -432,7 +432,9 @@ def send_report_if_exists(kensu_data: KensuData, dt: datetime):
     lineage = kensu_data.accumulated_info
     if lineage:
         logging.info(f"Reporting data[{kensu_data.last_report_time}]: {lineage}")
-        lineage.report_to_kensu()
+        rounded_dt = dt.replace(second=0, microsecond=0)
+        # FIXME: improve for a better time interval assignment
+        lineage.report_to_kensu(rounded_dt)
         kensu_data.accumulated_info = KensuLineage.empty()
     kensu_data.last_report_time = dt  # Reset report time
 
@@ -499,10 +501,14 @@ def kensu_add_kafka_output(topic, cluster_name=None, output_data=None, schema=No
     if hasattr(kensu_data, "accumulated_info") and hasattr(kensu_data, "current_event"):
         accumulated_info = kensu_data.accumulated_info
         input_event = kensu_data.current_event
+        default_cluster_name = os.environ.get('KSU_KAFKA_CLUSTER_NAME')
+        input_cluster_name = os.environ.get('KSU_INPUT_KAFKA_CLUSTER_NAME') or default_cluster_name
+        output_cluster_name = os.environ.get('KSU_OUTPUT_KAFKA_CLUSTER_NAME') or default_cluster_name
         accumulated_info.add_output_lineage(
             input_event=input_event,
+            input_cluster_name=input_cluster_name,
             output_ds=KafkaDatasource.from_topic(topic=topic,
-                                                 cluster_name=cluster_name),
+                                                 cluster_name=output_cluster_name),
             output_schema=schema,
             output_data=output_data,
         )
