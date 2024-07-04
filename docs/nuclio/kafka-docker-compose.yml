@@ -1,0 +1,37 @@
+version: "2.5"
+volumes:
+  volume1:
+services:
+  kafka1:
+    image: 'bitnami/kafka:3.3.2@sha256:da1305eafb7044d05241e86f37f6ff04274575e30f9765ffd3ed5d835c06632d'
+    platform: linux/arm64
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "9094:9094"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092,EXTERNAL://host.docker.internal:9094
+      - KAFKA_CFG_BROKER_ID=1
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_KRAFT_CLUSTER_ID=r4zt_wrqTRuT7W2NJsB_VZ
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+    volumes:
+      - volume1:/bitnami/kafka
+      - ${PWD}/_produce_kafka_events.sh:/produce_kafka_events.sh
+  kafka-ui:
+    container_name: kafka-ui
+    #platform: linux/arm64/v8
+    image: 'provectuslabs/kafka-ui:latest'
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka1:9092
+      - KAFKA_CLUSTERS_0_NAME=r4zt_wrqTRuT7W2NJsB_VZ

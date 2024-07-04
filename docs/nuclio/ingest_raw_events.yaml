@@ -1,0 +1,69 @@
+metadata:
+  name: ingest-raw-events
+  labels:
+    nuclio.io/project-name: default
+spec:
+  handler: "ingest_raw_events:handler_confluent"
+  runtime: "python:3.8"
+  # mount kensu config file
+  volumeMounts:
+    - name: extra-files
+      mountPath: /opt/nuclio/kensu.ini
+  env:
+    - name: KSU_CONF_FILE
+      value: /opt/nuclio/kensu.ini
+    - name: KSU_KAFKA_CLUSTER_NAME
+      value: kafka-local
+  resources:
+    requests:
+      cpu: 25m
+      memory: 1Mi
+  triggers:
+    default-http:
+      class: ""
+      kind: http
+      name: default-http
+      numWorkers: 1
+    kafka-local:
+      class: ""
+      kind: kafka-cluster
+      name: kafka-local
+      numWorkers: 1
+      explicitAckMode: disable
+      workerTerminationTimeout: 10s
+      attributes:
+        brokers:
+          - 'host.docker.internal:9094'
+        consumerGroup: ingest-raw-events-1
+        fetchDefault: 1048576
+        heartbeatInterval: 3s
+        initialOffset: earliest
+        maxWaitHandlerDuringRebalance: 5s
+        rebalanceTimeout: 60s
+        sasl:
+          enable: false
+          password: ""
+          user: ""
+        sessionTimeout: 10s
+        topics:
+          - raw_events
+        workerAllocationMode: pool
+      maxWorkers: 1
+  build:
+    path: "./ingest_raw_events.py"
+    commands:
+      - pip install  --upgrade --extra-index-url https://test.pypi.org/simple/ kensu==2.10.0a178.dev1720036665 confluent-kafka
+    noCache: true
+    onbuildImage: "quay.io/nuclio/handler-builder-python-onbuild:unstable-arm64"
+    runtimeAttributes:
+      repositories: []
+    codeEntryType: sourceCode
+    image: ""
+    offline: false
+    dependencies: []
+  loggerSinks:
+    - level: debug
+  platform: {}
+  securityContext: {}
+  disableDefaultHTTPTrigger: false
+  eventTimeout: ""
