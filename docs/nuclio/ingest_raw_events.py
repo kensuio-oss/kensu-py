@@ -24,7 +24,9 @@ def normalize_kafka_cluster_name(kafka_name: str):
     return kafka_name
 
 
-@track_kensu(logical_data_source_naming_strategy=normalize_kafka_cluster_name)
+@track_kensu(
+    process_name="ingest-raw-events",
+)
 def handler_confluent(context, event):
     event_data = event.body
 
@@ -45,15 +47,10 @@ def handler_confluent(context, event):
 
     output_data = [
         {
-            'string1': 'string',
-            'float1': 666.5,
-            'int1': 222
+            'string1': 'string' if (random.random() < 0.8) else None,
+            'float1': 123.5+random.random()*20,
+            'int1': round(55+random.random()*10)
         },
-        {
-            'string1': None,
-            'float2': 111.2,
-            'int1': None
-        }
     ]
     output_data = [json.dumps(j) for j in output_data]
     for data in output_data:
