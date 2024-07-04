@@ -9,7 +9,7 @@ from typing import Set, Optional, Dict
 from threading import local
 from dataclasses import dataclass
 
-from kensu.utils.helpers import to_datasource
+from kensu.utils.helpers import to_datasource, extract_config_property
 
 from kensu.client import DataStats, DataStatsPK, DataSourcePK, DataSource, SchemaPK, Schema, PhysicalLocationRef, \
     DataSourceRef, FieldDef, LineageRun, LineageRunPK, ProcessLineage, ProcessLineagePK, ProcessRef, \
@@ -383,15 +383,15 @@ class KensuLineage:
                            output_data: Optional[object]):
         if not output_schema:
             output_schema = {}
-        input_location = output_ds.location
+        output_location = output_ds.location
         # find existing lineage or add a new one
-        existing_output = self.lineage_by_output.get(input_location)
+        existing_output = self.lineage_by_output.get(output_location)
         if not existing_output:
             existing_output = KensuOutputLineageInfo(
                 output=output_ds,
                 inputs={}
             )
-            self.lineage_by_output[input_location] = existing_output
+            self.lineage_by_output[output_location] = existing_output
 
         existing_output.add_input_event(input_event, kafka_cluster_name=input_cluster_name)
         existing_output.add_output_info(input_event=input_event,
@@ -504,7 +504,10 @@ def kensu_add_kafka_output(topic, cluster_name=None, output_data=None, schema=No
     if hasattr(kensu_data, "accumulated_info") and hasattr(kensu_data, "current_event"):
         accumulated_info = kensu_data.accumulated_info
         input_event = kensu_data.current_event
-        default_cluster_name = os.environ.get('KSU_KAFKA_CLUSTER_NAME')
+        k: Kensu = KensuProvider().instance()
+        nuclio_conf = k.conf['nuclio'] if k.conf.has_section('nuclio') else k.conf
+        default_cluster_name = (os.environ.get('KSU_KAFKA_CLUSTER_NAME') or
+                                extract_config_property(key='kafka_cluster_name', default=None, arg=None, kw=None, conf=nuclio_conf, tpe=None))
         input_cluster_name = os.environ.get('KSU_INPUT_KAFKA_CLUSTER_NAME') or default_cluster_name
         output_cluster_name = os.environ.get('KSU_OUTPUT_KAFKA_CLUSTER_NAME') or default_cluster_name
         accumulated_info.add_output_lineage(
