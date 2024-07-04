@@ -504,12 +504,14 @@ def kensu_add_kafka_output(topic, cluster_name=None, output_data=None, schema=No
     if hasattr(kensu_data, "accumulated_info") and hasattr(kensu_data, "current_event"):
         accumulated_info = kensu_data.accumulated_info
         input_event = kensu_data.current_event
-        k: Kensu = KensuProvider().instance()
-        nuclio_conf = k.conf['nuclio'] if k.conf.has_section('nuclio') else k.conf
-        default_cluster_name = (os.environ.get('KSU_KAFKA_CLUSTER_NAME') or
-                                extract_config_property(key='kafka_cluster_name', default=None, arg=None, kw=None, conf=nuclio_conf, tpe=None))
+        # k: Kensu = KensuProvider().instance()
+        # nuclio_conf = k.conf['nuclio'] if k.conf.has_section('nuclio') else k.conf
+        default_cluster_name = os.environ.get('KSU_KAFKA_CLUSTER_NAME')
+        # (os.environ.get('KSU_KAFKA_CLUSTER_NAME') or
+        # extract_config_property(key='kafka_cluster_name', default=None, arg=None, kw=None, conf=nuclio_conf, tpe=None)))
         input_cluster_name = os.environ.get('KSU_INPUT_KAFKA_CLUSTER_NAME') or default_cluster_name
         output_cluster_name = os.environ.get('KSU_OUTPUT_KAFKA_CLUSTER_NAME') or default_cluster_name
+        logging.info(f"kensu_add_kafka_output: topic: {topic} output_data: {output_data}, input_cluster_name: {input_cluster_name}, output_cluster_name: {output_cluster_name}")
         accumulated_info.add_output_lineage(
             input_event=input_event,
             input_cluster_name=input_cluster_name,
