@@ -5,7 +5,6 @@ from typing import Optional
 import pandas as pd
 from pandas._typing import Axes, Dtype
 from pandas.core.indexing import _iLocIndexer, _LocIndexer
-from pandas.core.strings import StringMethods
 from pandas.core.arrays.categorical import CategoricalAccessor
 
 import numpy
@@ -637,6 +636,12 @@ class KensuSeriesDelegator(object):
 
     @staticmethod
     def handle_field(kensu_s, name, attr_value):
+        def is_old_pandas_StringMethods_class(variable):
+            try:
+                from pandas.core.strings import StringMethods
+                return isinstance(variable, StringMethods)
+            except ImportError:
+                return False
         # _Series__k_s => points to Series.__k_s
         if name in KensuSeriesDelegator.SKIP_KENSU_FIELDS:
             # return Kensu DF attr value right away
@@ -680,8 +685,8 @@ class KensuSeriesDelegator(object):
                     kensu.add_dependency((pd_s, orig_ds, orig_sc), (result, result_ds, result_sc),
                                    mapping_strategy=mapping_strategies.OUT_STARTS_WITH_IN)
 
-            elif result is not None and isinstance(result, StringMethods):
-
+            elif result is not None and is_old_pandas_StringMethods_class(result):
+                from pandas.core.strings import StringMethods
                 class Kensu_StringMethods(StringMethods):
 
                     def __getitem__(self, key):
