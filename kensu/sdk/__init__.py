@@ -260,7 +260,7 @@ class SDK(AbstractSDK):
 
         while len(ds['data']) > 0:
             try:
-                ds = self.requests_get_json(f"/business/services/api/services/v2/logical-datasource-names?offset={offset}&limit={limit}")
+                ds = self.requests_get_json(f"/api/services/v2/logical-datasource-names?offset={offset}&limit={limit}")
                 logical_data_sources['data'].extend(ds['data'])
                 offset += limit
 
