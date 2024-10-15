@@ -253,17 +253,17 @@ class SDK(AbstractSDK):
 
     def get_logical_datasources(self):
         logical_data_sources = {'data': []}
-        limit = 500
+        limit = 5000
         offset = 0
 
-        ds = {'data': [None]} 
-    
-        while ds['data']:
+        ds = {'data': [None]}
+
+        while len(ds['data']) > 0:
             try:
-                ds = self.requests_get_json(f"/business/services/views/v1/logical-datasources?offset={offset}&limit={limit}")
+                ds = self.requests_get_json(f"/api/services/v2/logical-datasource-names?offset={offset}&limit={limit}")
                 logical_data_sources['data'].extend(ds['data'])
                 offset += limit
-                
+
             except Exception as e:
                 print(f"Error fetching data: {e}")
                 break # Exit loop on error
